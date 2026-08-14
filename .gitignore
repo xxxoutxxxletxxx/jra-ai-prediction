@@ -18,12 +18,19 @@ venv/
 **/*.sqlite
 **/*.sqlite3
 
-# Local data directories that must never be published
+# Local data and generated archives that must never be published
+/data/
 /data/raw/
+/data/processed/
 /data/output/
 /output/
 /models/
 /logs/
+/notebooks/
+/IMPLEMENTATION_GUIDE.md
+/IMPLEMENTATION_SUMMARY.md
+/course_features_ver4.numbers
+/update_race.bat
 
 # Keep the raw-data directory placeholder
 !data/raw/.gitkeep
