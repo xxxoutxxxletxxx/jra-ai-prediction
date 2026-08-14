@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>競馬AI予想 | JRA中央競馬</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+
+  <header class="site-header">
+    <h1>競馬AI予想</h1>
+    <p class="sub">JRA中央競馬</p>
+    <p class="meta" id="updatedAt">最終更新: --</p>
+    <p class="meta" id="targetDates">予測対象: --</p>
+    <a class="archive-link" href="archive.html">過去の予想 &rsaquo;</a>
+  </header>
+
+  <nav class="date-tabs" id="dateTabs"></nav>
+
+  <main id="mainContent">
+    <section class="recommend-card" id="recommendCard">
+      <div class="loading">読み込み中...</div>
+    </section>
+
+    <nav class="track-tabs" id="trackTabs"></nav>
+
+    <section class="race-list" id="raceList"></section>
+  </main>
+
+  <footer class="site-footer">
+    <p>本サイトはAIによる予測情報を提供するものであり、的中や利益を保証するものではありません。</p>
+  </footer>
+</div>
+
+<script src="app.js"></script>
+<script>
+  loadLatestAndRender();
+</script>
+</body>
+</html>

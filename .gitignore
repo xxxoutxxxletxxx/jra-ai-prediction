@@ -1,0 +1,51 @@
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local/private runtime files
+*.db
+*.sqlite
+*.sqlite3
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+
+# Local data directories that must never be published
+/data/raw/
+/data/output/
+/output/
+/models/
+/logs/
+
+# Keep the raw-data directory placeholder
+!data/raw/.gitkeep
+
+# Generated local artifacts
+*.pkl
+*.joblib
+*.h5
+*.onnx
+*.zip
+*.tar
+*.gz
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Explicitly keep public web assets tracked
+!docs/
+!docs/**/*.html
+!docs/**/*.css
+!docs/**/*.js
+!docs/data/
+!docs/data/**/*.json

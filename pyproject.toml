@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "horse-racing-ml"
+version = "0.1.0"
+description = "Horse racing prediction machine learning project"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.0.0",
+    "numpy>=1.26.0",
+    "scikit-learn>=1.4.0",
+    "matplotlib>=3.7.0",
+    "seaborn>=0.13.0",
+    "jupyter>=1.0.0",
+    "joblib>=1.2.0",
+    "ipykernel>=6.0.0",
+]
+
+[tool.setuptools]
+packages = ["src", "scripts", "notebooks"]
