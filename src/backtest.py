@@ -13,8 +13,9 @@ import json
 import math
 import os
 import sqlite3
-from collections import defaultdict
-from datetime import date, datetime
+import unicodedata
+from collections import defaultdict, deque
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from statistics import mean
 
@@ -60,6 +61,59 @@ V1_FEATURES = [
     "margin_x_winner_strength", "margin_x_field_strength", "last1_distance", "last2_distance", "last3_distance",
     "current_distance", "field_size",
 ]
+V2_FEATURES = V1_FEATURES + [
+    "last1_winner_strength_v2", "last2_winner_strength_v2", "last3_winner_strength_v2",
+    "last1_field_strength_v2", "last2_field_strength_v2", "last3_field_strength_v2",
+    "last1_margin_x_winner_strength_v2", "last2_margin_x_winner_strength_v2",
+    "last3_margin_x_winner_strength_v2", "max_winner_strength_last3",
+    "mean_winner_strength_last3", "weighted_winner_strength_last3",
+    "best_strong_opponent_performance_last3", "last1_field_max_strength_v2",
+    "last2_field_max_strength_v2", "last3_field_max_strength_v2",
+    "last1_field_top3_mean_strength_v2", "last2_field_top3_mean_strength_v2",
+    "last3_field_top3_mean_strength_v2", "opponent_history_missing_last3",
+    "last1_winner_max_race_class_before_target", "last2_winner_max_race_class_before_target", 
+    "last3_winner_max_race_class_before_target", "last1_winner_best_win_class_before_target", 
+    "last2_winner_best_win_class_before_target", "last3_winner_best_win_class_before_target", 
+]
+PRIZE_FEATURES = [
+    "race_first_prize", "race_second_prize", "race_third_prize", "race_total_top5_prize",
+    "race_first_prize_log", "race_total_top5_prize_log",
+    "last1_race_first_prize", "last2_race_first_prize", "last3_race_first_prize",
+    "last1_race_first_prize_log", "last2_race_first_prize_log", "last3_race_first_prize_log",
+    "max_race_prize_last3", "mean_race_prize_last3", "weighted_race_prize_last3",
+    "prize_change_from_last1", "prize_change_from_last3_mean", "prize_ratio_vs_last1", "prize_ratio_vs_last3_mean",
+    "last1_margin_x_prize_strength", "last2_margin_x_prize_strength", "last3_margin_x_prize_strength",
+]
+PRIZE_V2_FEATURES = V2_FEATURES + [
+    "last1_winner_max_prize_before_target", "last2_winner_max_prize_before_target",
+    "last3_winner_max_prize_before_target", "last1_winner_mean_prize_before_target",
+    "last2_winner_mean_prize_before_target", "last3_winner_mean_prize_before_target",
+]
+PHASE4_FEATURES = [
+    "last1_raw_performance", "last2_raw_performance", "last3_raw_performance",
+    "last1_position_advantage", "last2_position_advantage", "last3_position_advantage",
+    "last1_adjusted_performance", "last2_adjusted_performance", "last3_adjusted_performance",
+    "best_adjusted_performance_last3", "mean_adjusted_performance_last3", "weighted_adjusted_performance_last3",
+    "hidden_strength_last1", "hidden_strength_last2", "hidden_strength_last3",
+    "max_hidden_strength_last3", "max_strong_against_bias_last3",
+    "strong_against_bias_last1", "strong_against_bias_last2", "strong_against_bias_last3",
+    "race_position_bias_last1", "race_position_bias_last2", "race_position_bias_last3",
+    "setup_improvement", "hidden_strength_x_race_strength",
+]
+PHASE4_FEATURES_E = PRIZE_V2_FEATURES + PHASE4_FEATURES
+RACE_CLASS_FEATURES = [
+    "race_class_label", "race_class_score", "current_race_class_score", "last1_race_class_score", "last2_race_class_score", "last3_race_class_score",
+    "max_race_class_last3", "mean_race_class_last3", "weighted_race_class_last3",
+    "last1_margin_x_race_class", "last2_margin_x_race_class", "last3_margin_x_race_class",
+    "last1_race_class", "last2_race_class", "last3_race_class",
+]
+RACE_CONDITION_FEATURES = RACE_CLASS_FEATURES + [
+    "race_sex_condition", "race_age_condition", "is_filly_mare_only", "is_2yo_only", "is_3yo_only",
+    "last1_sex_condition", "last2_sex_condition", "last3_sex_condition",
+    "last1_is_filly_mare_only", "last2_is_filly_mare_only", "last3_is_filly_mare_only",
+    "last1_age_condition", "last2_age_condition", "last3_age_condition",
+    "race_class_change", "female_only_to_open", "open_to_female_only", "age_condition_change",
+]
 
 
 def text(value: object) -> str:
@@ -78,6 +132,34 @@ def integer(value: object, default: int = 0) -> int:
         return int(float(text(value)))
     except (TypeError, ValueError):
         return default
+
+
+def prize_amount(value: object) -> float:
+    """NL_RA_RACEの本賞金を円へ変換。値はJV形式の100円単位として確認済み。"""
+    return integer(value) * 100.0
+
+
+def prize_log(value: float) -> float:
+    return math.log1p(max(0.0, value))
+
+
+def first_corner_position(row: dict) -> int:
+    value = integer(row.get("Jyuni1c"))
+    return value if value > 0 else 0
+
+
+def performance_from_result(result: dict) -> tuple[float, float, float]:
+    field_size = max(1, result.get("field_size", 1))
+    finish = result.get("finish", 0)
+    finish_score = 1.0 - (finish - 1) / max(1, field_size - 1) if 1 <= finish <= field_size else 0.0
+    margin_score = math.exp(-max(0.0, result.get("margin", 0.0) or 0.0))
+    race_strength = min(1.0, (result.get("winner_strength", 0.0) + prize_log(result.get("first_prize", 0.0)) / 20.0))
+    raw = 0.4 * finish_score + 0.4 * margin_score + 0.2 * race_strength
+    position_bias = result.get("position_bias", 0.0)
+    position_advantage = result.get("position_advantage", 0.0)
+    strong_against = -position_bias * position_advantage
+    adjusted = raw + 0.25 * strong_against
+    return raw, adjusted, strong_against
 
 
 def race_key(row: dict) -> tuple[str, ...]:
@@ -125,11 +207,13 @@ def load_data(db_path: Path, min_year: int = 2012) -> tuple[list[dict], dict[tup
     se_columns = list(RACE_KEY) + [
         "Wakuban", "Umaban", "KettoNum", "Bamei", "SexCD", "Barei", "KisyuCode",
         "ChokyoCode", "TozaiCD", "Futan", "BaTaijyu", "Odds", "Ninki", "KakuteiJyuni",
-        "NyusenJyuni", "headDataKubun",
+        "NyusenJyuni", "Jyuni1c", "Jyuni2c", "Jyuni3c", "Jyuni4c", "headDataKubun",
     ] + LEAK_COLUMNS
     ra_columns = list(RACE_KEY) + [
         "Kyori", "TrackCD", "CourseKubunCD", "GradeCD", "JyokenInfoSyubetuCD",
-        "SyussoTosu", "NyusenTosu",
+        "JyokenInfoJyokenCD0", "JyokenInfoJyokenCD1", "JyokenInfoJyokenCD2", "JyokenInfoJyokenCD3", "JyokenInfoJyokenCD4",
+        "JyokenName", "RaceInfoHondai", "RaceInfoFukudai", "Honsyokin0", "Honsyokin1", "Honsyokin2", "Honsyokin3", "Honsyokin4", "Honsyokin5", "Honsyokin6",
+        "Fukasyokin0", "Fukasyokin1", "Fukasyokin2", "Fukasyokin3", "Fukasyokin4", "SyussoTosu", "NyusenTosu",
     ]
     se_rows = read_table(connection, "NL_SE_RACE_UMA", se_columns, min_year)
     ra_rows = read_table(connection, "NL_RA_RACE", ra_columns, min_year)
@@ -322,18 +406,101 @@ def class_code(row: dict) -> str:
     return f"grade:{grade or 'unknown'}|condition:{condition or 'unknown'}"
 
 
+def race_conditions(row: dict) -> dict:
+    """根拠が確認できる文字列だけを意味付き化し、コードの推測はしない。"""
+    name = unicodedata.normalize("NFKC", text(row.get("race_JyokenName"))).lower()
+    grade = text(row.get("race_GradeCD")).upper()
+    race_name = unicodedata.normalize("NFKC", text(row.get("race_RaceInfoHondai")))
+    combined_name = f"{name} {race_name.lower()}"
+    grade_map = {"A": ("G1", 8), "B": ("G2", 7), "C": ("G3", 6), "L": ("LISTED", 5)}
+    if grade in grade_map:
+        label, score = grade_map[grade]
+    elif "新馬" in combined_name:
+        label, score = "NEWCOMER", 0
+    elif "未勝利" in combined_name:
+        label, score = "MAIDEN", 0
+    elif "1勝" in combined_name or "500万" in combined_name:
+        label, score = "CLASS_1", 1
+    elif "2勝" in combined_name or "1000万" in combined_name:
+        label, score = "CLASS_2", 2
+    elif "3勝" in combined_name or "1600万" in combined_name:
+        label, score = "CLASS_3", 3
+    elif "オープン" in combined_name or "open" in combined_name or "ｏｐ" in combined_name:
+        label, score = "OPEN", 4
+    else:
+        label, score = "UNKNOWN", 0
+    age = "UNKNOWN"
+    if "2歳" in combined_name:
+        age = "TWO_YEAR_OLD_ONLY"
+    elif "3歳上" in combined_name or "3歳以上" in combined_name:
+        age = "THREE_AND_OLDER"
+    elif "3歳" in combined_name:
+        age = "THREE_YEAR_OLD_ONLY"
+    elif "4歳上" in combined_name or "4歳以上" in combined_name:
+        age = "FOUR_AND_OLDER"
+    female_only = "牝馬" in combined_name or "牝" in combined_name
+    return {"class_label": label, "class_score": score, "age": age,
+            "sex": "FEMALE_ONLY" if female_only else "OPEN_SEX",
+            "filly_only": int(female_only), "grade_raw": grade or "UNKNOWN"}
+
+
+def smoothed_strength(stat: dict) -> float:
+    """対象日以前の情報だけで、少標本を縮約した連続的な能力値を返す。"""
+    races = stat.get("races", 0)
+    wins = stat.get("wins", 0)
+    places = stat.get("places", 0)
+    win_rate = (wins + 1.0) / (races + 5.0)
+    place_rate = (places + 1.0) / (races + 5.0)
+    confidence = min(1.0, races / 10.0)
+    return (0.6 * win_rate + 0.4 * place_rate) * (0.5 + 0.5 * confidence)
+
+
 def build_v1_features(data: list[dict]) -> list[dict]:
     """日付順に一度だけ走査し、各行のas_of_date時点特徴量を作る。"""
     ordered = sorted((row for row in data if valid_result(row)), key=lambda row: (row["date"], race_key(row), integer(row.get("Umaban"))))
-    histories = defaultdict(list)
-    stats = defaultdict(lambda: {"races": 0, "wins": 0, "places": 0})
+    histories = defaultdict(lambda: deque(maxlen=5))
+    race_dates = defaultdict(deque)
+    stats = defaultdict(lambda: {"races": 0, "wins": 0, "places": 0, "max_class": 0, "best_win_class": 0,
+                                 "max_prize": 0.0, "mean_prize": 0.0, "prize_count": 0})
     features = []
     races = defaultdict(list)
     for row in ordered:
         races[race_key(row)].append(row)
+    pending_updates = []
+    current_date = None
     for key in sorted(races, key=lambda item: (race_date(races[item][0]), item)):
         horses = races[key]
         date_value = horses[0]["date"]
+        if current_date is not None and date_value != current_date:
+            for update in pending_updates:
+                horse, result = update
+                stats[horse]["races"] += 1
+                stats[horse]["wins"] += result["win"]
+                stats[horse]["places"] += result["place"]
+                stats[horse]["max_class"] = max(stats[horse]["max_class"], result.get("class_score", 0))
+                if result["win"]:
+                    stats[horse]["best_win_class"] = max(stats[horse]["best_win_class"], result.get("class_score", 0))
+                prize = result.get("first_prize", 0.0)
+                stats[horse]["max_prize"] = max(stats[horse]["max_prize"], prize)
+                stats[horse]["mean_prize"] = (stats[horse]["mean_prize"] * stats[horse]["prize_count"] + prize) / (stats[horse]["prize_count"] + 1)
+                stats[horse]["prize_count"] += 1
+                histories[horse].append(result)
+                race_dates[horse].append(current_date)
+                cutoff = current_date - timedelta(days=365)
+                while race_dates[horse] and race_dates[horse][0] < cutoff:
+                    race_dates[horse].popleft()
+            pending_updates = []
+        current_date = date_value
+        current_condition = race_conditions(horses[0])
+        current_prizes = [prize_amount(horses[0].get(f"race_Honsyokin{i}")) for i in range(5)]
+        current_first_prize = current_prizes[0]
+        current_total_prize = sum(current_prizes)
+        positions = [first_corner_position(item) for item in horses]
+        valid_positions = [value for value in positions if value > 0]
+        field_count = len(horses)
+        frontness = [(1.0 - (value - 1) / max(1, field_count - 1)) if value > 0 else 0.5 for value in positions]
+        winner_positions = [frontness[index] for index, item in enumerate(horses) if integer(item.get("KakuteiJyuni")) <= 3 and positions[index] > 0]
+        position_bias = mean(winner_positions) - mean(frontness) if winner_positions else 0.0
         prior_stats = {text(row.get("KettoNum")): dict(stats[text(row.get("KettoNum"))]) for row in horses}
         field_values = []
         for row in horses:
@@ -346,10 +513,34 @@ def build_v1_features(data: list[dict]) -> list[dict]:
         for row in horses:
             horse = text(row.get("KettoNum"))
             current = prior_stats.get(horse, {"races": 0, "wins": 0, "places": 0})
-            past = histories[horse][-5:][::-1]
+            past = list(histories[horse])[::-1]
             recent3 = past[:3]
             recent5 = past[:5]
+            raw_recent = [performance_from_result(item)[0] for item in recent3]
+            adjusted_recent = [performance_from_result(item)[1] for item in recent3]
+            hidden_recent = [adjusted - raw for adjusted, raw in zip(adjusted_recent, raw_recent)]
+            against_recent = [performance_from_result(item)[2] for item in recent3]
             margins = [item["margin"] for item in past if item["margin"] is not None]
+            v2_recent = []
+            for item in recent3:
+                winner_stat = stats.get(item.get("winner_id", ""), {"races": 0, "wins": 0, "places": 0, "max_class": 0, "best_win_class": 0})
+                participant_strengths = [smoothed_strength(stats.get(participant, {"races": 0, "wins": 0, "places": 0}))
+                                         for participant in item.get("participants", [])]
+                participant_strengths.sort(reverse=True)
+                v2_recent.append({
+                    "winner": smoothed_strength(winner_stat),
+                    "field": mean(participant_strengths) if participant_strengths else 0.0,
+                    "field_max": max(participant_strengths) if participant_strengths else 0.0,
+                    "field_top3": mean(participant_strengths[:3]) if participant_strengths else 0.0,
+                    "margin": item.get("margin"),
+                    "max_class": winner_stat.get("max_class", 0),
+                    "best_win_class": winner_stat.get("best_win_class", 0),
+                    "max_prize": winner_stat.get("max_prize", 0.0),
+                    "mean_prize": winner_stat.get("mean_prize", 0.0),
+                })
+            v2_winner = [item["winner"] for item in v2_recent]
+            v2_field = [item["field"] for item in v2_recent]
+            v2_missing = sum(1 for item in v2_recent if not item.get("winner") and not item.get("field"))
             values = {
                 "as_of_date": date_value.isoformat(), "race_id": race_id(row), "horse_id": horse,
                 "target": int(integer(row.get("KakuteiJyuni")) == 1), "date": date_value,
@@ -357,6 +548,16 @@ def build_v1_features(data: list[dict]) -> list[dict]:
                 "surface": surface(row), "distance": integer(row.get("race_Kyori") or row.get("Kyori")),
                 "class_code": class_code(row), "grade_code": text(row.get("race_GradeCD")) or "unknown",
                 "condition_code": text(row.get("race_JyokenInfoSyubetuCD")) or "unknown",
+                "race_class_label": current_condition["class_label"], "race_class_score": current_condition["class_score"],
+                "race_sex_condition": current_condition["sex"], "race_age_condition": current_condition["age"],
+                "is_filly_mare_only": current_condition["filly_only"],
+                "is_2yo_only": int(current_condition["age"] == "TWO_YEAR_OLD_ONLY"),
+                "is_3yo_only": int(current_condition["age"] == "THREE_YEAR_OLD_ONLY"),
+                "race_first_prize": current_first_prize, "race_second_prize": current_prizes[1],
+                "race_third_prize": current_prizes[2], "race_total_top5_prize": current_total_prize,
+                "race_first_prize_log": prize_log(current_first_prize), "race_total_top5_prize_log": prize_log(current_total_prize),
+                "first_corner_position": first_corner_position(row),
+                "race_position_bias": position_bias,
                 "popularity": integer(row.get("Ninki")), "odds": number(row.get("Odds")),
                 "actual_rank": integer(row.get("KakuteiJyuni")), "umaban": integer(row.get("Umaban")),
                 "horse_name": text(row.get("Bamei")), "field_size": len(horses),
@@ -367,8 +568,8 @@ def build_v1_features(data: list[dict]) -> list[dict]:
                 "recent3_place_rate": mean(item["place"] for item in recent3) if recent3 else 0.0,
                 "recent5_win_rate": mean(item["win"] for item in recent5) if recent5 else 0.0,
                 "recent5_place_rate": mean(item["place"] for item in recent5) if recent5 else 0.0,
-                "races_last_180d": sum((date_value - item["date"]).days <= 180 for item in histories[horse]),
-                "races_last_365d": sum((date_value - item["date"]).days <= 365 for item in histories[horse]),
+                "races_last_180d": sum((date_value - item_date).days <= 180 for item_date in race_dates[horse]),
+                "races_last_365d": len(race_dates[horse]),
                 "last1_finish": recent3[0]["finish"] if len(recent3) > 0 else 0,
                 "last2_finish": recent3[1]["finish"] if len(recent3) > 1 else 0,
                 "last3_finish": recent3[2]["finish"] if len(recent3) > 2 else 0,
@@ -393,27 +594,158 @@ def build_v1_features(data: list[dict]) -> list[dict]:
                 "last2_class": recent3[1]["class_code"] if len(recent3) > 1 else "unknown",
                 "last3_class": recent3[2]["class_code"] if len(recent3) > 2 else "unknown",
                 "current_distance": integer(row.get("race_Kyori") or row.get("Kyori")),
+                "last1_winner_strength_v2": v2_winner[0] if len(v2_winner) > 0 else 0.0,
+                "last2_winner_strength_v2": v2_winner[1] if len(v2_winner) > 1 else 0.0,
+                "last3_winner_strength_v2": v2_winner[2] if len(v2_winner) > 2 else 0.0,
+                "last1_field_strength_v2": v2_field[0] if len(v2_field) > 0 else 0.0,
+                "last2_field_strength_v2": v2_field[1] if len(v2_field) > 1 else 0.0,
+                "last3_field_strength_v2": v2_field[2] if len(v2_field) > 2 else 0.0,
+                "last1_margin_x_winner_strength_v2": v2_recent[0]["margin"] * v2_winner[0] if v2_recent and v2_recent[0]["margin"] is not None else 0.0,
+                "last2_margin_x_winner_strength_v2": v2_recent[1]["margin"] * v2_winner[1] if len(v2_recent) > 1 and v2_recent[1]["margin"] is not None else 0.0,
+                "last3_margin_x_winner_strength_v2": v2_recent[2]["margin"] * v2_winner[2] if len(v2_recent) > 2 and v2_recent[2]["margin"] is not None else 0.0,
+                "max_winner_strength_last3": max(v2_winner) if v2_winner else 0.0,
+                "mean_winner_strength_last3": mean(v2_winner) if v2_winner else 0.0,
+                "weighted_winner_strength_last3": sum(value * weight for value, weight in zip(v2_winner, (0.5, 0.3, 0.2))),
+                "best_strong_opponent_performance_last3": max((item["winner"] - (item["margin"] or 0.0) for item in v2_recent), default=0.0),
+                "last1_field_max_strength_v2": v2_recent[0]["field_max"] if len(v2_recent) > 0 else 0.0,
+                "last2_field_max_strength_v2": v2_recent[1]["field_max"] if len(v2_recent) > 1 else 0.0,
+                "last3_field_max_strength_v2": v2_recent[2]["field_max"] if len(v2_recent) > 2 else 0.0,
+                "last1_field_top3_mean_strength_v2": v2_recent[0]["field_top3"] if len(v2_recent) > 0 else 0.0,
+                "last2_field_top3_mean_strength_v2": v2_recent[1]["field_top3"] if len(v2_recent) > 1 else 0.0,
+                "last3_field_top3_mean_strength_v2": v2_recent[2]["field_top3"] if len(v2_recent) > 2 else 0.0,
+                "opponent_history_missing_last3": v2_missing,
+                "last1_winner_max_prize_before_target": v2_recent[0]["max_prize"] if len(v2_recent) > 0 else 0.0,
+                "last2_winner_max_prize_before_target": v2_recent[1]["max_prize"] if len(v2_recent) > 1 else 0.0,
+                "last3_winner_max_prize_before_target": v2_recent[2]["max_prize"] if len(v2_recent) > 2 else 0.0,
+                "last1_winner_mean_prize_before_target": v2_recent[0]["mean_prize"] if len(v2_recent) > 0 else 0.0,
+                "last2_winner_mean_prize_before_target": v2_recent[1]["mean_prize"] if len(v2_recent) > 1 else 0.0,
+                "last3_winner_mean_prize_before_target": v2_recent[2]["mean_prize"] if len(v2_recent) > 2 else 0.0,
+                "last1_winner_max_race_class_before_target": v2_recent[0]["max_class"] if len(v2_recent) > 0 else 0,
+                "last2_winner_max_race_class_before_target": v2_recent[1]["max_class"] if len(v2_recent) > 1 else 0,
+                "last3_winner_max_race_class_before_target": v2_recent[2]["max_class"] if len(v2_recent) > 2 else 0,
+                "last1_winner_best_win_class_before_target": v2_recent[0]["best_win_class"] if len(v2_recent) > 0 else 0,
+                "last2_winner_best_win_class_before_target": v2_recent[1]["best_win_class"] if len(v2_recent) > 1 else 0,
+                "last3_winner_best_win_class_before_target": v2_recent[2]["best_win_class"] if len(v2_recent) > 2 else 0,
+                "last1_raw_performance": raw_recent[0] if len(raw_recent) > 0 else 0.0,
+                "last2_raw_performance": raw_recent[1] if len(raw_recent) > 1 else 0.0,
+                "last3_raw_performance": raw_recent[2] if len(raw_recent) > 2 else 0.0,
+                "last1_adjusted_performance": adjusted_recent[0] if len(adjusted_recent) > 0 else 0.0,
+                "last2_adjusted_performance": adjusted_recent[1] if len(adjusted_recent) > 1 else 0.0,
+                "last3_adjusted_performance": adjusted_recent[2] if len(adjusted_recent) > 2 else 0.0,
+                "last1_position_advantage": recent3[0].get("position_advantage", 0.0) if len(recent3) > 0 else 0.0,
+                "last2_position_advantage": recent3[1].get("position_advantage", 0.0) if len(recent3) > 1 else 0.0,
+                "last3_position_advantage": recent3[2].get("position_advantage", 0.0) if len(recent3) > 2 else 0.0,
+                "last1_race_position_bias": recent3[0].get("position_bias", 0.0) if len(recent3) > 0 else 0.0,
+                "last2_race_position_bias": recent3[1].get("position_bias", 0.0) if len(recent3) > 1 else 0.0,
+                "last3_race_position_bias": recent3[2].get("position_bias", 0.0) if len(recent3) > 2 else 0.0,
+                "best_adjusted_performance_last3": max(adjusted_recent) if adjusted_recent else 0.0,
+                "mean_adjusted_performance_last3": mean(adjusted_recent) if adjusted_recent else 0.0,
+                "weighted_adjusted_performance_last3": sum(value * weight for value, weight in zip(adjusted_recent, (0.5, 0.3, 0.2))),
+                "hidden_strength_last1": hidden_recent[0] if len(hidden_recent) > 0 else 0.0,
+                "hidden_strength_last2": hidden_recent[1] if len(hidden_recent) > 1 else 0.0,
+                "hidden_strength_last3": hidden_recent[2] if len(hidden_recent) > 2 else 0.0,
+                "max_hidden_strength_last3": max(hidden_recent) if hidden_recent else 0.0,
+                "max_strong_against_bias_last3": max(against_recent) if against_recent else 0.0,
+                "strong_against_bias_last1": against_recent[0] if len(against_recent) > 0 else 0.0,
+                "strong_against_bias_last2": against_recent[1] if len(against_recent) > 1 else 0.0,
+                "strong_against_bias_last3": against_recent[2] if len(against_recent) > 2 else 0.0,
+                "race_position_bias_last1": recent3[0].get("position_bias", 0.0) if len(recent3) > 0 else 0.0,
+                "race_position_bias_last2": recent3[1].get("position_bias", 0.0) if len(recent3) > 1 else 0.0,
+                "race_position_bias_last3": recent3[2].get("position_bias", 0.0) if len(recent3) > 2 else 0.0,
+                "setup_improvement": -recent3[0].get("position_advantage", 0.0) if recent3 else 0.0,
+                "hidden_strength_x_race_strength": (hidden_recent[0] * (v2_winner[0] + prize_log(current_first_prize) / 20.0)) if hidden_recent else 0.0,
             }
+            recent_conditions = [item.get("condition", {}) for item in recent3]
+            recent_scores = [item.get("class_score", 0) for item in recent_conditions]
+            recent_margins = [item.get("margin") or 0 for item in recent3]
+            recent_prizes = [item.get("first_prize", 0.0) for item in recent3]
+            recent_prize_logs = [prize_log(value) for value in recent_prizes]
+            values.update({
+                "last1_race_first_prize": recent_prizes[0] if len(recent_prizes) > 0 else 0.0,
+                "last2_race_first_prize": recent_prizes[1] if len(recent_prizes) > 1 else 0.0,
+                "last3_race_first_prize": recent_prizes[2] if len(recent_prizes) > 2 else 0.0,
+                "last1_race_first_prize_log": recent_prize_logs[0] if len(recent_prize_logs) > 0 else 0.0,
+                "last2_race_first_prize_log": recent_prize_logs[1] if len(recent_prize_logs) > 1 else 0.0,
+                "last3_race_first_prize_log": recent_prize_logs[2] if len(recent_prize_logs) > 2 else 0.0,
+                "max_race_prize_last3": max(recent_prizes) if recent_prizes else 0.0,
+                "mean_race_prize_last3": mean(recent_prizes) if recent_prizes else 0.0,
+                "weighted_race_prize_last3": sum(value * weight for value, weight in zip(recent_prizes, (0.5, 0.3, 0.2))),
+                "prize_change_from_last1": current_first_prize - recent_prizes[0] if recent_prizes else 0.0,
+                "prize_change_from_last3_mean": current_first_prize - mean(recent_prizes) if recent_prizes else 0.0,
+                "prize_ratio_vs_last1": current_first_prize / recent_prizes[0] if recent_prizes and recent_prizes[0] > 0 else 1.0,
+                "prize_ratio_vs_last3_mean": current_first_prize / mean(recent_prizes) if recent_prizes and mean(recent_prizes) > 0 else 1.0,
+                "last1_margin_x_prize_strength": recent_margins[0] * recent_prize_logs[0] if recent_margins else 0.0,
+                "last2_margin_x_prize_strength": recent_margins[1] * recent_prize_logs[1] if len(recent_margins) > 1 else 0.0,
+                "last3_margin_x_prize_strength": recent_margins[2] * recent_prize_logs[2] if len(recent_margins) > 2 else 0.0,
+                "current_race_class_score": current_condition["class_score"],
+                "last1_race_class_score": recent_scores[0] if len(recent_scores) > 0 else 0,
+                "last2_race_class_score": recent_scores[1] if len(recent_scores) > 1 else 0,
+                "last3_race_class_score": recent_scores[2] if len(recent_scores) > 2 else 0,
+                "max_race_class_last3": max(recent_scores) if recent_scores else 0,
+                "mean_race_class_last3": mean(recent_scores) if recent_scores else 0,
+                "weighted_race_class_last3": sum(value * weight for value, weight in zip(recent_scores, (0.5, 0.3, 0.2))),
+                "last1_margin_x_race_class": (recent_margins[0] if len(recent_margins) > 0 else 0) * (recent_scores[0] if len(recent_scores) > 0 else 0),
+                "last2_margin_x_race_class": (recent_margins[1] if len(recent_margins) > 1 else 0) * (recent_scores[1] if len(recent_scores) > 1 else 0),
+                "last3_margin_x_race_class": (recent_margins[2] if len(recent_margins) > 2 else 0) * (recent_scores[2] if len(recent_scores) > 2 else 0),
+                "last1_race_class": recent_conditions[0].get("class_label", "UNKNOWN") if len(recent_conditions) > 0 else "UNKNOWN",
+                "last2_race_class": recent_conditions[1].get("class_label", "UNKNOWN") if len(recent_conditions) > 1 else "UNKNOWN",
+                "last3_race_class": recent_conditions[2].get("class_label", "UNKNOWN") if len(recent_conditions) > 2 else "UNKNOWN",
+                "last1_sex_condition": recent_conditions[0].get("sex", "UNKNOWN") if len(recent_conditions) > 0 else "UNKNOWN",
+                "last2_sex_condition": recent_conditions[1].get("sex", "UNKNOWN") if len(recent_conditions) > 1 else "UNKNOWN",
+                "last3_sex_condition": recent_conditions[2].get("sex", "UNKNOWN") if len(recent_conditions) > 2 else "UNKNOWN",
+                "last1_age_condition": recent_conditions[0].get("age", "UNKNOWN") if len(recent_conditions) > 0 else "UNKNOWN",
+                "last2_age_condition": recent_conditions[1].get("age", "UNKNOWN") if len(recent_conditions) > 1 else "UNKNOWN",
+                "last3_age_condition": recent_conditions[2].get("age", "UNKNOWN") if len(recent_conditions) > 2 else "UNKNOWN",
+                "last1_is_filly_mare_only": recent_conditions[0].get("filly_only", 0) if len(recent_conditions) > 0 else 0,
+                "last2_is_filly_mare_only": recent_conditions[1].get("filly_only", 0) if len(recent_conditions) > 1 else 0,
+                "last3_is_filly_mare_only": recent_conditions[2].get("filly_only", 0) if len(recent_conditions) > 2 else 0,
+                "race_class_change": current_condition["class_score"] - (recent_scores[0] if recent_scores else 0),
+                "female_only_to_open": int(bool(recent_conditions) and recent_conditions[0].get("filly_only", 0) == 1 and current_condition["filly_only"] == 0),
+                "open_to_female_only": int(bool(recent_conditions) and recent_conditions[0].get("filly_only", 0) == 0 and current_condition["filly_only"] == 1),
+                "age_condition_change": int(bool(recent_conditions) and recent_conditions[0].get("age") != current_condition["age"]),
+            })
             features.append(values)
         for row in horses:
             horse = text(row.get("KettoNum"))
-            stats[horse]["races"] += 1
-            stats[horse]["wins"] += int(integer(row.get("KakuteiJyuni")) == 1)
-            stats[horse]["places"] += int(1 <= integer(row.get("KakuteiJyuni")) <= 3)
-            histories[horse].append({"date": date_value, "finish": integer(row.get("KakuteiJyuni")), "margin": margin_value(row),
+            winner = next((item for item in horses if integer(item.get("KakuteiJyuni")) == 1), None)
+            pending_updates.append((horse, {"date": date_value, "finish": integer(row.get("KakuteiJyuni")), "margin": margin_value(row),
                                      "win": int(integer(row.get("KakuteiJyuni")) == 1), "place": int(1 <= integer(row.get("KakuteiJyuni")) <= 3),
                                      "winner_strength": winner_strength, "field_strength": field_strength,
-                                     "distance": integer(row.get("race_Kyori") or row.get("Kyori")), "class_code": class_code(row)})
+                                     "distance": integer(row.get("race_Kyori") or row.get("Kyori")), "class_code": class_code(row),
+                                     "condition": current_condition, "class_score": current_condition["class_score"],
+                                     "first_prize": current_first_prize,
+                                     "winner_class_score": current_condition["class_score"],
+                                     "winner_id": text(winner.get("KettoNum")) if winner else "",
+                                     "participants": [text(item.get("KettoNum")) for item in horses],
+                                     "field_size": field_count, "position_bias": position_bias,
+                                     "position_advantage": frontness[horses.index(row)] - mean(frontness),
+                                     "first_corner_position": first_corner_position(row)}))
+    for horse, result in pending_updates:
+        stats[horse]["races"] += 1
+        stats[horse]["wins"] += result["win"]
+        stats[horse]["places"] += result["place"]
+        stats[horse]["max_class"] = max(stats[horse]["max_class"], result.get("class_score", 0))
+        if result["win"]:
+            stats[horse]["best_win_class"] = max(stats[horse]["best_win_class"], result.get("class_score", 0))
+        prize = result.get("first_prize", 0.0)
+        stats[horse]["max_prize"] = max(stats[horse]["max_prize"], prize)
+        stats[horse]["mean_prize"] = (stats[horse]["mean_prize"] * stats[horse]["prize_count"] + prize) / (stats[horse]["prize_count"] + 1)
+        stats[horse]["prize_count"] += 1
+        histories[horse].append(result)
+        race_dates[horse].append(current_date)
     return features
 
 
-def evaluate_v1(data: list[dict], pays: dict, start: date, end: date) -> tuple[list[dict], list[dict]]:
+def evaluate_v1(data: list[dict], pays: dict, start: date, end: date,
+                feature_builder=build_v1_features, feature_columns=None,
+                model_label="v1") -> tuple[list[dict], list[dict]]:
     try:
         import lightgbm as lgb
         import pandas as pd
     except ImportError as exc:
         raise SystemExit("v1にはLightGBMが必要です。.venv/bin/python -m src.backtest ... を使用してください。") from exc
-    feature_rows = build_v1_features(data)
+    feature_columns = feature_columns or V1_FEATURES
+    feature_rows = feature_builder(data)
     trainable = [row for row in feature_rows if row["date"] < start]
     evaluation = [row for row in feature_rows if start <= row["date"] < end]
     months = sorted({month_start(row["date"]) for row in evaluation})
@@ -424,7 +756,12 @@ def evaluate_v1(data: list[dict], pays: dict, start: date, end: date) -> tuple[l
         if not train or not test or len({row["target"] for row in train}) < 2:
             continue
         categorical = ["racecourse", "surface", "grade_code", "condition_code", "last1_class", "last2_class", "last3_class"]
-        columns = V1_FEATURES + categorical
+        if "race_class_label" in feature_columns:
+            categorical += ["race_class_label", "last1_race_class", "last2_race_class", "last3_race_class"]
+        if "race_sex_condition" in feature_columns:
+            categorical += ["race_sex_condition", "race_age_condition", "last1_sex_condition", "last2_sex_condition", "last3_sex_condition",
+                            "last1_age_condition", "last2_age_condition", "last3_age_condition"]
+        columns = feature_columns + categorical
         train_df = pd.DataFrame(train)[columns]
         test_df = pd.DataFrame(test)[columns]
         combined = pd.concat([train_df, test_df], ignore_index=True)
@@ -432,6 +769,7 @@ def evaluate_v1(data: list[dict], pays: dict, start: date, end: date) -> tuple[l
         train_matrix = combined.iloc[:len(train)].astype(float)
         test_matrix = combined.iloc[len(train):].astype(float)
         original_columns = list(train_matrix.columns)
+        write_feature_list(ROOT / "reports" / f"features_model_{model_label.lower()}_actual.txt", original_columns)
         safe_columns = [f"f_{index}" for index in range(len(original_columns))]
         train_matrix.columns = safe_columns
         test_matrix.columns = safe_columns
@@ -454,8 +792,26 @@ def evaluate_v1(data: list[dict], pays: dict, start: date, end: date) -> tuple[l
                                "place_payout": payout(pay_row, "place", umaban), "is_win": row["target"],
                                "is_place": int(1 <= row["actual_rank"] <= 3), "ai_vs_favorite": int(row["popularity"] > 1 and rank == 1),
                                "odds": row["odds"], "reason_code": "V1_LIGHTGBM",
-                               "prediction_reason": "LightGBM v1:近走着差・レース格コード・相手強度・基礎能力"})
+                               "prediction_reason": f"LightGBM {model_label}:近走着差・勝ち馬強度・フィールド強度・基礎能力"})
     return output, [{"feature": name, **values} for name, values in sorted(importance.items(), key=lambda item: item[1]["gain"], reverse=True)]
+
+
+def evaluate_v2(data: list[dict], pays: dict, start: date, end: date) -> tuple[list[dict], list[dict]]:
+    return evaluate_v1(data, pays, start, end, feature_builder=build_v1_features,
+                       feature_columns=V2_FEATURES, model_label="v2")
+
+
+def evaluate_stage(data: list[dict], pays: dict, start: date, end: date, stage: str):
+    columns = V1_FEATURES
+    if stage == "B":
+        columns = V1_FEATURES + RACE_CLASS_FEATURES
+    elif stage == "C":
+        columns = V1_FEATURES + RACE_CONDITION_FEATURES + PRIZE_FEATURES
+    elif stage == "D":
+        columns = PRIZE_V2_FEATURES + RACE_CONDITION_FEATURES + PRIZE_FEATURES
+    elif stage == "E":
+        columns = PHASE4_FEATURES_E + RACE_CONDITION_FEATURES + PRIZE_FEATURES
+    return evaluate_v1(data, pays, start, end, feature_columns=columns, model_label=stage)
 
 
 def betting(rows: list[dict], predicate=lambda row: row["prediction_rank"] == 1) -> dict:
@@ -560,6 +916,68 @@ def write_csv(path: Path, rows: list[dict]) -> None:
         writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(rows)
+
+
+def write_feature_list(path: Path, features: list[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(features) + "\n", encoding="utf-8")
+
+
+def write_condition_validation(data: list[dict], output: Path) -> None:
+    counts = defaultdict(int)
+    sex_counts = defaultdict(int)
+    age_counts = defaultdict(int)
+    examples = []
+    for row in data:
+        condition = race_conditions(row)
+        counts[condition["class_label"]] += 1
+        sex_counts[condition["sex"]] += 1
+        age_counts[condition["age"]] += 1
+        if len(examples) < 40 and condition["class_label"] == "UNKNOWN":
+            examples.append({"race_id": race_id(row), "race_name": text(row.get("race_RaceInfoHondai")),
+                             "condition_name": text(row.get("race_JyokenName")), "grade_code": text(row.get("race_GradeCD")),
+                             "condition_code": text(row.get("race_JyokenInfoSyubetuCD")), "race_class_label": "UNKNOWN"})
+    total = sum(counts.values())
+    summary = [{"race_class_label": label, "races": count, "ratio": count / total if total else 0,
+                "unknown_warning": "INVESTIGATE" if label == "UNKNOWN" and count / total > 0.2 else ""}
+               for label, count in sorted(counts.items())]
+    output.mkdir(parents=True, exist_ok=True)
+    write_csv(output / "race_class_distribution.csv", summary)
+    write_csv(output / "race_sex_condition_distribution.csv",
+              [{"race_sex_condition": key, "races": value, "ratio": value / total if total else 0}
+               for key, value in sorted(sex_counts.items())])
+    write_csv(output / "race_age_condition_distribution.csv",
+              [{"race_age_condition": key, "races": value, "ratio": value / total if total else 0}
+               for key, value in sorted(age_counts.items())])
+    write_csv(output / "race_class_unknown_examples.csv", examples)
+    (output / "condition_validation.md").write_text(
+        "# Race Condition Validation\n\n" +
+        "| Label | Races | Ratio |\n|---|---:|---:|\n" +
+        "\n".join(f"| {row['race_class_label']} | {row['races']} | {row['ratio']:.2%} |" for row in summary) +
+        "\n\n`GradeCD` validation: A=G1, B=G2, C=G3, L=Listed was checked against known central race names. Other codes remain UNKNOWN.\n"
+        "`race_sex_condition` uses race-name evidence containing `牝`/`牝馬`; no SexCD numeric meaning is guessed.\n",
+        encoding="utf-8")
+
+
+def write_prize_validation(data: list[dict], output: Path) -> None:
+    rows = []
+    for row in data:
+        first = prize_amount(row.get("race_Honsyokin0"))
+        total = sum(prize_amount(row.get(f"race_Honsyokin{i}")) for i in range(5))
+        rows.append({"class": race_conditions(row)["class_label"], "first_prize": first, "total_prize": total})
+    available = [row for row in rows if row["first_prize"] > 0]
+    known = defaultdict(list)
+    for row in available:
+        known[row["class"]].append(row["first_prize"])
+    distribution = [{"race_class": label, "races": len(values), "median_first_prize": sorted(values)[len(values) // 2],
+                    "mean_first_prize": mean(values), "min_first_prize": min(values), "max_first_prize": max(values)}
+                   for label, values in sorted(known.items())]
+    output.mkdir(parents=True, exist_ok=True)
+    write_csv(output / "prize_summary_by_class.csv", distribution)
+    write_csv(output / "prize_availability.csv", [{"total_races": len(rows), "first_prize_available": len(available),
+                                                    "availability_rate": len(available) / len(rows) if rows else 0,
+                                                    "unknown_class_races": sum(row["class"] == "UNKNOWN" for row in rows),
+                                                    "unknown_class_prize_available": sum(row["class"] == "UNKNOWN" and row["first_prize"] > 0 for row in rows)}])
 
 
 def write_report(rows: list[dict], output: Path, metadata: dict, feature_importance: list[dict] | None = None) -> None:
@@ -677,24 +1095,54 @@ def write_summary_md(path: Path, summary: dict) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def write_model_comparison(v0_rows: list[dict], v1_rows: list[dict], output: Path) -> None:
+def write_model_comparison(models: dict[str, list[dict]], output: Path) -> None:
     output.mkdir(parents=True, exist_ok=True)
     records = []
-    for label, rows in (("v0", v0_rows), ("v1", v1_rows)):
+    for label, rows in models.items():
         for subset, predicate in (("all", lambda row: True), ("1plus_code_available", lambda row: row.get("grade_code") not in (None, "unknown")),):
             selected = [row for row in rows if predicate(row)]
             values = metrics(selected)
             bets = betting(selected)
+            risk = max_drawdown(selected)
             records.append({"model": label, "subset": subset, "races": values["races"], "auc": values["roc_auc"],
                             "logloss": values["logloss"], "brier": values["brier_score"], "top1": values["top1_hit_rate"],
-                            "top3": values["top3_hit_rate"], "win_roi": bets["win"]["roi"], "place_roi": bets["place"]["roi"]})
+                            "top3": values["top3_hit_rate"], "win_roi": bets["win"]["roi"], "place_roi": bets["place"]["roi"],
+                            "win_max_drawdown": risk["win"]["max_drawdown"], "place_max_drawdown": risk["place"]["max_drawdown"],
+                            "win_max_losing_streak": risk["win"]["max_losing_streak"], "place_max_losing_streak": risk["place"]["max_losing_streak"]})
     write_csv(output / "comparison.csv", records)
+    nonfavorite = []
+    for label, rows in models.items():
+        selected = [row for row in rows if row["prediction_rank"] == 1 and row.get("popularity", 0) > 1]
+        bets = betting(selected, lambda row: True)
+        nonfavorite.append({"model": label, "bets": len(selected), "win_rate": bets["win"]["hit_rate"],
+                            "win_roi": bets["win"]["roi"], "place_roi": bets["place"]["roi"]})
+    write_csv(output / "nonfavorite_comparison.csv", nonfavorite)
+    if "A" in models and "D" in models:
+        a_map = {(row["race_id"], row["horse_id"]): row for row in models["A"]}
+        changes = []
+        for row in models["D"]:
+            before = a_map.get((row["race_id"], row["horse_id"]))
+            if before:
+                changes.append({"horse_name": row.get("horse_name", ""), "race_id": row["race_id"],
+                                "A_rank": before.get("prediction_rank"), "D_rank": row.get("prediction_rank"),
+                                "A_probability": before.get("predicted_probability"), "D_probability": row.get("predicted_probability"),
+                                "actual_rank": row.get("actual_rank"), "popularity": row.get("popularity"),
+                                "last1_race_class": row.get("last1_race_class", "UNKNOWN"),
+                                "last1_age_condition": row.get("last1_age_condition", "UNKNOWN"),
+                                "last1_is_filly_mare_only": row.get("last1_is_filly_mare_only", 0),
+                                "last1_winner_strength": row.get("last1_winner_strength_v2", 0)})
+        changes.sort(key=lambda row: abs((row["D_probability"] or 0) - (row["A_probability"] or 0)), reverse=True)
+        write_csv(output / "prediction_changes_A_to_D.csv", changes[:100])
     (output / "summary.md").write_text(
-        "# v0 vs v1\n\n"
-        "| Model | Subset | AUC | LogLoss | Brier | Top1 | Top3 | Win ROI | Place ROI |\n"
-        "|---|---|---:|---:|---:|---:|---:|---:|---:|\n" +
-        "\n".join(f"| {r['model']} | {r['subset']} | {r['auc']} | {r['logloss']} | {r['brier']} | {r['top1']} | {r['top3']} | {r['win_roi']} | {r['place_roi']} |" for r in records) +
-        "\n\nクラスコードの公式対応表がないため、1勝/2勝/3勝/OP/L/重賞の意味付き比較は未実施です。`1plus_code_available` はGradeCDが空でない行の参考比較であり、クラス階層を意味しません。\n",
+        "# v0 / v1 / v2 Model Comparison\n\n"
+        "| Model | Subset | AUC | LogLoss | Brier | Top1 | Top3 | Win ROI | Place ROI | Win DD | Place DD |\n"
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n" +
+        "\n".join(f"| {r['model']} | {r['subset']} | {r['auc']} | {r['logloss']} | {r['brier']} | {r['top1']} | {r['top3']} | {r['win_roi']} | {r['place_roi']} | {r['win_max_drawdown']} | {r['place_max_drawdown']} |" for r in records) +
+        "\n\n## v1 vs v2\n"
+        "v2は対象日以前の勝ち馬・出走馬の平滑化strengthと着差interactionを追加したモデルです。"
+        "AUC、LogLoss、Top1/Top3、ROI、ドローダウンは同一レース集合で比較してください。\n\n"
+        "クラスコードの公式対応表がないため、1勝/2勝/3勝/OP/L/重賞の意味付き比較は未実施です。"
+        "`1plus_code_available` はGradeCDが空でない行の参考比較であり、クラス階層を意味しません。\n",
         encoding="utf-8")
 
 
@@ -724,9 +1172,10 @@ def main() -> None:
     parser.add_argument("--months", type=int, default=12, help="評価月数。24などに拡張可能")
     parser.add_argument("--start-month", help="評価開始月 YYYY-MM")
     parser.add_argument("--end-month", help="評価終了月 YYYY-MM")
-    parser.add_argument("--model", choices=("v0", "v1", "all"), default="v0")
+    parser.add_argument("--model", choices=("v0", "v1", "v2", "A", "B", "C", "D", "E", "stages", "all"), default="v0")
     args = parser.parse_args()
     data, pays, source = load_data(args.db)
+    data = [row for row in data if text(row.get("idJyoCD")).zfill(2) in JYO_NAMES]
     dates = [row["date"] for row in data if valid_result(row)]
     if not dates:
         raise SystemExit("確定済みレースがありません。DBと headDataKubun/KakuteiJyuni を確認してください。")
@@ -737,24 +1186,63 @@ def main() -> None:
     metadata = {"start_month": start.strftime("%Y-%m"), "end_month_exclusive": end.strftime("%Y-%m"),
                 "months": args.months, "source_rows": len(data), "payout_rows": source["pay_rows"],
                 "walk_forward": "各評価月の月初より前に確定したレースだけで特徴量生成・学習", "model": args.model}
+    base_categories = ["racecourse", "surface", "grade_code", "condition_code", "last1_class", "last2_class", "last3_class"]
+    feature_lists = {
+        "A": V1_FEATURES + base_categories,
+        "B": V1_FEATURES + RACE_CLASS_FEATURES + base_categories,
+        "C": V1_FEATURES + RACE_CONDITION_FEATURES + PRIZE_FEATURES + base_categories,
+        "D": PRIZE_V2_FEATURES + RACE_CONDITION_FEATURES + PRIZE_FEATURES + base_categories,
+        "E": PHASE4_FEATURES_E + RACE_CONDITION_FEATURES + PRIZE_FEATURES + base_categories,
+    }
+    for model_name, model_features in feature_lists.items():
+        write_feature_list(ROOT / "reports" / f"features_model_{model_name.lower()}.txt", model_features)
+    write_condition_validation(data, ROOT / "reports" / "condition_validation")
+    write_prize_validation(data, ROOT / "reports" / "condition_validation")
     results = {}
     v0_rows = []
+    model_rows = {}
     if args.model in ("v0", "all"):
         rows = evaluate(data, pays, start, end)
         v0_rows = rows
         v0_out = args.out if args.model == "v0" else ROOT / "reports" / "backtest_v0"
         write_report(rows, v0_out, {**metadata, "model": "v0 historical win rate"})
         results["v0"] = len(rows)
+        model_rows["v0"] = rows
     if args.model in ("v1", "all"):
         rows, importance = evaluate_v1(data, pays, start, end)
         v1_out = args.out if args.model == "v1" else ROOT / "reports" / "backtest_v1"
         write_report(rows, v1_out, {**metadata, "model": "v1 LightGBM recent performance and opponent strength",
-                                    "features": V1_FEATURES + ["racecourse", "surface", "grade_code", "condition_code", "last1_class", "last2_class", "last3_class"],
+                        "features": feature_lists["A"],
                                     "categorical_handling": "pandas get_dummies; unknown category retained; internal LightGBM names sanitized",
                                     "class_method": "GradeCD and JyokenInfoSyubetuCD raw codes; official mapping unavailable"}, importance)
         results["v1"] = len(rows)
-    if args.model == "all":
-        write_model_comparison(v0_rows, rows, ROOT / "reports" / "model_comparison")
+        model_rows["v1"] = rows
+    if args.model in ("v2", "all"):
+        rows, importance = evaluate_v2(data, pays, start, end)
+        v2_out = args.out if args.model == "v2" else ROOT / "reports" / "backtest_v2"
+        write_report(rows, v2_out, {**metadata, "model": "v2 LightGBM as-of opponent strength",
+                        "features": feature_lists["D"],
+                                    "categorical_handling": "pandas get_dummies; unknown category retained; internal LightGBM names sanitized",
+                                    "class_method": "GradeCD/JyokenInfoSyubetuCD are retained as raw categories; official mapping unavailable",
+                                    "opponent_strength_method": "target-date-before stats: smoothed win/place rates with (wins+1)/(races+5), aggregated over prior-race winner and field participants"}, importance)
+        results["v2"] = len(rows)
+        model_rows["v2"] = rows
+    if args.model in ("stages", "all"):
+        for stage in ("A", "B", "C", "D", "E"):
+            stage_rows, stage_importance = evaluate_stage(data, pays, start, end, stage)
+            write_report(stage_rows, ROOT / "reports" / f"backtest_stage_{stage}",
+                         {**metadata, "model": f"stage {stage}"}, stage_importance)
+            model_rows[stage] = stage_rows
+    if args.model in ("A", "B", "C", "D", "E"):
+        rows, importance = evaluate_stage(data, pays, start, end, args.model)
+        stage_out = args.out
+        write_report(rows, stage_out, {**metadata, "model": f"stage {args.model}",
+                                       "features": feature_lists[args.model],
+                                       "categorical_handling": "pandas get_dummies; unknown category retained",
+                                       "class_method": "JyokenName only; raw unknown codes retained"}, importance)
+        results[args.model] = len(rows)
+    if args.model in ("stages", "all"):
+        write_model_comparison(model_rows, ROOT / "reports" / "model_comparison")
     print(json.dumps({"output": str(args.out), "predictions": results, "metadata": metadata}, ensure_ascii=False, indent=2))
 
 
