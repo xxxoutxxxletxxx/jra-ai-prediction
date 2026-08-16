@@ -1,0 +1,329 @@
+{
+  "metadata": {
+    "start_month": "2026-07",
+    "end_month_exclusive": "2026-09",
+    "months": 12,
+    "source_rows": 2889338,
+    "payout_rows": 139329,
+    "walk_forward": "各評価月の月初より前に確定したレースだけで馬別勝率を再計算",
+    "model": "current statistical horse win-rate baseline"
+  },
+  "overall": {
+    "races": 432,
+    "horses": 5581,
+    "logloss": 0.3967241923172468,
+    "brier_score": 0.08004127356961369,
+    "roc_auc": 0.5637574358199723,
+    "top1_hit_rate": 0.1111111111111111,
+    "top3_hit_rate": 0.33564814814814814
+  },
+  "betting": {
+    "win": {
+      "races": 432,
+      "wins": 48,
+      "hit_rate": 0.1111111111111111,
+      "investment": 43200,
+      "payout": 20310.0,
+      "roi": 47.013888888888886,
+      "profit": -22890.0
+    },
+    "place": {
+      "races": 432,
+      "wins": 122,
+      "hit_rate": 0.2824074074074074,
+      "investment": 43200,
+      "payout": 30090.0,
+      "roi": 69.65277777777777,
+      "profit": -13110.0
+    }
+  },
+  "favorite": {
+    "win": {
+      "races": 429,
+      "wins": 160,
+      "hit_rate": 0.372960372960373,
+      "investment": 42900,
+      "payout": 37780.0,
+      "roi": 88.06526806526807,
+      "profit": -5120.0
+    },
+    "place": {
+      "races": 429,
+      "wins": 285,
+      "hit_rate": 0.6643356643356644,
+      "investment": 42900,
+      "payout": 36890.0,
+      "roi": 85.990675990676,
+      "profit": -6010.0
+    }
+  },
+  "ai_rank_1_not_favorite": {
+    "win": {
+      "races": 362,
+      "wins": 17,
+      "hit_rate": 0.04696132596685083,
+      "investment": 36200,
+      "payout": 13760.0,
+      "roi": 38.011049723756905,
+      "profit": -22440.0
+    },
+    "place": {
+      "races": 362,
+      "wins": 72,
+      "hit_rate": 0.19889502762430938,
+      "investment": 36200,
+      "payout": 23640.0,
+      "roi": 65.30386740331492,
+      "profit": -12560.0
+    }
+  },
+  "risk": {
+    "win": {
+      "final_profit": -22890.0,
+      "max_drawdown": 27350.0,
+      "max_losing_streak": 38
+    },
+    "place": {
+      "final_profit": -13110.0,
+      "max_drawdown": 14150.0,
+      "max_losing_streak": 15
+    }
+  },
+  "calibration": [
+    {
+      "bin": "0～5%",
+      "predictions": 2724,
+      "mean_predicted_probability": 0.002811600789901653,
+      "actual_win_rate": 0.06607929515418502
+    },
+    {
+      "bin": "5～10%",
+      "predictions": 970,
+      "mean_predicted_probability": 0.0742199344399848,
+      "actual_win_rate": 0.05567010309278351
+    },
+    {
+      "bin": "10～20%",
+      "predictions": 1116,
+      "mean_predicted_probability": 0.13509434379782864,
+      "actual_win_rate": 0.0967741935483871
+    },
+    {
+      "bin": "20～30%",
+      "predictions": 480,
+      "mean_predicted_probability": 0.23175134975104122,
+      "actual_win_rate": 0.10416666666666667
+    },
+    {
+      "bin": "30～40%",
+      "predictions": 158,
+      "mean_predicted_probability": 0.333078582189714,
+      "actual_win_rate": 0.0949367088607595
+    },
+    {
+      "bin": "40%以上",
+      "predictions": 133,
+      "mean_predicted_probability": 0.5619349238898111,
+      "actual_win_rate": 0.18796992481203006
+    }
+  ],
+  "spearman_ai_popularity": 0.319565992647285,
+  "monthly": [
+    {
+      "month": "2026-07",
+      "races": 288,
+      "top1_win_rate": 0.1284722222222222,
+      "win_ROI": 48.78472222222222,
+      "place_ROI": 75.17361111111111
+    },
+    {
+      "month": "2026-08",
+      "races": 144,
+      "top1_win_rate": 0.0763888888888889,
+      "win_ROI": 43.47222222222222,
+      "place_ROI": 58.611111111111114
+    },
+    {
+      "month": "TOTAL",
+      "races": 432,
+      "top1_win_rate": 0.1111111111111111,
+      "win_ROI": 47.013888888888886,
+      "place_ROI": 69.65277777777777
+    }
+  ],
+  "strong_conditions": [
+    {
+      "racecourse": "函館",
+      "surface": "芝",
+      "distance": "～1200m",
+      "races": 30,
+      "wins": 5,
+      "win_rate": 0.16666666666666666,
+      "win_ROI": 71.0,
+      "place_hit_rate": 0.3333333333333333,
+      "place_ROI": 96.33333333333334,
+      "sample_warning": ""
+    },
+    {
+      "racecourse": "小倉",
+      "surface": "芝",
+      "distance": "1700～2000m",
+      "races": 39,
+      "wins": 6,
+      "win_rate": 0.15384615384615385,
+      "win_ROI": 66.41025641025641,
+      "place_hit_rate": 0.3076923076923077,
+      "place_ROI": 46.666666666666664,
+      "sample_warning": ""
+    },
+    {
+      "racecourse": "函館",
+      "surface": "芝",
+      "distance": "1700～2000m",
+      "races": 36,
+      "wins": 4,
+      "win_rate": 0.1111111111111111,
+      "win_ROI": 23.333333333333332,
+      "place_hit_rate": 0.3055555555555556,
+      "place_ROI": 133.88888888888889,
+      "sample_warning": ""
+    },
+    {
+      "racecourse": "新潟",
+      "surface": "芝",
+      "distance": "1700～2000m",
+      "races": 30,
+      "wins": 3,
+      "win_rate": 0.1,
+      "win_ROI": 23.666666666666668,
+      "place_hit_rate": 0.23333333333333334,
+      "place_ROI": 70.66666666666667,
+      "sample_warning": ""
+    },
+    {
+      "racecourse": "札幌",
+      "surface": "芝",
+      "distance": "1700～2000m",
+      "races": 41,
+      "wins": 4,
+      "win_rate": 0.0975609756097561,
+      "win_ROI": 37.5609756097561,
+      "place_hit_rate": 0.17073170731707318,
+      "place_ROI": 28.536585365853657,
+      "sample_warning": ""
+    },
+    {
+      "racecourse": "福島",
+      "surface": "芝",
+      "distance": "1700～2000m",
+      "races": 41,
+      "wins": 4,
+      "win_rate": 0.0975609756097561,
+      "win_ROI": 71.46341463414633,
+      "place_hit_rate": 0.21951219512195122,
+      "place_ROI": 44.390243902439025,
+      "sample_warning": ""
+    }
+  ],
+  "weak_conditions": [
+    {
+      "racecourse": "札幌",
+      "surface": "芝",
+      "distance": "1700～2000m",
+      "races": 41,
+      "wins": 4,
+      "win_rate": 0.0975609756097561,
+      "win_ROI": 37.5609756097561,
+      "place_hit_rate": 0.17073170731707318,
+      "place_ROI": 28.536585365853657,
+      "sample_warning": ""
+    },
+    {
+      "racecourse": "福島",
+      "surface": "芝",
+      "distance": "1700～2000m",
+      "races": 41,
+      "wins": 4,
+      "win_rate": 0.0975609756097561,
+      "win_ROI": 71.46341463414633,
+      "place_hit_rate": 0.21951219512195122,
+      "place_ROI": 44.390243902439025,
+      "sample_warning": ""
+    },
+    {
+      "racecourse": "新潟",
+      "surface": "芝",
+      "distance": "1700～2000m",
+      "races": 30,
+      "wins": 3,
+      "win_rate": 0.1,
+      "win_ROI": 23.666666666666668,
+      "place_hit_rate": 0.23333333333333334,
+      "place_ROI": 70.66666666666667,
+      "sample_warning": ""
+    },
+    {
+      "racecourse": "函館",
+      "surface": "芝",
+      "distance": "1700～2000m",
+      "races": 36,
+      "wins": 4,
+      "win_rate": 0.1111111111111111,
+      "win_ROI": 23.333333333333332,
+      "place_hit_rate": 0.3055555555555556,
+      "place_ROI": 133.88888888888889,
+      "sample_warning": ""
+    },
+    {
+      "racecourse": "小倉",
+      "surface": "芝",
+      "distance": "1700～2000m",
+      "races": 39,
+      "wins": 6,
+      "win_rate": 0.15384615384615385,
+      "win_ROI": 66.41025641025641,
+      "place_hit_rate": 0.3076923076923077,
+      "place_ROI": 46.666666666666664,
+      "sample_warning": ""
+    },
+    {
+      "racecourse": "函館",
+      "surface": "芝",
+      "distance": "～1200m",
+      "races": 30,
+      "wins": 5,
+      "win_rate": 0.16666666666666666,
+      "win_ROI": 71.0,
+      "place_hit_rate": 0.3333333333333333,
+      "place_ROI": 96.33333333333334,
+      "sample_warning": ""
+    }
+  ],
+  "plots": {
+    "available": false,
+    "calibration": false,
+    "cumulative_profit": false,
+    "note": "matplotlibが利用できる場合のみPNGを生成"
+  },
+  "leakage_review": {
+    "excluded_result_columns": [
+      "KakuteiJyuni",
+      "NyusenJyuni",
+      "Time",
+      "TimeDiff",
+      "HaronTimeL3",
+      "HaronTimeL4",
+      "Jyuni1c",
+      "Jyuni2c",
+      "Jyuni3c",
+      "Jyuni4c",
+      "Honsyokin",
+      "Fukasyokin",
+      "IJyoCD",
+      "ChakusaCD",
+      "headDataKubun"
+    ],
+    "features": "過去の確定結果から作った馬別勝率のみ。評価月当日以降の行、同一レース結果、払戻は学習に使用しない。",
+    "odds_popularity": "DBに保存された値の取得時点は不明。最終オッズ/最終人気の可能性があるため、予測時点の厳密な再現とはみなさない。"
+  }
+}

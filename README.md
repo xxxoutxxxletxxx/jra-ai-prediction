@@ -54,6 +54,24 @@ bash scripts/publish_predictions.sh
 
 > `race.db`、JRA-VAN 元データ、学習用データ、巨大な履歴ファイルは commit 対象に含めません。
 
+## バックテスト
+
+本番予測や Web サイト生成とは独立して、月次 walk-forward 評価を実行できます。
+
+```bash
+python3 -m src.backtest --months 12
+```
+
+期間や出力先を指定する場合:
+
+```bash
+python3 -m src.backtest --start-month 2025-08 --end-month 2026-08 --out reports/backtest
+```
+
+評価月ごとに、その月の月初より前に確定したレースだけで現行の統計ベースモデルを再学習します。結果は `reports/backtest/` に保存され、`predictions.csv` 単体で条件別集計を再現できます。結果着順・払戻などのレース後確定列は特徴量から除外しています。DBのオッズ・人気が最終値の場合、発走前時点を厳密に再現できないため、レポートに注意書きを出します。PNGは `matplotlib` が利用可能な環境で生成されます。
+
+AI予測1位と1番人気が異なる理由は、`predictions.csv` の `historical_wins`、`historical_races`、`historical_win_rate`、`favorite_probability`、`probability_margin_vs_favorite`、`reason_code`、`prediction_reason` で確認できます。現行モデルの判定ルールは、過去勝率（過去勝数 / 過去出走数）が主スコア、過去履歴がない馬は `1 / 出走頭数`、同率の場合は馬番の小さい順です。人気そのものをスコアに加えているわけではありません。
+
 ## リポジトリ構成
 
 - `docs/`: GitHub Pages 公開用の静的サイト
