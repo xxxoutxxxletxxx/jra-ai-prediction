@@ -1,0 +1,87 @@
+{
+  "strategy": "prediction_rank<=5 のうち win_odds*ranker_win_probability(EV) >= 100% の馬に単勝100円",
+  "total_races": 1627,
+  "races_with_a_bet": 1569,
+  "races_skipped_no_positive_ev": 58,
+  "overall": {
+    "bets": 3277,
+    "hit_count": 195,
+    "hit_rate": 0.0595056454073848,
+    "mean_ev": 1.981119577543892,
+    "investment": 327700,
+    "return": 240860.0,
+    "roi": 73.50015257857797
+  },
+  "by_ev_bucket": [
+    {
+      "ev_bucket": "100%未満(見送り)",
+      "bets": 4858,
+      "hit_count": 975,
+      "hit_rate": 0.2006998764923837,
+      "mean_ev": 0.6378973582534301,
+      "investment": 485800,
+      "return": 368690.0,
+      "roi": 75.89337175792508
+    },
+    {
+      "ev_bucket": "100-120%",
+      "bets": 828,
+      "hit_count": 69,
+      "hit_rate": 0.08333333333333333,
+      "mean_ev": 1.0934192842122368,
+      "investment": 82800,
+      "return": 53420.0,
+      "roi": 64.51690821256038
+    },
+    {
+      "ev_bucket": "120-150%",
+      "bets": 771,
+      "hit_count": 59,
+      "hit_rate": 0.07652399481193256,
+      "mean_ev": 1.3386684983148573,
+      "investment": 77100,
+      "return": 56450.0,
+      "roi": 73.2166018158236
+    },
+    {
+      "ev_bucket": "150-200%",
+      "bets": 697,
+      "hit_count": 34,
+      "hit_rate": 0.04878048780487805,
+      "mean_ev": 1.7185512869011934,
+      "investment": 69700,
+      "return": 45430.0,
+      "roi": 65.1793400286944
+    },
+    {
+      "ev_bucket": "200%以上",
+      "bets": 981,
+      "hit_count": 33,
+      "hit_rate": 0.03363914373088685,
+      "mean_ev": 3.4218491632137775,
+      "investment": 98100,
+      "return": 85560.0,
+      "roi": 87.21712538226299
+    }
+  ],
+  "rank_probability_calibration": [
+    {
+      "top_n": 1,
+      "predicted_mean_probability": 0.2509384524903702,
+      "actual_hit_rate": 0.24769514443761526,
+      "gap_actual_minus_predicted": -0.0032433080527549674
+    },
+    {
+      "top_n": 2,
+      "predicted_mean_probability": 0.41823029676837215,
+      "actual_hit_rate": 0.4013521819299324,
+      "gap_actual_minus_predicted": -0.01687811483843976
+    },
+    {
+      "top_n": 3,
+      "predicted_mean_probability": 0.544016377161452,
+      "actual_hit_rate": 0.547019053472649,
+      "gap_actual_minus_predicted": 0.0030026763111969945
+    }
+  ]
+}
