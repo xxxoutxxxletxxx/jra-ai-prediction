@@ -1,0 +1,28 @@
+{
+  "model": "cleanup_e_minus_recent3_place_rate",
+  "feature_count": 92,
+  "eval_start": "2026-06-01",
+  "eval_end_exclusive": "2026-09-01",
+  "calibration_months": 3,
+  "prize_filter": "race_first_prize > 8,000,000",
+  "prediction_months": [
+    "2026-06",
+    "2026-07",
+    "2026-08"
+  ],
+  "total_bets_top1": 354,
+  "overall": {
+    "races": 354,
+    "horses": 4492,
+    "brier": 0.06663030592041734,
+    "logloss": 0.24241598985696408,
+    "auc": 0.7559275612826414,
+    "top1_hit_rate": 0.268361581920904,
+    "top3_hit_rate": 0.5480225988700564,
+    "top1_win_roi": 73.75706214689266,
+    "top1_profit": -9290.0,
+    "top1_place_hit_rate": 0.5310734463276836,
+    "top1_place_roi": 74.03954802259886,
+    "top1_place_profit": -9190.0
+  }
+}
