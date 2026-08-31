@@ -13,11 +13,14 @@ import json
 import math
 import os
 import sqlite3
+import time
+import pickle
+import hashlib
 import unicodedata
 from collections import defaultdict, deque
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from statistics import mean
+from statistics import mean, pstdev
 
 try:
     from sklearn.metrics import log_loss, roc_auc_score
@@ -101,9 +104,74 @@ PHASE4_FEATURES = [
     "setup_improvement", "hidden_strength_x_race_strength",
 ]
 PHASE4_FEATURES_E = PRIZE_V2_FEATURES + PHASE4_FEATURES
+COURSE_GEOMETRY_FEATURES = [
+    "course_first_corner_distance_m", "course_elevation_difference_m", "course_final_straight_m",
+    "course_start_uphill", "course_start_downhill", "course_final_uphill", "course_final_downhill",
+    "course_final_steep_hill", "course_rolling_terrain", "course_mostly_flat", "course_gentle_corners",
+    "course_tight_corners", "course_up_down_transition_sentence_count",
+    "course_geometry_fit", "horse_expected_position", "position_stability", "frontness_mean", "frontness_std",
+    "front_density", "forward_density", "mid_density", "rear_density", "expected_front_count",
+    "expected_position_mean", "expected_position_std", "gate_position_pct", "gate_x_expected_position",
+]
+PHASE5_FEATURES = PHASE4_FEATURES_E + COURSE_GEOMETRY_FEATURES
+REMOVED_CLEANUP_FEATURES = {"career_place_rate", "recent5_place_rate", "jockey_added_value", "jockey_top2_rate", "jockey_form_trend", "jockey_change_added_value"}
+REVIEW_FEATURES = {"jockey_change_added_value"}
+CLEANUP_A_FEATURES = [feature for feature in PHASE4_FEATURES_E + PRIZE_FEATURES if feature not in REMOVED_CLEANUP_FEATURES and not feature.startswith("race_position_bias")]
+for _feature in ("racecourse", "front_density", "forward_density", "mid_density", "rear_density", "expected_front_count", "expected_position_mean", "expected_position_std"):
+    if _feature in CLEANUP_A_FEATURES:
+        CLEANUP_A_FEATURES.remove(_feature)
+    CLEANUP_B_FEATURES = [feature for feature in CLEANUP_A_FEATURES if feature not in {"last1_finish", "last2_finish", "last3_finish"}]
+PHASE5_CACHE_VERSION = "phase5-feature-cache-v1"
+PHASE6_CACHE_VERSION = "phase6-feature-cache-v1"
+PACE_BIAS_V2_FEATURES = [
+    "strong_against_bias_v2_last1", "strong_against_bias_v2_last2",
+    "strong_against_bias_v2_last3", "setup_benefit_last1", "setup_benefit_last2", "setup_benefit_last3",
+    "adjusted_performance_v2_last1", "adjusted_performance_v2_last2", "adjusted_performance_v2_last3",
+    "mean_adjusted_performance_v2_last3", "best_adjusted_performance_v2_last3",
+    "weighted_adjusted_performance_v2_last3", "max_strong_against_bias_v2_last3",
+]
+JOCKEY_FEATURES = [
+    "jockey_rides", "jockey_win_rate", "jockey_top2_rate", "jockey_place_rate",
+    "jockey_added_value", "recent_jockey_added_value", "jockey_change_added_value",
+]
+FIT_FEATURES = [
+    "distance_change_fit", "course_shape_fit", "pace_fit", "race_interval_fit",
+    "racecourse_fit", "track_condition_fit", "draw_bias", "rail_course_bias_fit",
+    "carried_weight_fit", "season_fit",
+]
+FIT_SAMPLE_FEATURES = [f"{feature}_sample_count" for feature in FIT_FEATURES]
+FIT_MODEL_FEATURES = [
+    "career_races", "career_win_rate", "recent3_win_rate", "recent3_place_rate",
+    "last1_adjusted_performance", "last2_adjusted_performance", "last3_adjusted_performance",
+    "mean_adjusted_performance_last3", "best_adjusted_performance_last3",
+    "current_race_class_score", "class_change_last1", "class_change_last3_mean",
+] + FIT_FEATURES
+REBUILD_BASE_FEATURES = [
+    "career_races", "career_win_rate", "recent3_win_rate", "recent3_place_rate",
+    "last1_adjusted_performance", "last2_adjusted_performance", "last3_adjusted_performance",
+    "mean_adjusted_performance_last3", "best_adjusted_performance_last3",
+]
+REBUILD_POLICY_FEATURES = {
+    "B": REBUILD_BASE_FEATURES,
+    "C": REBUILD_BASE_FEATURES + ["current_race_class_score", "class_change_last1", "class_change_last3_mean"],
+    "D": REBUILD_BASE_FEATURES + ["current_race_class_score", "class_change_last1", "class_change_last3_mean", "distance_change_fit", "course_shape_fit"],
+    "E": REBUILD_BASE_FEATURES + ["current_race_class_score", "class_change_last1", "class_change_last3_mean", "distance_change_fit", "course_shape_fit", "pace_fit"],
+    "F": REBUILD_BASE_FEATURES + ["current_race_class_score", "class_change_last1", "class_change_last3_mean", "distance_change_fit", "course_shape_fit", "pace_fit", "race_interval_fit", "racecourse_fit", "track_condition_fit", "season_fit"],
+    "G": REBUILD_BASE_FEATURES + ["current_race_class_score", "class_change_last1", "class_change_last3_mean", "distance_change_fit", "course_shape_fit", "pace_fit", "race_interval_fit", "racecourse_fit", "track_condition_fit", "season_fit", "draw_bias", "rail_course_bias_fit"],
+    "H": REBUILD_BASE_FEATURES + ["current_race_class_score", "class_change_last1", "class_change_last3_mean", "distance_change_fit", "course_shape_fit", "pace_fit", "race_interval_fit", "racecourse_fit", "track_condition_fit", "season_fit", "draw_bias", "rail_course_bias_fit", "carried_weight_fit"],
+    "I": FIT_MODEL_FEATURES,
+}
+FEATURE_STATUS = {
+    "jockey_form_trend": "NO_CALC",
+    "jockey_change_added_value": "REVIEW",
+    "course_geometry_fit": "DROP",
+    **{feature: "KEEP" for feature in FIT_FEATURES},
+    **{feature: "REVIEW" for feature in FIT_SAMPLE_FEATURES},
+}
 RACE_CLASS_FEATURES = [
     "race_class_label", "race_class_score", "current_race_class_score", "last1_race_class_score", "last2_race_class_score", "last3_race_class_score",
     "max_race_class_last3", "mean_race_class_last3", "weighted_race_class_last3",
+    "class_change_last1", "class_change_last3_mean",
     "last1_margin_x_race_class", "last2_margin_x_race_class", "last3_margin_x_race_class",
     "last1_race_class", "last2_race_class", "last3_race_class",
 ]
@@ -118,6 +186,192 @@ RACE_CONDITION_FEATURES = RACE_CLASS_FEATURES + [
 
 def text(value: object) -> str:
     return "" if value is None else str(value).strip()
+
+
+def phase5_profile(message: str) -> None:
+    if os.environ.get("PHASE5_PROFILE") == "1":
+        print(f"[Phase5] {message}", flush=True)
+
+
+def memory_mb() -> float:
+    try:
+        import resource
+        value = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        return value / (1024 * 1024) if os.uname().sysname == "Darwin" else value / 1024
+    except (ImportError, AttributeError):
+        return 0.0
+
+
+def cache_paths(model_label: str) -> tuple[Path, Path]:
+    cache_dir = ROOT / "data" / "cache"
+    prefix = "phase6" if model_label == "G" else "phase5"
+    return cache_dir / f"{prefix}_{model_label.lower()}_features.parquet", cache_dir / f"{prefix}_{model_label.lower()}_features_metadata.json"
+
+
+def model_cache_key(model_label: str, feature_columns: list[str], start: date, end: date) -> str:
+    payload = json.dumps({"model": model_label, "version": PHASE6_CACHE_VERSION if model_label == "G" else PHASE5_CACHE_VERSION, "features": feature_columns,
+                          "start": start.isoformat(), "end": end.isoformat(), "target": "KakuteiJyuni==1",
+                          "params": {"n_estimators": 180, "learning_rate": 0.04, "num_leaves": 15, "max_depth": 5}}, sort_keys=True)
+    return hashlib.sha256(payload.encode()).hexdigest()[:16]
+
+
+def prediction_cache_path(model_label: str, key: str) -> Path:
+    return ROOT / "data" / "cache" / "predictions" / f"{model_label}_{key}.parquet"
+
+
+def optimize_feature_frame(frame):
+    import pandas as pd
+    for column in frame.columns:
+        if column in {"race_id", "horse_id", "horse_name", "date", "as_of_date"}:
+            continue
+        if frame[column].dtype == "object":
+            frame[column] = frame[column].fillna("UNKNOWN").astype("category")
+        elif pd.api.types.is_float_dtype(frame[column]):
+            frame[column] = frame[column].astype("float32")
+        elif pd.api.types.is_integer_dtype(frame[column]):
+            frame[column] = pd.to_numeric(frame[column], downcast="integer")
+    return frame
+
+
+def write_feature_cache(rows: list[dict], source_rows: int, model_label: str) -> None:
+    import pandas as pd
+    parquet_path, metadata_path = cache_paths(model_label)
+    parquet_path.parent.mkdir(parents=True, exist_ok=True)
+    frame = optimize_feature_frame(pd.DataFrame(rows))
+    frame.to_parquet(parquet_path, index=False, compression="zstd")
+    cache_version = PHASE6_CACHE_VERSION if model_label == "G" else PHASE5_CACHE_VERSION
+    metadata = {"cache_version": cache_version, "model": model_label, "source_rows": source_rows,
+                "rows": len(frame), "columns": len(frame.columns), "generated_at": datetime.now().isoformat(),
+                "date_min": str(frame["date"].min()) if "date" in frame else None,
+                "date_max": str(frame["date"].max()) if "date" in frame else None,
+                "file_size_bytes": parquet_path.stat().st_size}
+    metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+    phase5_profile(f"Parquet cache written: rows={len(frame)}, columns={len(frame.columns)}, size={metadata['file_size_bytes'] / 1024 / 1024:.1f}MB")
+
+
+def read_feature_cache(source_rows: int, model_label: str) -> list[dict] | None:
+    import pandas as pd
+    parquet_path, metadata_path = cache_paths(model_label)
+    if not parquet_path.exists() and model_label in {"E", "F", "CA", "CB"}:
+        parquet_path, metadata_path = cache_paths("F")
+    if not parquet_path.exists() or not metadata_path.exists():
+        return None
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    expected_version = PHASE6_CACHE_VERSION if model_label == "G" else PHASE5_CACHE_VERSION
+    if metadata.get("cache_version") != expected_version or metadata.get("source_rows", 0) < source_rows:
+        return None
+    started = time.perf_counter()
+    frame = pd.read_parquet(parquet_path)
+    rows = frame.to_dict("records")
+    for row in rows:
+        if isinstance(row.get("date"), datetime):
+            row["date"] = row["date"].date()
+    phase5_profile(f"Parquet cache loaded: {time.perf_counter() - started:.2f}s, rows={len(rows)}, columns={len(frame.columns)}, memory={memory_mb():.1f}MB")
+    return rows
+
+
+def read_feature_cache_frame(source_rows: int, model_label: str, columns: list[str]):
+    import pandas as pd
+    import pyarrow.parquet as pq
+    parquet_path, metadata_path = cache_paths(model_label)
+    if not parquet_path.exists() and model_label in {"E", "F", "CA", "CB"}:
+        parquet_path, metadata_path = cache_paths("F")
+    if not parquet_path.exists() or not metadata_path.exists():
+        return None
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    expected_version = PHASE6_CACHE_VERSION if model_label == "G" else PHASE5_CACHE_VERSION
+    if metadata.get("cache_version") != expected_version or metadata.get("source_rows", 0) < source_rows:
+        return None
+    started = time.perf_counter()
+    available = set(pq.ParquetFile(parquet_path).schema.names)
+    required = list(dict.fromkeys(column for column in columns if column in available))
+    frame = pd.read_parquet(parquet_path, columns=required)
+    for column in columns:
+        if column not in frame:
+            frame[column] = 0.0 if column not in {"race_id", "horse_id", "horse_name", "date"} else ""
+    if "date" in frame:
+        frame["date"] = pd.to_datetime(frame["date"]).dt.date
+    phase5_profile(f"DataFrame cache loaded: {time.perf_counter() - started:.2f}s, rows={len(frame)}, columns={len(frame.columns)}, memory={frame.memory_usage(deep=True).sum() / 1024 / 1024:.1f}MB, list_dict_conversion=0")
+    return frame
+
+
+def evaluate_cached_dataframe(data: list[dict], pays: dict, start: date, end: date,
+                              feature_columns: list[str], model_label: str,
+                              target_ids: set[str] | None = None,
+                              training_ids: set[str] | None = None):
+    import lightgbm as lgb
+    import pandas as pd
+    base_columns = ["race_id", "horse_id", "horse_name", "date", "target", "actual_rank", "umaban", "popularity", "odds",
+                    "racecourse", "surface", "distance", "field_size", "win_payout", "place_payout"]
+    categories = [column for column in ["racecourse", "surface", "grade_code", "condition_code", "last1_class", "last2_class", "last3_class"] if column in feature_columns]
+    if "race_class_label" in feature_columns:
+        categories += ["race_class_label", "last1_race_class", "last2_race_class", "last3_race_class"]
+    if "race_sex_condition" in feature_columns:
+        categories += ["race_sex_condition", "race_age_condition", "last1_sex_condition", "last2_sex_condition", "last3_sex_condition",
+                       "last1_age_condition", "last2_age_condition", "last3_age_condition"]
+    needed = base_columns + feature_columns + categories
+    frame = read_feature_cache_frame(len(data), model_label, needed)
+    if frame is None:
+        return None
+    key = model_cache_key(model_label, feature_columns, start, end)
+    prediction_path = prediction_cache_path(model_label, key)
+    metadata_path = prediction_path.with_suffix(".json")
+    if os.environ.get("PHASE5_USE_PREDICTION_CACHE") == "1" and prediction_path.exists() and metadata_path.exists():
+        phase5_profile(f"Prediction Cache HIT: {prediction_path}")
+        cached_frame = pd.read_parquet(prediction_path)
+        return cached_frame.to_dict("records"), []
+    phase5_profile(f"Prediction Cache MISS: key={key}")
+    eval_ids = sorted(target_ids) if target_ids else sorted(frame.loc[(frame["date"] >= start) & (frame["date"] < end), "race_id"].drop_duplicates())
+    eval_set = set(eval_ids)
+    evaluation = frame[frame["race_id"].isin(eval_set) & (frame["date"] >= start) & (frame["date"] < end)].copy()
+    months = sorted(evaluation["date"].map(lambda value: value.replace(day=1)).unique())
+    output = []
+    importance = defaultdict(lambda: {"gain": 0.0, "split": 0.0})
+    for month in months:
+        train = frame[frame["date"] < month]
+        if training_ids is not None:
+            train = train[train["race_id"].isin(training_ids)]
+        test = evaluation[evaluation["date"].map(lambda value: value.replace(day=1)) == month]
+        columns = list(dict.fromkeys(feature_columns + categories))
+        combined = pd.concat([train[columns], test[columns]], ignore_index=True)
+        combined = pd.get_dummies(combined, columns=[column for column in categories if column in combined], dummy_na=True)
+        train_matrix = combined.iloc[:len(train)].astype("float32")
+        test_matrix = combined.iloc[len(train):].astype("float32")
+        original_columns = list(train_matrix.columns)
+        safe_columns = [f"f_{index}" for index in range(len(original_columns))]
+        train_matrix.columns = safe_columns
+        test_matrix.columns = safe_columns
+        phase5_profile(f"DataFrame split {model_label} {month}: train={len(train)}, eval={len(test)}, Xtrain={train_matrix.shape}, memory={train_matrix.memory_usage(deep=True).sum() / 1024 / 1024:.1f}MB")
+        fit_started = time.perf_counter()
+        model = lgb.LGBMClassifier(n_estimators=180, learning_rate=0.04, num_leaves=15, max_depth=5,
+                                   min_child_samples=80, reg_lambda=2.0, verbosity=-1, random_state=42)
+        model.fit(train_matrix, train["target"].astype("int8"))
+        phase5_profile(f"DataFrame LightGBM {model_label} {month}: {time.perf_counter() - fit_started:.2f}s, memory={memory_mb():.1f}MB")
+        names = original_columns
+        for name, gain, split in zip(names, model.booster_.feature_importance("gain"), model.booster_.feature_importance("split")):
+            importance[name]["gain"] += float(gain); importance[name]["split"] += float(split)
+        probs = model.predict_proba(test_matrix)[:, 1]
+        test = test.copy()
+        test["predicted_probability"] = probs
+        test["prediction_rank"] = test.groupby("race_id")["predicted_probability"].rank(method="first", ascending=False).astype(int)
+        output.extend(test.to_dict("records"))
+    rows = []
+    for row in output:
+        key = tuple(str(row.get("race_id", "")).split("-"))
+        pay_row = pays.get(key)
+        umaban = integer(row.get("umaban"))
+        row["win_payout"] = payout(pay_row, "win", umaban)
+        row["place_payout"] = payout(pay_row, "place", umaban)
+        rows.append({**row, "date": row["date"].isoformat(), "prediction_reason": f"DataFrame cached LightGBM {model_label}",
+                     "reason_code": f"{model_label}_CACHED", "is_win": int(row["actual_rank"] == 1),
+                     "is_place": int(1 <= row["actual_rank"] <= 3), "ai_vs_favorite": int(row["popularity"] > 1 and row["prediction_rank"] == 1)})
+    if os.environ.get("PHASE5_WRITE_PREDICTION_CACHE") == "1":
+        prediction_path.parent.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame(rows).to_parquet(prediction_path, index=False, compression="zstd")
+        metadata_path.write_text(json.dumps({"cache_version": PHASE5_CACHE_VERSION, "model": model_label, "key": key,
+                                              "rows": len(rows), "feature_count": len(feature_columns), "generated_at": datetime.now().isoformat()}, ensure_ascii=False, indent=2), encoding="utf-8")
+        phase5_profile(f"Prediction Cache written: {prediction_path}")
+    return rows, [{"feature": name, **values} for name, values in sorted(importance.items(), key=lambda item: item[1]["gain"], reverse=True)]
 
 
 def number(value: object, default: float = 0.0) -> float:
@@ -148,18 +402,73 @@ def first_corner_position(row: dict) -> int:
     return value if value > 0 else 0
 
 
+def geometry_value(row: dict, name: str, default: float = 0.0) -> float:
+    return number(row.get(f"course_{name}"), default)
+
+
+def geometry_signature(row: dict) -> tuple:
+    return (geometry_value(row, "first_corner_distance_m"), geometry_value(row, "final_straight_m"),
+            geometry_value(row, "elevation_difference_m"), integer(row.get("race_Kyori")))
+
+
+def prize_class_score(row: dict) -> float:
+    """賞金を内部クラス基準として連続値化する。1着賞金そのものをモデル入力に使うのではなく、ここで作ったスコアを学習に使う。"""
+    prize = prize_amount(row.get("race_Honsyokin0"))
+    if prize > 0:
+        return math.log1p(prize) / math.log1p(500_000_000.0)
+    grade = text(row.get("race_GradeCD")).upper()
+    grade_map = {"A": 0.95, "B": 0.8, "C": 0.65, "L": 0.5}
+    return grade_map.get(grade, 0.0)
+
+
 def performance_from_result(result: dict) -> tuple[float, float, float]:
-    field_size = max(1, result.get("field_size", 1))
-    finish = result.get("finish", 0)
-    finish_score = 1.0 - (finish - 1) / max(1, field_size - 1) if 1 <= finish <= field_size else 0.0
-    margin_score = math.exp(-max(0.0, result.get("margin", 0.0) or 0.0))
-    race_strength = min(1.0, (result.get("winner_strength", 0.0) + prize_log(result.get("first_prize", 0.0)) / 20.0))
-    raw = 0.4 * finish_score + 0.4 * margin_score + 0.2 * race_strength
-    position_bias = result.get("position_bias", 0.0)
-    position_advantage = result.get("position_advantage", 0.0)
-    strong_against = -position_bias * position_advantage
-    adjusted = raw + 0.25 * strong_against
-    return raw, adjusted, strong_against
+    """raw performance は margin のみで構成し、着順やレース強度を混ぜない。高い値＝良いperformance。"""
+    margin = max(0.0, float(result.get("margin") or 0.0))
+    raw = -margin
+    class_delta = float(result.get("class_delta", 0.0))
+    pace_delta = float(result.get("pace_delta", 0.0))
+    opponent_delta = float(result.get("opponent_delta", 0.0))
+    adjusted = raw + 0.55 * class_delta + 0.35 * pace_delta + 0.25 * opponent_delta
+    return raw, adjusted, (class_delta + pace_delta + opponent_delta)
+
+
+def shrink_mean(values: list[float], global_mean: float = 0.0, prior: float = 5.0) -> float:
+    """少標本の履歴を global mean へ縮約する。値の符号は performance と同じ。"""
+    if not values:
+        return global_mean
+    return (sum(values) + prior * global_mean) / (len(values) + prior)
+
+
+def fit_from_history(values: list[tuple[float, float]], target: float | None = None,
+                     global_mean: float = 0.0) -> tuple[float, int]:
+    """(条件距離, adjusted performance) の近傍を重み付きで集約する。"""
+    if not values:
+        return 0.0, 0
+    if target is None:
+        selected = values
+    else:
+        selected = sorted(values, key=lambda item: abs(item[0] - target))[: min(5, len(values))]
+    weights = [1.0 / (1.0 + abs(item[0] - target)) if target is not None else 1.0 for item in selected]
+    estimate = sum(weight * item[1] for weight, item in zip(weights, selected)) / sum(weights)
+    return shrink_mean([estimate], global_mean, prior=max(2.0, 8.0 - len(values))) - global_mean, len(values)
+
+
+def historical_value(history: list[dict], key: str, value: object,
+                     global_mean: float, min_match: int = 1) -> tuple[float, int]:
+    values = [float(item["adjusted_performance"]) for item in history if item.get(key) == value]
+    if len(values) < min_match:
+        return shrink_mean(values, global_mean) - global_mean, len(values)
+    return shrink_mean(values, global_mean) - global_mean, len(values)
+
+
+def normalized_interval(days: int | float) -> float:
+    return max(0.0, float(days)) / 90.0
+
+
+def condition_value(row: dict) -> str:
+    """JV の馬場コードを内部カテゴリへ変換。未提供時は UNKNOWN。"""
+    value = text(row.get("race_TenkoBabaSibaBabaCD") or row.get("race_TenkoBabaDirtBabaCD"))
+    return {"1": "GOOD", "2": "YIELDING", "3": "HEAVY", "4": "SOFT"}.get(value, value or "UNKNOWN")
 
 
 def race_key(row: dict) -> tuple[str, ...]:
@@ -187,6 +496,24 @@ def shift_month(value: date, offset: int) -> date:
     return date(index // 12, index % 12 + 1, 1)
 
 
+def limit_evaluation_races(data: list[dict], start: date, end: date, max_races: int | None) -> list[dict]:
+    if not max_races:
+        return [row for row in data if row["date"] < end]
+    target_keys = []
+    seen = set()
+    for row in sorted(data, key=lambda item: (item["date"], race_key(item))):
+        key = race_key(row)
+        if start <= row["date"] < end and key not in seen:
+            seen.add(key)
+            target_keys.append(key)
+            if len(target_keys) >= max_races:
+                break
+    target_set = set(target_keys)
+    limited = [row for row in data if row["date"] < start or (row["date"] < end and race_key(row) in target_set)]
+    phase5_profile(f"evaluation limited: target_races={len(target_set)}, rows={len(limited)}, history_rows={sum(row['date'] < start for row in limited)}")
+    return limited
+
+
 def get_columns(connection: sqlite3.Connection, table: str) -> set[str]:
     return {row[1] for row in connection.execute(f"PRAGMA table_info({table})")}
 
@@ -203,17 +530,21 @@ def read_table(connection: sqlite3.Connection, table: str, wanted: list[str], mi
 
 def load_data(db_path: Path, min_year: int = 2012) -> tuple[list[dict], dict[tuple[str, ...], dict], dict]:
     """結果・レース・払戻を読み込む。列追加のあるDBにも対応する。"""
+    started = time.perf_counter()
+    phase5_profile("DB load started")
     connection = sqlite3.connect(db_path)
     se_columns = list(RACE_KEY) + [
         "Wakuban", "Umaban", "KettoNum", "Bamei", "SexCD", "Barei", "KisyuCode",
-        "ChokyoCode", "TozaiCD", "Futan", "BaTaijyu", "Odds", "Ninki", "KakuteiJyuni",
+        "KisyuCodeBefore", "ChokyoCode", "TozaiCD", "Futan", "FutanBefore", "BaTaijyu", "Odds", "Ninki", "KakuteiJyuni",
         "NyusenJyuni", "Jyuni1c", "Jyuni2c", "Jyuni3c", "Jyuni4c", "headDataKubun",
     ] + LEAK_COLUMNS
     ra_columns = list(RACE_KEY) + [
-        "Kyori", "TrackCD", "CourseKubunCD", "GradeCD", "JyokenInfoSyubetuCD",
+        "Kyori", "KyoriBefore", "TrackCD", "TrackCDBefore", "CourseKubunCD", "CourseKubunCDBefore", "GradeCD", "JyokenInfoSyubetuCD",
         "JyokenInfoJyokenCD0", "JyokenInfoJyokenCD1", "JyokenInfoJyokenCD2", "JyokenInfoJyokenCD3", "JyokenInfoJyokenCD4",
         "JyokenName", "RaceInfoHondai", "RaceInfoFukudai", "Honsyokin0", "Honsyokin1", "Honsyokin2", "Honsyokin3", "Honsyokin4", "Honsyokin5", "Honsyokin6",
         "Fukasyokin0", "Fukasyokin1", "Fukasyokin2", "Fukasyokin3", "Fukasyokin4", "SyussoTosu", "NyusenTosu",
+        "TenkoBabaTenkoCD", "TenkoBabaSibaBabaCD", "TenkoBabaDirtBabaCD",
+        "HaronTimeS3", "HaronTimeS4", "HaronTimeL3", "HaronTimeL4",
     ]
     se_rows = read_table(connection, "NL_SE_RACE_UMA", se_columns, min_year)
     ra_rows = read_table(connection, "NL_RA_RACE", ra_columns, min_year)
@@ -222,15 +553,30 @@ def load_data(db_path: Path, min_year: int = 2012) -> tuple[list[dict], dict[tup
     ] + [f"PayFukusyo{i}{suffix}" for i in range(5) for suffix in ("Umaban", "Pay")]
     pay_rows = read_table(connection, "NL_HR_PAY", pay_columns, min_year)
     connection.close()
+    course_path = ROOT / "data" / "output" / "course_features_ver6.csv"
+    course_map = {}
+    if course_path.exists():
+        course_started = time.perf_counter()
+        with course_path.open(encoding="utf-8-sig", newline="") as handle:
+            for course in csv.DictReader(handle):
+                key = (text(course.get("JyoCD")).zfill(2), integer(course.get("Kyori_m")), text(course.get("TrackCD")))
+                course_map[key] = course
+            phase5_profile(f"course features loaded: {time.perf_counter() - course_started:.2f}s, rows={len(course_map)}, memory={memory_mb():.1f}MB")
     races = {race_key(row): row for row in ra_rows}
     pays = {race_key(row): row for row in pay_rows}
     merged = []
+    join_started = time.perf_counter()
     for row in se_rows:
         row = dict(row)
         row.update({f"race_{key}": value for key, value in races.get(race_key(row), {}).items()})
+        course = course_map.get((text(row.get("race_idJyoCD")).zfill(2), integer(row.get("race_Kyori")), text(row.get("race_TrackCD"))), {})
+        for key, value in course.items():
+            row[f"course_{key}"] = value
         row["date"] = race_date(row)
         if row["date"] is not None:
             merged.append(row)
+    phase5_profile(f"course feature join: {time.perf_counter() - join_started:.2f}s, rows={len(merged)}, memory={memory_mb():.1f}MB")
+    phase5_profile(f"DB load finished: {time.perf_counter() - started:.2f}s, se_rows={len(se_rows)}, ra_rows={len(ra_rows)}, memory={memory_mb():.1f}MB")
     return merged, pays, {"se_columns": set(se_rows[0]) if se_rows else set(), "pay_rows": len(pay_rows)}
 
 
@@ -248,6 +594,12 @@ def payout(pay_row: dict | None, kind: str, umaban: int) -> float:
         if integer(pay_row.get(f"{prefix}{index}Umaban")) == umaban:
             return number(pay_row.get(f"{prefix}{index}Pay"))
     return 0.0
+
+
+def eligible_target_race_ids(data: list[dict], min_race_first_prize: float | None) -> set[str] | None:
+    if min_race_first_prize is None:
+        return None
+    return {race_id(row) for row in data if prize_amount(row.get("race_Honsyokin0")) > min_race_first_prize}
 
 
 def surface(row: dict) -> str:
@@ -407,28 +759,28 @@ def class_code(row: dict) -> str:
 
 
 def race_conditions(row: dict) -> dict:
-    """根拠が確認できる文字列だけを意味付き化し、コードの推測はしない。"""
+    """旧classロジックは一旦残すが、学習用のclass_scoreは賞金ベースの連続値へ切り替える。"""
     name = unicodedata.normalize("NFKC", text(row.get("race_JyokenName"))).lower()
     grade = text(row.get("race_GradeCD")).upper()
     race_name = unicodedata.normalize("NFKC", text(row.get("race_RaceInfoHondai")))
     combined_name = f"{name} {race_name.lower()}"
     grade_map = {"A": ("G1", 8), "B": ("G2", 7), "C": ("G3", 6), "L": ("LISTED", 5)}
     if grade in grade_map:
-        label, score = grade_map[grade]
+        label, legacy_score = grade_map[grade]
     elif "新馬" in combined_name:
-        label, score = "NEWCOMER", 0
+        label, legacy_score = "NEWCOMER", 0
     elif "未勝利" in combined_name:
-        label, score = "MAIDEN", 0
+        label, legacy_score = "MAIDEN", 0
     elif "1勝" in combined_name or "500万" in combined_name:
-        label, score = "CLASS_1", 1
+        label, legacy_score = "CLASS_1", 1
     elif "2勝" in combined_name or "1000万" in combined_name:
-        label, score = "CLASS_2", 2
+        label, legacy_score = "CLASS_2", 2
     elif "3勝" in combined_name or "1600万" in combined_name:
-        label, score = "CLASS_3", 3
+        label, legacy_score = "CLASS_3", 3
     elif "オープン" in combined_name or "open" in combined_name or "ｏｐ" in combined_name:
-        label, score = "OPEN", 4
+        label, legacy_score = "OPEN", 4
     else:
-        label, score = "UNKNOWN", 0
+        label, legacy_score = "UNKNOWN", 0
     age = "UNKNOWN"
     if "2歳" in combined_name:
         age = "TWO_YEAR_OLD_ONLY"
@@ -439,9 +791,37 @@ def race_conditions(row: dict) -> dict:
     elif "4歳上" in combined_name or "4歳以上" in combined_name:
         age = "FOUR_AND_OLDER"
     female_only = "牝馬" in combined_name or "牝" in combined_name
-    return {"class_label": label, "class_score": score, "age": age,
-            "sex": "FEMALE_ONLY" if female_only else "OPEN_SEX",
+    prize_score = prize_class_score(row)
+    return {"class_label": label, "class_score": prize_score, "legacy_class_label": label, "legacy_class_score": legacy_score,
+            "age": age, "sex": "FEMALE_ONLY" if female_only else "OPEN_SEX",
             "filly_only": int(female_only), "grade_raw": grade or "UNKNOWN"}
+
+
+def history_class_score(row: dict) -> int | None:
+    """Experimental source-race tier. Explicit class/grade wins; prize is a fallback."""
+    condition = race_conditions(row)
+    if condition["class_label"] != "UNKNOWN":
+        return int(condition["class_score"])
+    prize = prize_amount(row.get("race_Honsyokin0"))
+    if prize <= 0:
+        return None
+    # These are deliberately isolated experimental bands; they are not used by production.
+    if prize < 7_000_000:
+        return 0
+    if prize < 11_000_000:
+        return 1
+    if prize < 22_000_000:
+        return 2
+    if prize < 32_000_000:
+        return 3
+    return 4
+
+
+def history_policy_allows(row: dict, policy: str) -> bool:
+    if policy == "baseline":
+        return True
+    score = history_class_score(row)
+    return score is not None and score >= (1 if policy == "filter-a" else 2)
 
 
 def smoothed_strength(stat: dict) -> float:
@@ -455,28 +835,41 @@ def smoothed_strength(stat: dict) -> float:
     return (0.6 * win_rate + 0.4 * place_rate) * (0.5 + 0.5 * confidence)
 
 
-def build_v1_features(data: list[dict]) -> list[dict]:
+def build_v1_features(data: list[dict], history_policy: str = "baseline", feature_target_ids: set[str] | None = None,
+                      history_trace: dict | None = None) -> list[dict]:
     """日付順に一度だけ走査し、各行のas_of_date時点特徴量を作る。"""
+    started = time.perf_counter()
+    phase5_profile(f"history construction started: rows={len(data)}, memory={memory_mb():.1f}MB")
     ordered = sorted((row for row in data if valid_result(row)), key=lambda row: (row["date"], race_key(row), integer(row.get("Umaban"))))
     histories = defaultdict(lambda: deque(maxlen=5))
     race_dates = defaultdict(deque)
     stats = defaultdict(lambda: {"races": 0, "wins": 0, "places": 0, "max_class": 0, "best_win_class": 0,
-                                 "max_prize": 0.0, "mean_prize": 0.0, "prize_count": 0})
+                                 "max_prize": 0.0, "mean_prize": 0.0, "prize_count": 0,
+                                 "adjusted_sum": 0.0, "adjusted_count": 0})
+    jockey_state = defaultdict(lambda: {"rides": 0, "wins": 0, "top2": 0, "places": 0, "added_sum": 0.0, "recent": deque(maxlen=30)})
     features = []
     races = defaultdict(list)
     for row in ordered:
         races[race_key(row)].append(row)
     pending_updates = []
     current_date = None
-    for key in sorted(races, key=lambda item: (race_date(races[item][0]), item)):
+    sorted_races = sorted(races, key=lambda item: (race_date(races[item][0]), item))
+    for race_index, key in enumerate(sorted_races, 1):
         horses = races[key]
         date_value = horses[0]["date"]
         if current_date is not None and date_value != current_date:
             for update in pending_updates:
                 horse, result = update
+                if history_trace is not None and horse == history_trace.get("horse_id"):
+                    history_trace.setdefault("source", []).append({"source_race_id": result["source_race_id"],
+                        "history_allowed": result.get("history_allowed", True), "event": "state_update_skipped" if not result.get("history_allowed", True) else "state_update"})
+                if not result.get("history_allowed", True):
+                    continue
                 stats[horse]["races"] += 1
                 stats[horse]["wins"] += result["win"]
                 stats[horse]["places"] += result["place"]
+                stats[horse]["adjusted_sum"] += result.get("adjusted_performance", 0.0)
+                stats[horse]["adjusted_count"] += 1
                 stats[horse]["max_class"] = max(stats[horse]["max_class"], result.get("class_score", 0))
                 if result["win"]:
                     stats[horse]["best_win_class"] = max(stats[horse]["best_win_class"], result.get("class_score", 0))
@@ -485,22 +878,30 @@ def build_v1_features(data: list[dict]) -> list[dict]:
                 stats[horse]["mean_prize"] = (stats[horse]["mean_prize"] * stats[horse]["prize_count"] + prize) / (stats[horse]["prize_count"] + 1)
                 stats[horse]["prize_count"] += 1
                 histories[horse].append(result)
+                if history_trace is not None and horse == history_trace.get("horse_id"):
+                    history_trace.setdefault("appended", []).append(result["source_race_id"])
                 race_dates[horse].append(current_date)
                 cutoff = current_date - timedelta(days=365)
                 while race_dates[horse] and race_dates[horse][0] < cutoff:
                     race_dates[horse].popleft()
             pending_updates = []
         current_date = date_value
+        if race_index % 5000 == 0:
+            phase5_profile(f"history races processed: {race_index}/{len(sorted_races)}, elapsed={time.perf_counter() - started:.2f}s, memory={memory_mb():.1f}MB")
         current_condition = race_conditions(horses[0])
         current_prizes = [prize_amount(horses[0].get(f"race_Honsyokin{i}")) for i in range(5)]
         current_first_prize = current_prizes[0]
         current_total_prize = sum(current_prizes)
+        current_geometry = geometry_signature(horses[0])
         positions = [first_corner_position(item) for item in horses]
-        valid_positions = [value for value in positions if value > 0]
         field_count = len(horses)
-        frontness = [(1.0 - (value - 1) / max(1, field_count - 1)) if value > 0 else 0.5 for value in positions]
-        winner_positions = [frontness[index] for index, item in enumerate(horses) if integer(item.get("KakuteiJyuni")) <= 3 and positions[index] > 0]
-        position_bias = mean(winner_positions) - mean(frontness) if winner_positions else 0.0
+        observed_frontness = [(1.0 - (value - 1) / max(1, field_count - 1)) if value > 0 else 0.5 for value in positions]
+        # Target race results must not contribute to any model feature.
+        position_bias = 0.0
+        prior_ability = {text(item.get("KettoNum")): stats[text(item.get("KettoNum"))]["wins"] / max(1, stats[text(item.get("KettoNum"))]["races"]) for item in horses}
+        expected_order = {horse: rank for rank, (horse, _) in enumerate(sorted(prior_ability.items(), key=lambda pair: pair[1], reverse=True), 1)}
+        weighted_bias = 0.0
+        residual_bias = 0.0
         prior_stats = {text(row.get("KettoNum")): dict(stats[text(row.get("KettoNum"))]) for row in horses}
         field_values = []
         for row in horses:
@@ -510,16 +911,65 @@ def build_v1_features(data: list[dict]) -> list[dict]:
         winner = next((row for row in horses if integer(row.get("KakuteiJyuni")) == 1), None)
         winner_stat = prior_stats.get(text(winner.get("KettoNum")), {"races": 0, "wins": 0, "places": 0}) if winner else {"races": 0, "wins": 0, "places": 0}
         winner_strength = winner_stat["wins"] / winner_stat["races"] if winner_stat["races"] else 0.0
+        expected_positions = {text(item.get("KettoNum")): mean([entry.get("frontness", 0.5) for entry in histories[text(item.get("KettoNum"))]])
+                    if histories[text(item.get("KettoNum"))] else 0.5 for item in horses}
+        expected_position_values = list(expected_positions.values())
+        front_density = sum(value >= 0.67 for value in expected_position_values) / max(1, field_count)
+        forward_density = sum(value >= 0.5 for value in expected_position_values) / max(1, field_count)
+        mid_density = sum(0.33 <= value < 0.67 for value in expected_position_values) / max(1, field_count)
+        rear_density = sum(value < 0.33 for value in expected_position_values) / max(1, field_count)
+        adjusted_sum = sum(stat["adjusted_sum"] for stat in stats.values())
+        adjusted_count = sum(stat["adjusted_count"] for stat in stats.values())
+        global_adjusted = adjusted_sum / adjusted_count if adjusted_count else 0.0
+        current_condition_value = condition_value(horses[0])
+        current_distance = integer(horses[0].get("race_Kyori") or horses[0].get("Kyori"))
+        current_pace = mean(expected_position_values) if expected_position_values else 0.5
         for row in horses:
             horse = text(row.get("KettoNum"))
             current = prior_stats.get(horse, {"races": 0, "wins": 0, "places": 0})
             past = list(histories[horse])[::-1]
             recent3 = past[:3]
             recent5 = past[:5]
-            raw_recent = [performance_from_result(item)[0] for item in recent3]
-            adjusted_recent = [performance_from_result(item)[1] for item in recent3]
+            raw_recent = [item.get("raw_performance", performance_from_result(item)[0]) for item in recent3]
+            adjusted_recent = [item.get("adjusted_performance", performance_from_result(item)[1]) for item in recent3]
             hidden_recent = [adjusted - raw for adjusted, raw in zip(adjusted_recent, raw_recent)]
             against_recent = [performance_from_result(item)[2] for item in recent3]
+            same_geometry = [item.get("adjusted_performance", performance_from_result(item)[1]) for item in histories[horse]
+                             if item.get("geometry_signature") == current_geometry]
+            recent_class_scores = [float(item.get("class_score", 0.0)) for item in recent3]
+            class_change_last1 = current_condition["class_score"] - (recent_class_scores[0] if recent_class_scores else 0.0)
+            class_change_last3_mean = current_condition["class_score"] - mean(recent_class_scores) if recent_class_scores else 0.0
+            last_distance = recent3[0].get("distance", current_distance) if recent3 else current_distance
+            distance_change = (current_distance - last_distance) / 1000.0
+            recent_distance_changes = [float(item.get("distance_change", 0.0)) for item in recent3]
+            distance_fit_values = [(float(item.get("distance_change", 0.0)), float(item["adjusted_performance"])) for item in past]
+            distance_change_fit, distance_sample_count = fit_from_history(distance_fit_values, distance_change, global_adjusted)
+            shape_values = []
+            for item in past:
+                shape = item.get("geometry_signature")
+                if shape:
+                    shape_distance = abs(float(shape[0]) - float(current_geometry[0])) / 1000.0
+                    shape_distance += abs(float(shape[1]) - float(current_geometry[1])) / 1000.0
+                    shape_distance += abs(float(shape[2]) - float(current_geometry[2])) / 100.0
+                    shape_values.append((shape_distance, float(item["adjusted_performance"])))
+            course_shape_fit, course_shape_sample_count = fit_from_history(shape_values, 0.0, global_adjusted)
+            pace_values = [(float(item.get("pace_score", 0.5)), float(item["adjusted_performance"])) for item in past]
+            pace_fit, pace_sample_count = fit_from_history(pace_values, current_pace, global_adjusted)
+            intervals = [(float(item.get("interval_norm", 0.0)), float(item["adjusted_performance"])) for item in past if item.get("interval_norm") is not None]
+            current_interval = normalized_interval((date_value - recent3[0]["date"]).days) if recent3 else 0.0
+            race_interval_fit, interval_sample_count = fit_from_history(intervals, current_interval, global_adjusted)
+            racecourse_fit, racecourse_sample_count = historical_value(past, "racecourse", JYO_NAMES.get(text(row.get("idJyoCD")).zfill(2), text(row.get("idJyoCD"))), global_adjusted)
+            track_fit, track_sample_count = historical_value(past, "track_condition", current_condition_value, global_adjusted)
+            season_fit, season_sample_count = historical_value(past, "season", (date_value.month - 1) // 3, global_adjusted)
+            weight = number(row.get("Futan"))
+            weight_values = [(abs(weight - number(item.get("weight"))) / 10.0, float(item["adjusted_performance"])) for item in past if number(item.get("weight")) > 0 and weight > 0]
+            carried_weight_fit, weight_sample_count = fit_from_history(weight_values, 0.0, global_adjusted)
+            position_history = [item.get("frontness", 0.5) for item in histories[horse]]
+            draw = integer(row.get("Wakuban"))
+            draw_values = [(abs(draw - integer(item.get("gate"))), float(item["adjusted_performance"])) for item in past if draw and integer(item.get("gate"))]
+            draw_bias, draw_sample_count = fit_from_history(draw_values, 0.0, global_adjusted)
+            rail_values = [(float(item.get("frontness", 0.5)) * (1.0 if integer(item.get("gate")) <= max(1, int(field_count / 3)) else -0.25), float(item["adjusted_performance"])) for item in past]
+            rail_fit, rail_sample_count = fit_from_history(rail_values, mean(position_history) if position_history else 0.5, global_adjusted) if surface(row) == "芝" else (0.0, 0)
             margins = [item["margin"] for item in past if item["margin"] is not None]
             v2_recent = []
             for item in recent3:
@@ -556,8 +1006,43 @@ def build_v1_features(data: list[dict]) -> list[dict]:
                 "race_first_prize": current_first_prize, "race_second_prize": current_prizes[1],
                 "race_third_prize": current_prizes[2], "race_total_top5_prize": current_total_prize,
                 "race_first_prize_log": prize_log(current_first_prize), "race_total_top5_prize_log": prize_log(current_total_prize),
-                "first_corner_position": first_corner_position(row),
+                "distance_change_fit": distance_change_fit, "distance_change_fit_sample_count": distance_sample_count,
+                "course_shape_fit": course_shape_fit, "course_shape_fit_sample_count": course_shape_sample_count,
+                "pace_fit": pace_fit, "pace_fit_sample_count": pace_sample_count,
+                "race_interval_fit": race_interval_fit, "race_interval_fit_sample_count": interval_sample_count,
+                "racecourse_fit": racecourse_fit, "racecourse_fit_sample_count": racecourse_sample_count,
+                "track_condition_fit": track_fit, "track_condition_fit_sample_count": track_sample_count,
+                "draw_bias": draw_bias, "draw_bias_sample_count": draw_sample_count,
+                "rail_course_bias_fit": rail_fit, "rail_course_bias_fit_sample_count": rail_sample_count,
+                "carried_weight_fit": carried_weight_fit, "carried_weight_fit_sample_count": weight_sample_count,
+                "season_fit": season_fit, "season_fit_sample_count": season_sample_count,
+                "first_corner_position": 0,
                 "race_position_bias": position_bias,
+                "course_first_corner_distance_m": geometry_value(row, "first_corner_distance_m"),
+                "course_elevation_difference_m": geometry_value(row, "elevation_difference_m"),
+                "course_final_straight_m": geometry_value(row, "final_straight_m"),
+                "course_start_uphill": integer(row.get("course_start_uphill")),
+                "course_start_downhill": integer(row.get("course_start_downhill")),
+                "course_final_uphill": integer(row.get("course_final_uphill")),
+                "course_final_downhill": integer(row.get("course_final_downhill")),
+                "course_final_steep_hill": integer(row.get("course_final_steep_hill")),
+                "course_rolling_terrain": integer(row.get("course_rolling_terrain")),
+                "course_mostly_flat": integer(row.get("course_mostly_flat")),
+                "course_gentle_corners": integer(row.get("course_gentle_corners")),
+                "course_tight_corners": integer(row.get("course_tight_corners")),
+                "course_up_down_transition_sentence_count": integer(row.get("course_up_down_transition_sentence_count")),
+                "course_geometry_fit": mean(same_geometry) if same_geometry else 0.0,
+                "horse_expected_position": mean(position_history) if position_history else 0.5,
+                "position_stability": pstdev(position_history) if len(position_history) > 1 else 0.0,
+                "frontness_mean": mean(position_history) if position_history else 0.5,
+                "frontness_std": pstdev(position_history) if len(position_history) > 1 else 0.0,
+                "gate_position_pct": integer(row.get("Umaban")) / max(1, field_count),
+                "gate_x_expected_position": (integer(row.get("Umaban")) / max(1, field_count)) * (mean(position_history) if position_history else 0.5),
+                "front_density": front_density, "forward_density": forward_density,
+                "mid_density": mid_density, "rear_density": rear_density,
+                "expected_front_count": sum(value >= 0.67 for value in expected_position_values),
+                "expected_position_mean": mean(expected_position_values),
+                "expected_position_std": pstdev(expected_position_values) if len(expected_position_values) > 1 else 0.0,
                 "popularity": integer(row.get("Ninki")), "odds": number(row.get("Odds")),
                 "actual_rank": integer(row.get("KakuteiJyuni")), "umaban": integer(row.get("Umaban")),
                 "horse_name": text(row.get("Bamei")), "field_size": len(horses),
@@ -641,6 +1126,8 @@ def build_v1_features(data: list[dict]) -> list[dict]:
                 "best_adjusted_performance_last3": max(adjusted_recent) if adjusted_recent else 0.0,
                 "mean_adjusted_performance_last3": mean(adjusted_recent) if adjusted_recent else 0.0,
                 "weighted_adjusted_performance_last3": sum(value * weight for value, weight in zip(adjusted_recent, (0.5, 0.3, 0.2))),
+                "class_change_last1": class_change_last1,
+                "class_change_last3_mean": class_change_last3_mean,
                 "hidden_strength_last1": hidden_recent[0] if len(hidden_recent) > 0 else 0.0,
                 "hidden_strength_last2": hidden_recent[1] if len(hidden_recent) > 1 else 0.0,
                 "hidden_strength_last3": hidden_recent[2] if len(hidden_recent) > 2 else 0.0,
@@ -649,12 +1136,40 @@ def build_v1_features(data: list[dict]) -> list[dict]:
                 "strong_against_bias_last1": against_recent[0] if len(against_recent) > 0 else 0.0,
                 "strong_against_bias_last2": against_recent[1] if len(against_recent) > 1 else 0.0,
                 "strong_against_bias_last3": against_recent[2] if len(against_recent) > 2 else 0.0,
+                "strong_against_bias_v2_last1": against_recent[0] if len(against_recent) > 0 else 0.0,
+                "strong_against_bias_v2_last2": against_recent[1] if len(against_recent) > 1 else 0.0,
+                "strong_against_bias_v2_last3": against_recent[2] if len(against_recent) > 2 else 0.0,
+                "setup_benefit_last1": recent3[0].get("setup_benefit", 0.0) if len(recent3) > 0 else 0.0,
+                "setup_benefit_last2": recent3[1].get("setup_benefit", 0.0) if len(recent3) > 1 else 0.0,
+                "setup_benefit_last3": recent3[2].get("setup_benefit", 0.0) if len(recent3) > 2 else 0.0,
+                "adjusted_performance_v2_last1": adjusted_recent[0] if len(adjusted_recent) > 0 else 0.0,
+                "adjusted_performance_v2_last2": adjusted_recent[1] if len(adjusted_recent) > 1 else 0.0,
+                "adjusted_performance_v2_last3": adjusted_recent[2] if len(adjusted_recent) > 2 else 0.0,
+                "mean_adjusted_performance_v2_last3": mean(adjusted_recent) if adjusted_recent else 0.0,
+                "best_adjusted_performance_v2_last3": max(adjusted_recent) if adjusted_recent else 0.0,
+                "weighted_adjusted_performance_v2_last3": sum(value * weight for value, weight in zip(adjusted_recent, (0.5, 0.3, 0.2))),
+                "max_strong_against_bias_v2_last3": max(against_recent) if against_recent else 0.0,
                 "race_position_bias_last1": recent3[0].get("position_bias", 0.0) if len(recent3) > 0 else 0.0,
                 "race_position_bias_last2": recent3[1].get("position_bias", 0.0) if len(recent3) > 1 else 0.0,
                 "race_position_bias_last3": recent3[2].get("position_bias", 0.0) if len(recent3) > 2 else 0.0,
                 "setup_improvement": -recent3[0].get("position_advantage", 0.0) if recent3 else 0.0,
                 "hidden_strength_x_race_strength": (hidden_recent[0] * (v2_winner[0] + prize_log(current_first_prize) / 20.0)) if hidden_recent else 0.0,
+                "jockey_rides": jockey_state[text(row.get("KisyuCode"))]["rides"],
+                "jockey_win_rate": (jockey_state[text(row.get("KisyuCode"))]["wins"] + 1) / (jockey_state[text(row.get("KisyuCode"))]["rides"] + 5),
+                "jockey_top2_rate": (jockey_state[text(row.get("KisyuCode"))]["top2"] + 1) / (jockey_state[text(row.get("KisyuCode"))]["rides"] + 5),
+                "jockey_place_rate": (jockey_state[text(row.get("KisyuCode"))]["places"] + 1) / (jockey_state[text(row.get("KisyuCode"))]["rides"] + 5),
+                "jockey_added_value": (jockey_state[text(row.get("KisyuCode"))]["added_sum"] / max(1, jockey_state[text(row.get("KisyuCode"))]["rides"])),
+                "recent_jockey_added_value": mean(jockey_state[text(row.get("KisyuCode"))]["recent"]) if jockey_state[text(row.get("KisyuCode"))]["recent"] else 0.0,
+                "jockey_change_added_value": 0.0,
+                "usable_history_count": len(histories[horse]),
+                "usable_position_history_count": len(position_history),
+                "usable_performance_history_count": len(raw_recent),
             }
+            if history_trace is not None and horse == history_trace.get("horse_id") and race_id(horses[0]) == history_trace.get("target_race_id"):
+                history_trace["performance_used"] = [item["source_race_id"] for item in recent3]
+                history_trace["position_used"] = [item["source_race_id"] for item in histories[horse]]
+                history_trace["last_used"] = [item["source_race_id"] for item in recent3]
+                history_trace["final_features"] = {name: values.get(name) for name in ("usable_history_count", "usable_position_history_count", "usable_performance_history_count", "last1_margin", "last1_raw_performance", "last1_adjusted_performance", "horse_expected_position", "position_stability")}
             recent_conditions = [item.get("condition", {}) for item in recent3]
             recent_scores = [item.get("class_score", 0) for item in recent_conditions]
             recent_margins = [item.get("margin") or 0 for item in recent3]
@@ -704,26 +1219,65 @@ def build_v1_features(data: list[dict]) -> list[dict]:
                 "open_to_female_only": int(bool(recent_conditions) and recent_conditions[0].get("filly_only", 0) == 0 and current_condition["filly_only"] == 1),
                 "age_condition_change": int(bool(recent_conditions) and recent_conditions[0].get("age") != current_condition["age"]),
             })
-            features.append(values)
+            if feature_target_ids is None or race_id(horses[0]) in feature_target_ids:
+                features.append(values)
         for row in horses:
             horse = text(row.get("KettoNum"))
             winner = next((item for item in horses if integer(item.get("KakuteiJyuni")) == 1), None)
+            horse_history = list(histories[horse])
+            prior_class = mean([float(item.get("class_score", 0.0)) for item in horse_history]) if horse_history else 0.0
+            prior_pace = mean([float(item.get("pace_score", 0.5)) for item in horse_history]) if horse_history else 0.5
+            raw_performance, adjusted_performance, adjustment_total = performance_from_result({
+                "margin": margin_value(row),
+                "class_delta": current_condition["class_score"] - prior_class,
+                "pace_delta": mean(observed_frontness) - prior_pace,
+                "opponent_delta": field_strength - smoothed_strength(stats[horse]),
+            })
+            previous_date = horse_history[-1]["date"] if horse_history else None
             pending_updates.append((horse, {"date": date_value, "finish": integer(row.get("KakuteiJyuni")), "margin": margin_value(row),
+                                     "source_race_id": race_id(row),
+                                     "history_allowed": history_policy_allows(row, history_policy),
                                      "win": int(integer(row.get("KakuteiJyuni")) == 1), "place": int(1 <= integer(row.get("KakuteiJyuni")) <= 3),
                                      "winner_strength": winner_strength, "field_strength": field_strength,
                                      "distance": integer(row.get("race_Kyori") or row.get("Kyori")), "class_code": class_code(row),
                                      "condition": current_condition, "class_score": current_condition["class_score"],
+                                     "raw_performance": raw_performance, "adjusted_performance": adjusted_performance,
+                                     "adjustment_total": adjustment_total, "distance_change": (integer(row.get("race_Kyori") or row.get("Kyori")) - (horse_history[-1].get("distance", integer(row.get("race_Kyori") or row.get("Kyori"))) if horse_history else integer(row.get("race_Kyori") or row.get("Kyori")))) / 1000.0,
+                                     "pace_score": mean(observed_frontness), "interval_norm": normalized_interval((date_value - previous_date).days) if previous_date else None,
+                                     "racecourse": JYO_NAMES.get(text(row.get("idJyoCD")).zfill(2), text(row.get("idJyoCD"))),
+                                     "track_condition": condition_value(row), "season": (date_value.month - 1) // 3,
+                                     "gate": integer(row.get("Wakuban")), "weight": number(row.get("Futan")),
                                      "first_prize": current_first_prize,
                                      "winner_class_score": current_condition["class_score"],
                                      "winner_id": text(winner.get("KettoNum")) if winner else "",
                                      "participants": [text(item.get("KettoNum")) for item in horses],
                                      "field_size": field_count, "position_bias": position_bias,
-                                     "position_advantage": frontness[horses.index(row)] - mean(frontness),
-                                     "first_corner_position": first_corner_position(row)}))
+                                     "position_advantage": observed_frontness[horses.index(row)] - mean(observed_frontness),
+                                     "first_corner_position": first_corner_position(row),
+                                     "frontness": observed_frontness[horses.index(row)], "geometry_signature": current_geometry,
+                                     "expected_rank": expected_order.get(horse, field_count), "jockey": text(row.get("KisyuCode")),
+                                     "strong_against_bias_v2": -residual_bias * (observed_frontness[horses.index(row)] - mean(observed_frontness)),
+                                     "setup_benefit": position_bias * (observed_frontness[horses.index(row)] - mean(observed_frontness))}))
+            jockey = text(row.get("KisyuCode"))
+            actual_finish = integer(row.get("KakuteiJyuni"))
+            added = (expected_order.get(horse, field_count) - actual_finish) / max(1, field_count)
+            jockey_state[jockey]["rides"] += 1
+            jockey_state[jockey]["wins"] += int(actual_finish == 1)
+            jockey_state[jockey]["top2"] += int(actual_finish <= 2)
+            jockey_state[jockey]["places"] += int(actual_finish <= 3)
+            jockey_state[jockey]["added_sum"] += added
+            jockey_state[jockey]["recent"].append(added)
     for horse, result in pending_updates:
+        if history_trace is not None and horse == history_trace.get("horse_id"):
+            history_trace.setdefault("source", []).append({"source_race_id": result["source_race_id"],
+                "history_allowed": result.get("history_allowed", True), "event": "state_update_skipped" if not result.get("history_allowed", True) else "state_update"})
+        if not result.get("history_allowed", True):
+            continue
         stats[horse]["races"] += 1
         stats[horse]["wins"] += result["win"]
         stats[horse]["places"] += result["place"]
+        stats[horse]["adjusted_sum"] += result.get("adjusted_performance", 0.0)
+        stats[horse]["adjusted_count"] += 1
         stats[horse]["max_class"] = max(stats[horse]["max_class"], result.get("class_score", 0))
         if result["win"]:
             stats[horse]["best_win_class"] = max(stats[horse]["best_win_class"], result.get("class_score", 0))
@@ -732,25 +1286,49 @@ def build_v1_features(data: list[dict]) -> list[dict]:
         stats[horse]["mean_prize"] = (stats[horse]["mean_prize"] * stats[horse]["prize_count"] + prize) / (stats[horse]["prize_count"] + 1)
         stats[horse]["prize_count"] += 1
         histories[horse].append(result)
+        if history_trace is not None and horse == history_trace.get("horse_id"):
+            history_trace.setdefault("appended", []).append(result["source_race_id"])
         race_dates[horse].append(current_date)
+    phase5_profile(f"history built: {time.perf_counter() - started:.2f}s, feature_rows={len(features)}, races={len(sorted_races)}, memory={memory_mb():.1f}MB")
     return features
 
 
 def evaluate_v1(data: list[dict], pays: dict, start: date, end: date,
                 feature_builder=build_v1_features, feature_columns=None,
-                model_label="v1") -> tuple[list[dict], list[dict]]:
+                model_label="v1", history_policy="baseline",
+                min_race_first_prize: float | None = None) -> tuple[list[dict], list[dict]]:
     try:
         import lightgbm as lgb
         import pandas as pd
     except ImportError as exc:
         raise SystemExit("v1にはLightGBMが必要です。.venv/bin/python -m src.backtest ... を使用してください。") from exc
     feature_columns = feature_columns or V1_FEATURES
-    feature_rows = feature_builder(data)
-    trainable = [row for row in feature_rows if row["date"] < start]
-    evaluation = [row for row in feature_rows if start <= row["date"] < end]
+    started = time.perf_counter()
+    eligible_target_ids = eligible_target_race_ids(data, min_race_first_prize)
+    if history_policy == "baseline" and os.environ.get("PHASE5_USE_CACHE") == "1" and model_label in {"E", "F", "CA", "CB"}:
+        cached_result = evaluate_cached_dataframe(data, pays, start, end, feature_columns, model_label,
+                                                  {race_id(row) for row in data if start <= row["date"] < end
+                                                   and (eligible_target_ids is None or race_id(row) in eligible_target_ids)},
+                                                  eligible_target_ids)
+        if cached_result is not None:
+            phase5_profile(f"DataFrame cached execution complete: model={model_label}, predictions={len(cached_result[0])}")
+            return cached_result
+    feature_rows = read_feature_cache(len(data), model_label) if os.environ.get("PHASE5_USE_CACHE") == "1" else None
+    if feature_rows is None:
+        feature_rows = feature_builder(data, history_policy=history_policy)
+        if history_policy == "baseline" and os.environ.get("PHASE5_WRITE_CACHE") == "1":
+            write_feature_cache(feature_rows, len(data), model_label)
+    target_ids = {race_id(row) for row in data if start <= row["date"] < end and (eligible_target_ids is None or race_id(row) in eligible_target_ids)}
+    if target_ids:
+        feature_rows = [row for row in feature_rows if row.get("date") < start or row.get("race_id") in target_ids]
+        phase5_profile(f"cached feature selection: rows={len(feature_rows)}, target_races={len(target_ids)}")
+    phase5_profile(f"feature construction finished: {time.perf_counter() - started:.2f}s, rows={len(feature_rows)}, memory={memory_mb():.1f}MB")
+    trainable = [row for row in feature_rows if row["date"] < start and (eligible_target_ids is None or row.get("race_id") in eligible_target_ids)]
+    evaluation = [row for row in feature_rows if start <= row["date"] < end and (eligible_target_ids is None or row.get("race_id") in eligible_target_ids)]
     months = sorted({month_start(row["date"]) for row in evaluation})
     output, importance = [], defaultdict(lambda: {"gain": 0.0, "split": 0.0})
     for month in months:
+        month_started = time.perf_counter()
         train = [row for row in trainable if row["date"] < month]
         test = [row for row in evaluation if month_start(row["date"]) == month]
         if not train or not test or len({row["target"] for row in train}) < 2:
@@ -776,9 +1354,11 @@ def evaluate_v1(data: list[dict], pays: dict, start: date, end: date,
         model = lgb.LGBMClassifier(n_estimators=180, learning_rate=0.04, num_leaves=15, max_depth=5,
                                    min_child_samples=80, reg_lambda=2.0, verbosity=-1, random_state=42)
         model.fit(train_matrix, [row["target"] for row in train])
+        phase5_profile(f"LightGBM training {model_label} {month}: {time.perf_counter() - month_started:.2f}s, train={len(train)}, test={len(test)}, memory={memory_mb():.1f}MB")
         for name, gain, split in zip(original_columns, model.booster_.feature_importance("gain"), model.booster_.feature_importance("split")):
             importance[name]["gain"] += float(gain); importance[name]["split"] += float(split)
         probabilities = model.predict_proba(test_matrix)[:, 1]
+        phase5_profile(f"prediction {model_label} {month}: {time.perf_counter() - month_started:.2f}s")
         grouped = defaultdict(list)
         for row, prob in zip(test, probabilities):
             grouped[row["race_id"]].append((row, float(min(0.999, max(0.001, prob)))))
@@ -793,6 +1373,7 @@ def evaluate_v1(data: list[dict], pays: dict, start: date, end: date,
                                "is_place": int(1 <= row["actual_rank"] <= 3), "ai_vs_favorite": int(row["popularity"] > 1 and rank == 1),
                                "odds": row["odds"], "reason_code": "V1_LIGHTGBM",
                                "prediction_reason": f"LightGBM {model_label}:近走着差・勝ち馬強度・フィールド強度・基礎能力"})
+    phase5_profile(f"metrics/output rows prepared: {time.perf_counter() - started:.2f}s, predictions={len(output)}, memory={memory_mb():.1f}MB")
     return output, [{"feature": name, **values} for name, values in sorted(importance.items(), key=lambda item: item[1]["gain"], reverse=True)]
 
 
@@ -801,7 +1382,11 @@ def evaluate_v2(data: list[dict], pays: dict, start: date, end: date) -> tuple[l
                        feature_columns=V2_FEATURES, model_label="v2")
 
 
-def evaluate_stage(data: list[dict], pays: dict, start: date, end: date, stage: str):
+def evaluate_stage(data: list[dict], pays: dict, start: date, end: date, stage: str, history_policy="baseline",
+                  min_race_first_prize: float | None = None):
+    if stage in REBUILD_POLICY_FEATURES:
+        return evaluate_v1(data, pays, start, end, feature_columns=REBUILD_POLICY_FEATURES[stage], model_label=stage,
+                           history_policy=history_policy, min_race_first_prize=min_race_first_prize)
     columns = V1_FEATURES
     if stage == "B":
         columns = V1_FEATURES + RACE_CLASS_FEATURES
@@ -811,7 +1396,17 @@ def evaluate_stage(data: list[dict], pays: dict, start: date, end: date, stage: 
         columns = PRIZE_V2_FEATURES + RACE_CONDITION_FEATURES + PRIZE_FEATURES
     elif stage == "E":
         columns = PHASE4_FEATURES_E + RACE_CONDITION_FEATURES + PRIZE_FEATURES
-    return evaluate_v1(data, pays, start, end, feature_columns=columns, model_label=stage)
+    elif stage == "F":
+        columns = PHASE5_FEATURES + RACE_CONDITION_FEATURES + PRIZE_FEATURES
+    elif stage == "G":
+        columns = PHASE5_FEATURES + PACE_BIAS_V2_FEATURES + RACE_CONDITION_FEATURES + PRIZE_FEATURES
+    elif stage == "CA":
+        columns = CLEANUP_A_FEATURES
+    elif stage == "CB":
+        columns = CLEANUP_B_FEATURES
+    cache_label = stage if history_policy == "baseline" else f"{stage}_{history_policy}"
+    return evaluate_v1(data, pays, start, end, feature_columns=columns, model_label=cache_label,
+                       history_policy=history_policy, min_race_first_prize=min_race_first_prize)
 
 
 def betting(rows: list[dict], predicate=lambda row: row["prediction_rank"] == 1) -> dict:
@@ -981,6 +1576,7 @@ def write_prize_validation(data: list[dict], output: Path) -> None:
 
 
 def write_report(rows: list[dict], output: Path, metadata: dict, feature_importance: list[dict] | None = None) -> None:
+    report_started = time.perf_counter()
     rows = [{**row, "date": row["date"].isoformat() if isinstance(row.get("date"), date) else row["date"]} for row in rows]
     output.mkdir(parents=True, exist_ok=True)
     write_csv(output / "predictions.csv", rows)
@@ -1053,6 +1649,7 @@ def write_report(rows: list[dict], output: Path, metadata: dict, feature_importa
     if plt and rows:
         calibration_plot(output / "calibration.png", calibration_rows)
         profit_plot(output / "cumulative_profit.png", rows)
+    phase5_profile(f"CSV/report output finished: {time.perf_counter() - report_started:.2f}s, output={output}, memory={memory_mb():.1f}MB")
 
 
 def write_summary_md(path: Path, summary: dict) -> None:
@@ -1172,8 +1769,28 @@ def main() -> None:
     parser.add_argument("--months", type=int, default=12, help="評価月数。24などに拡張可能")
     parser.add_argument("--start-month", help="評価開始月 YYYY-MM")
     parser.add_argument("--end-month", help="評価終了月 YYYY-MM")
-    parser.add_argument("--model", choices=("v0", "v1", "v2", "A", "B", "C", "D", "E", "stages", "all"), default="v0")
+    parser.add_argument("--max-eval-races", type=int, help="評価対象レース数。過去履歴は維持")
+    parser.add_argument("--prediction-cache-only", action="store_true", help="Prediction Cacheだけを読み込み、学習・DBロードを省略")
+    parser.add_argument("--model", choices=("v0", "v1", "v2", "A", "B", "C", "D", "E", "F", "G", "H", "I", "CA", "CB", "stages", "all"), default="v0")
+    parser.add_argument("--min-race-first-prize", type=float, help="対象レースの最低1着本賞金。例: 8000000 or 11400000")
     args = parser.parse_args()
+    if args.prediction_cache_only:
+        import pandas as pd
+        base_categories = ["racecourse", "surface", "grade_code", "condition_code", "last1_class", "last2_class", "last3_class"]
+        cache_feature_map = {
+            "E": PHASE4_FEATURES_E + RACE_CONDITION_FEATURES + PRIZE_FEATURES,
+            "F": PHASE5_FEATURES + RACE_CONDITION_FEATURES + PRIZE_FEATURES,
+            **REBUILD_POLICY_FEATURES,
+        }
+        cache_features = cache_feature_map.get(args.model, [])
+        cache_key = model_cache_key(args.model, cache_features, date.fromisoformat(args.start_month + "-01"), date.fromisoformat(args.end_month + "-01"))
+        path = prediction_cache_path(args.model, cache_key)
+        if not path.exists():
+            raise SystemExit(f"Prediction Cache MISS: {path}")
+        frame = pd.read_parquet(path)
+        phase5_profile(f"Prediction Cache HIT: rows={len(frame)}, columns={len(frame.columns)}")
+        print(json.dumps({"cache": str(path), "rows": len(frame), "analysis_ready": True}, ensure_ascii=False))
+        return
     data, pays, source = load_data(args.db)
     data = [row for row in data if text(row.get("idJyoCD")).zfill(2) in JYO_NAMES]
     dates = [row["date"] for row in data if valid_result(row)]
@@ -1183,16 +1800,16 @@ def main() -> None:
     start = date.fromisoformat(args.start_month + "-01") if args.start_month else shift_month(end, -args.months)
     if start >= end:
         raise SystemExit("評価期間が不正です。start-month は end-month より前にしてください。")
+    data = limit_evaluation_races(data, start, end, args.max_eval_races)
     metadata = {"start_month": start.strftime("%Y-%m"), "end_month_exclusive": end.strftime("%Y-%m"),
                 "months": args.months, "source_rows": len(data), "payout_rows": source["pay_rows"],
                 "walk_forward": "各評価月の月初より前に確定したレースだけで特徴量生成・学習", "model": args.model}
     base_categories = ["racecourse", "surface", "grade_code", "condition_code", "last1_class", "last2_class", "last3_class"]
     feature_lists = {
         "A": V1_FEATURES + base_categories,
-        "B": V1_FEATURES + RACE_CLASS_FEATURES + base_categories,
-        "C": V1_FEATURES + RACE_CONDITION_FEATURES + PRIZE_FEATURES + base_categories,
-        "D": PRIZE_V2_FEATURES + RACE_CONDITION_FEATURES + PRIZE_FEATURES + base_categories,
-        "E": PHASE4_FEATURES_E + RACE_CONDITION_FEATURES + PRIZE_FEATURES + base_categories,
+        **{stage: REBUILD_POLICY_FEATURES[stage] for stage in REBUILD_POLICY_FEATURES},
+        "CA": CLEANUP_A_FEATURES,
+        "CB": CLEANUP_B_FEATURES,
     }
     for model_name, model_features in feature_lists.items():
         write_feature_list(ROOT / "reports" / f"features_model_{model_name.lower()}.txt", model_features)
@@ -1209,7 +1826,7 @@ def main() -> None:
         results["v0"] = len(rows)
         model_rows["v0"] = rows
     if args.model in ("v1", "all"):
-        rows, importance = evaluate_v1(data, pays, start, end)
+        rows, importance = evaluate_v1(data, pays, start, end, min_race_first_prize=args.min_race_first_prize)
         v1_out = args.out if args.model == "v1" else ROOT / "reports" / "backtest_v1"
         write_report(rows, v1_out, {**metadata, "model": "v1 LightGBM recent performance and opponent strength",
                         "features": feature_lists["A"],
@@ -1228,13 +1845,14 @@ def main() -> None:
         results["v2"] = len(rows)
         model_rows["v2"] = rows
     if args.model in ("stages", "all"):
-        for stage in ("A", "B", "C", "D", "E"):
+        for stage in ("A", "B", "C", "D", "E", "F", "G", "H", "I"):
             stage_rows, stage_importance = evaluate_stage(data, pays, start, end, stage)
             write_report(stage_rows, ROOT / "reports" / f"backtest_stage_{stage}",
                          {**metadata, "model": f"stage {stage}"}, stage_importance)
             model_rows[stage] = stage_rows
-    if args.model in ("A", "B", "C", "D", "E"):
-        rows, importance = evaluate_stage(data, pays, start, end, args.model)
+    if args.model in ("A", "B", "C", "D", "E", "F", "G", "H", "I", "CA", "CB"):
+        rows, importance = evaluate_stage(data, pays, start, end, args.model,
+                          min_race_first_prize=args.min_race_first_prize)
         stage_out = args.out
         write_report(rows, stage_out, {**metadata, "model": f"stage {args.model}",
                                        "features": feature_lists[args.model],

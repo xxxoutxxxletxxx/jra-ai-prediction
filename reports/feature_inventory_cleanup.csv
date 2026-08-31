@@ -1,0 +1,197 @@
+feature,feature_group,used_model_d,used_model_e,used_model_f,used_model_g,meaning,level,temporal_safe,constant_rate,missing_rate,unknown_rate,duplicate_candidate,new_policy,replacement_feature,reason
+as_of_date,BASE,0,0,0,0,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+race_id,BASE,0,0,0,0,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+horse_id,BASE,0,0,0,0,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+target,RESULT,0,0,0,0,既存feature定義を参照,RESULT,NO,UNKNOWN,UNKNOWN,UNKNOWN,NO,LEAKAGE_PROHIBITED,,cleanup inventory: source cache schema and model lists
+date,BASE,0,0,0,0,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+racecourse,COURSE,1,1,1,1,既存feature定義を参照,RACE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,AB_TEST,,cleanup inventory: source cache schema and model lists
+surface,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+distance,BASE,0,0,0,0,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+class_code,RACE_STRENGTH,0,0,0,0,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+grade_code,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+condition_code,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+race_class_label,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+race_class_score,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+race_sex_condition,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+race_age_condition,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+is_filly_mare_only,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+is_2yo_only,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+is_3yo_only,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+race_first_prize,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+race_second_prize,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+race_third_prize,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+race_total_top5_prize,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+race_first_prize_log,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+race_total_top5_prize_log,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+first_corner_position,POSITION,0,0,0,0,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+race_position_bias,POSITION,0,0,0,0,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,INTERMEDIATE_ONLY,,cleanup inventory: source cache schema and model lists
+course_first_corner_distance_m,COURSE,0,0,1,1,既存feature定義を参照,RACE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,TRANSFORM_TO_HORSE_FIT,horse-level fit,cleanup inventory: source cache schema and model lists
+course_elevation_difference_m,COURSE,0,0,1,1,既存feature定義を参照,RACE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,TRANSFORM_TO_HORSE_FIT,horse-level fit,cleanup inventory: source cache schema and model lists
+course_final_straight_m,COURSE,0,0,1,1,既存feature定義を参照,RACE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,TRANSFORM_TO_HORSE_FIT,horse-level fit,cleanup inventory: source cache schema and model lists
+course_start_uphill,COURSE,0,0,1,1,既存feature定義を参照,RACE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,TRANSFORM_TO_HORSE_FIT,horse-level fit,cleanup inventory: source cache schema and model lists
+course_start_downhill,COURSE,0,0,1,1,既存feature定義を参照,RACE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,TRANSFORM_TO_HORSE_FIT,horse-level fit,cleanup inventory: source cache schema and model lists
+course_final_uphill,COURSE,0,0,1,1,既存feature定義を参照,RACE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,TRANSFORM_TO_HORSE_FIT,horse-level fit,cleanup inventory: source cache schema and model lists
+course_final_downhill,COURSE,0,0,1,1,既存feature定義を参照,RACE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,TRANSFORM_TO_HORSE_FIT,horse-level fit,cleanup inventory: source cache schema and model lists
+course_final_steep_hill,COURSE,0,0,1,1,既存feature定義を参照,RACE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,TRANSFORM_TO_HORSE_FIT,horse-level fit,cleanup inventory: source cache schema and model lists
+course_rolling_terrain,COURSE,0,0,1,1,既存feature定義を参照,RACE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,TRANSFORM_TO_HORSE_FIT,horse-level fit,cleanup inventory: source cache schema and model lists
+course_mostly_flat,COURSE,0,0,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+course_gentle_corners,COURSE,0,0,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+course_tight_corners,COURSE,0,0,1,1,既存feature定義を参照,RACE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,TRANSFORM_TO_HORSE_FIT,horse-level fit,cleanup inventory: source cache schema and model lists
+course_up_down_transition_sentence_count,COURSE,0,0,1,1,既存feature定義を参照,RACE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,TRANSFORM_TO_HORSE_FIT,horse-level fit,cleanup inventory: source cache schema and model lists
+course_geometry_fit,COURSE,0,0,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+horse_expected_position,POSITION,0,0,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,YES,NORMALIZE_0_1,,cleanup inventory: source cache schema and model lists
+position_stability,POSITION,0,0,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,YES,NORMALIZE_0_1,,cleanup inventory: source cache schema and model lists
+frontness_mean,BASE,0,0,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,YES,NORMALIZE_0_1,,cleanup inventory: source cache schema and model lists
+frontness_std,BASE,0,0,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,YES,NORMALIZE_0_1,,cleanup inventory: source cache schema and model lists
+gate_position_pct,POSITION,0,0,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+gate_x_expected_position,POSITION,0,0,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+front_density,BASE,0,0,1,1,既存feature定義を参照,RACE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,TRANSFORM_TO_HORSE_FIT,horse-level fit,cleanup inventory: source cache schema and model lists
+forward_density,BASE,0,0,1,1,既存feature定義を参照,RACE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,TRANSFORM_TO_HORSE_FIT,horse-level fit,cleanup inventory: source cache schema and model lists
+mid_density,BASE,0,0,1,1,既存feature定義を参照,RACE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,TRANSFORM_TO_HORSE_FIT,horse-level fit,cleanup inventory: source cache schema and model lists
+rear_density,BASE,0,0,1,1,既存feature定義を参照,RACE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,TRANSFORM_TO_HORSE_FIT,horse-level fit,cleanup inventory: source cache schema and model lists
+expected_front_count,BASE,0,0,1,1,既存feature定義を参照,RACE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,TRANSFORM_TO_HORSE_FIT,horse-level fit,cleanup inventory: source cache schema and model lists
+expected_position_mean,POSITION,0,0,1,1,既存feature定義を参照,RACE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,TRANSFORM_TO_HORSE_FIT,horse-level fit,cleanup inventory: source cache schema and model lists
+expected_position_std,POSITION,0,0,1,1,既存feature定義を参照,RACE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,TRANSFORM_TO_HORSE_FIT,horse-level fit,cleanup inventory: source cache schema and model lists
+popularity,MARKET,0,0,0,0,既存feature定義を参照,MARKET,ANALYSIS_ONLY,UNKNOWN,UNKNOWN,UNKNOWN,NO,ANALYSIS_ONLY,,cleanup inventory: source cache schema and model lists
+odds,MARKET,0,0,0,0,既存feature定義を参照,MARKET,ANALYSIS_ONLY,UNKNOWN,UNKNOWN,UNKNOWN,NO,ANALYSIS_ONLY,,cleanup inventory: source cache schema and model lists
+actual_rank,RESULT,0,0,0,0,既存feature定義を参照,RESULT,NO,UNKNOWN,UNKNOWN,UNKNOWN,NO,LEAKAGE_PROHIBITED,,cleanup inventory: source cache schema and model lists
+umaban,BASE,0,0,0,0,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+horse_name,BASE,0,0,0,0,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+field_size,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+career_races,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+career_wins,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+career_win_rate,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+career_places,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+career_place_rate,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,REMOVE_FROM_MODEL,,cleanup inventory: source cache schema and model lists
+recent3_win_rate,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+recent3_place_rate,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+recent5_win_rate,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+recent5_place_rate,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,REMOVE_FROM_MODEL,,cleanup inventory: source cache schema and model lists
+races_last_180d,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+races_last_365d,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_finish,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_finish,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_finish,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_margin,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_margin,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_margin,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+best_margin_last3,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+mean_margin_last3,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+weighted_margin_last3,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_winner_strength,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_winner_strength,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_winner_strength,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_field_strength,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_field_strength,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_field_strength,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+margin_x_winner_strength,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+margin_x_field_strength,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_distance,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_distance,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_distance,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_class,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_class,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_class,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+current_distance,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_winner_strength_v2,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_winner_strength_v2,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_winner_strength_v2,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_field_strength_v2,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_field_strength_v2,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_field_strength_v2,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_margin_x_winner_strength_v2,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_margin_x_winner_strength_v2,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_margin_x_winner_strength_v2,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+max_winner_strength_last3,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+mean_winner_strength_last3,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+weighted_winner_strength_last3,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+best_strong_opponent_performance_last3,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_field_max_strength_v2,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_field_max_strength_v2,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_field_max_strength_v2,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_field_top3_mean_strength_v2,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_field_top3_mean_strength_v2,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_field_top3_mean_strength_v2,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+opponent_history_missing_last3,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_winner_max_prize_before_target,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_winner_max_prize_before_target,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_winner_max_prize_before_target,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_winner_mean_prize_before_target,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_winner_mean_prize_before_target,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_winner_mean_prize_before_target,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_winner_max_race_class_before_target,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_winner_max_race_class_before_target,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_winner_max_race_class_before_target,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_winner_best_win_class_before_target,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_winner_best_win_class_before_target,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_winner_best_win_class_before_target,OPPONENT_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_raw_performance,BASE,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_raw_performance,BASE,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_raw_performance,BASE,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_adjusted_performance,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_adjusted_performance,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_adjusted_performance,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_position_advantage,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_position_advantage,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_position_advantage,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_race_position_bias,POSITION,0,0,0,0,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_race_position_bias,POSITION,0,0,0,0,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_race_position_bias,POSITION,0,0,0,0,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+best_adjusted_performance_last3,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+mean_adjusted_performance_last3,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+weighted_adjusted_performance_last3,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+hidden_strength_last1,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+hidden_strength_last2,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+hidden_strength_last3,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+max_hidden_strength_last3,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+max_strong_against_bias_last3,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+strong_against_bias_last1,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+strong_against_bias_last2,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+strong_against_bias_last3,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+race_position_bias_last1,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,INTERMEDIATE_ONLY,,cleanup inventory: source cache schema and model lists
+race_position_bias_last2,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,INTERMEDIATE_ONLY,,cleanup inventory: source cache schema and model lists
+race_position_bias_last3,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,INTERMEDIATE_ONLY,,cleanup inventory: source cache schema and model lists
+setup_improvement,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+hidden_strength_x_race_strength,POSITION,0,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_race_first_prize,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_race_first_prize,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_race_first_prize,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_race_first_prize_log,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_race_first_prize_log,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_race_first_prize_log,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+max_race_prize_last3,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+mean_race_prize_last3,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+weighted_race_prize_last3,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+prize_change_from_last1,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+prize_change_from_last3_mean,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+prize_ratio_vs_last1,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+prize_ratio_vs_last3_mean,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_margin_x_prize_strength,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_margin_x_prize_strength,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_margin_x_prize_strength,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+current_race_class_score,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_race_class_score,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_race_class_score,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_race_class_score,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+max_race_class_last3,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+mean_race_class_last3,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+weighted_race_class_last3,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_margin_x_race_class,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_margin_x_race_class,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_margin_x_race_class,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_race_class,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_race_class,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_race_class,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_sex_condition,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_sex_condition,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_sex_condition,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_age_condition,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_age_condition,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_age_condition,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last1_is_filly_mare_only,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last2_is_filly_mare_only,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+last3_is_filly_mare_only,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+race_class_change,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+female_only_to_open,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+open_to_female_only,BASE,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
+age_condition_change,RACE_STRENGTH,1,1,1,1,既存feature定義を参照,HORSE,YES,UNKNOWN,UNKNOWN,UNKNOWN,NO,KEEP,,cleanup inventory: source cache schema and model lists
