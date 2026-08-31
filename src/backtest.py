@@ -121,7 +121,28 @@ for _feature in ("racecourse", "front_density", "forward_density", "mid_density"
     if _feature in CLEANUP_A_FEATURES:
         CLEANUP_A_FEATURES.remove(_feature)
     CLEANUP_B_FEATURES = [feature for feature in CLEANUP_A_FEATURES if feature not in {"last1_finish", "last2_finish", "last3_finish"}]
-PHASE5_CACHE_VERSION = "phase5-feature-cache-v1"
+# raw margin/raw_performance duplicate adjusted_performance (corr ~0.999); margin interactions re-inject the same signal.
+DEDUP_MARGIN_FEATURES = {
+    "last1_margin", "last2_margin", "last3_margin", "best_margin_last3", "mean_margin_last3", "weighted_margin_last3",
+    "last1_raw_performance", "last2_raw_performance", "last3_raw_performance",
+    "margin_x_winner_strength", "margin_x_field_strength",
+    "last1_margin_x_winner_strength_v2", "last2_margin_x_winner_strength_v2", "last3_margin_x_winner_strength_v2",
+    "last1_margin_x_prize_strength", "last2_margin_x_prize_strength", "last3_margin_x_prize_strength",
+}
+CLEANUP_C_FEATURES = [feature for feature in CLEANUP_B_FEATURES if feature not in DEDUP_MARGIN_FEATURES]
+# career win rate/race count dropped per design review: prize-based class score already carries experience signal.
+CAREER_COUNT_FEATURES = {"career_win_rate", "career_races"}
+CLEANUP_D_FEATURES = [feature for feature in CLEANUP_C_FEATURES if feature not in CAREER_COUNT_FEATURES]
+# winning margin (how decisively last1-3 was won) and class-tier-banded recent form, on top of CLEANUP_D.
+WINNING_MARGIN_FEATURES = ["last1_winning_margin", "last2_winning_margin", "last3_winning_margin"]
+CLASS_MATCHED_FORM_FEATURES = [
+    "last1_class_matched_adjusted_performance", "last2_class_matched_adjusted_performance",
+    "last3_class_matched_adjusted_performance", "mean_class_matched_adjusted_performance_last3",
+    "class_matched_sample_count",
+]
+CLEANUP_E_FEATURES = CLEANUP_D_FEATURES + WINNING_MARGIN_FEATURES + CLASS_MATCHED_FORM_FEATURES
+# v2: adds winning_margin/class_matched_* columns; forces cache regeneration.
+PHASE5_CACHE_VERSION = "phase5-feature-cache-v2"
 PHASE6_CACHE_VERSION = "phase6-feature-cache-v1"
 PACE_BIAS_V2_FEATURES = [
     "strong_against_bias_v2_last1", "strong_against_bias_v2_last2",
@@ -168,12 +189,12 @@ FEATURE_STATUS = {
     **{feature: "KEEP" for feature in FIT_FEATURES},
     **{feature: "REVIEW" for feature in FIT_SAMPLE_FEATURES},
 }
+# categorical class_label/last1-3_race_class dropped: prize-based class_score is sufficient (see race_conditions()).
 RACE_CLASS_FEATURES = [
-    "race_class_label", "race_class_score", "current_race_class_score", "last1_race_class_score", "last2_race_class_score", "last3_race_class_score",
+    "race_class_score", "current_race_class_score", "last1_race_class_score", "last2_race_class_score", "last3_race_class_score",
     "max_race_class_last3", "mean_race_class_last3", "weighted_race_class_last3",
     "class_change_last1", "class_change_last3_mean",
     "last1_margin_x_race_class", "last2_margin_x_race_class", "last3_margin_x_race_class",
-    "last1_race_class", "last2_race_class", "last3_race_class",
 ]
 RACE_CONDITION_FEATURES = RACE_CLASS_FEATURES + [
     "race_sex_condition", "race_age_condition", "is_filly_mare_only", "is_2yo_only", "is_3yo_only",
@@ -304,8 +325,6 @@ def evaluate_cached_dataframe(data: list[dict], pays: dict, start: date, end: da
     base_columns = ["race_id", "horse_id", "horse_name", "date", "target", "actual_rank", "umaban", "popularity", "odds",
                     "racecourse", "surface", "distance", "field_size", "win_payout", "place_payout"]
     categories = [column for column in ["racecourse", "surface", "grade_code", "condition_code", "last1_class", "last2_class", "last3_class"] if column in feature_columns]
-    if "race_class_label" in feature_columns:
-        categories += ["race_class_label", "last1_race_class", "last2_race_class", "last3_race_class"]
     if "race_sex_condition" in feature_columns:
         categories += ["race_sex_condition", "race_age_condition", "last1_sex_condition", "last2_sex_condition", "last3_sex_condition",
                        "last1_age_condition", "last2_age_condition", "last3_age_condition"]
@@ -909,6 +928,9 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
             field_values.append(current["wins"] / current["races"] if current["races"] else 0.0)
         field_strength = mean(field_values) if field_values else 0.0
         winner = next((row for row in horses if integer(row.get("KakuteiJyuni")) == 1), None)
+        runner_up = next((row for row in horses if integer(row.get("KakuteiJyuni")) == 2), None)
+        # how far the winner beat the runner-up by; None when no runner-up is resolvable.
+        winning_margin_value = margin_value(runner_up) if runner_up is not None else None
         winner_stat = prior_stats.get(text(winner.get("KettoNum")), {"races": 0, "wins": 0, "places": 0}) if winner else {"races": 0, "wins": 0, "places": 0}
         winner_strength = winner_stat["wins"] / winner_stat["races"] if winner_stat["races"] else 0.0
         expected_positions = {text(item.get("KettoNum")): mean([entry.get("frontness", 0.5) for entry in histories[text(item.get("KettoNum"))]])
@@ -930,6 +952,23 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
             past = list(histories[horse])[::-1]
             recent3 = past[:3]
             recent5 = past[:5]
+            # class-tier-banded recent form: young-only conditions keep plain recency (trajectory is too
+            # volatile, e.g. newcomer straight into a graded race); aged/open conditions match within +/-1
+            # legacy class tier, and a horse's first aged-company start also pulls in any prior graded runs.
+            current_legacy_class = current_condition["legacy_class_score"]
+            current_age = current_condition["age"]
+            young_limited = current_age in {"TWO_YEAR_OLD_ONLY", "THREE_YEAR_OLD_ONLY"}
+            if young_limited:
+                class_matched_recent3 = recent3
+            else:
+                band_matched = [item for item in past if abs(item["condition"]["legacy_class_score"] - current_legacy_class) <= 1]
+                first_time_aged = current_age == "THREE_AND_OLDER" and bool(past) and all(item["condition"]["age"] in {"TWO_YEAR_OLD_ONLY", "THREE_YEAR_OLD_ONLY"} for item in past)
+                if first_time_aged:
+                    stakes_runs = [item for item in past if item["condition"]["legacy_class_score"] >= 5]
+                    combined = {item["source_race_id"]: item for item in band_matched + stakes_runs}
+                    band_matched = sorted(combined.values(), key=lambda item: item["date"], reverse=True)
+                class_matched_recent3 = band_matched[:3] if band_matched else recent3
+            class_matched_adjusted = [item.get("adjusted_performance", 0.0) for item in class_matched_recent3]
             raw_recent = [item.get("raw_performance", performance_from_result(item)[0]) for item in recent3]
             adjusted_recent = [item.get("adjusted_performance", performance_from_result(item)[1]) for item in recent3]
             hidden_recent = [adjusted - raw for adjusted, raw in zip(adjusted_recent, raw_recent)]
@@ -998,7 +1037,15 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                 "surface": surface(row), "distance": integer(row.get("race_Kyori") or row.get("Kyori")),
                 "class_code": class_code(row), "grade_code": text(row.get("race_GradeCD")) or "unknown",
                 "condition_code": text(row.get("race_JyokenInfoSyubetuCD")) or "unknown",
-                "race_class_label": current_condition["class_label"], "race_class_score": current_condition["class_score"],
+                "race_class_score": current_condition["class_score"],
+                "last1_winning_margin": (recent3[0].get("winning_margin") or 0.0) if len(recent3) > 0 else 0.0,
+                "last2_winning_margin": (recent3[1].get("winning_margin") or 0.0) if len(recent3) > 1 else 0.0,
+                "last3_winning_margin": (recent3[2].get("winning_margin") or 0.0) if len(recent3) > 2 else 0.0,
+                "last1_class_matched_adjusted_performance": class_matched_adjusted[0] if len(class_matched_adjusted) > 0 else 0.0,
+                "last2_class_matched_adjusted_performance": class_matched_adjusted[1] if len(class_matched_adjusted) > 1 else 0.0,
+                "last3_class_matched_adjusted_performance": class_matched_adjusted[2] if len(class_matched_adjusted) > 2 else 0.0,
+                "mean_class_matched_adjusted_performance_last3": mean(class_matched_adjusted) if class_matched_adjusted else 0.0,
+                "class_matched_sample_count": len(class_matched_recent3),
                 "race_sex_condition": current_condition["sex"], "race_age_condition": current_condition["age"],
                 "is_filly_mare_only": current_condition["filly_only"],
                 "is_2yo_only": int(current_condition["age"] == "TWO_YEAR_OLD_ONLY"),
@@ -1202,9 +1249,6 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                 "last1_margin_x_race_class": (recent_margins[0] if len(recent_margins) > 0 else 0) * (recent_scores[0] if len(recent_scores) > 0 else 0),
                 "last2_margin_x_race_class": (recent_margins[1] if len(recent_margins) > 1 else 0) * (recent_scores[1] if len(recent_scores) > 1 else 0),
                 "last3_margin_x_race_class": (recent_margins[2] if len(recent_margins) > 2 else 0) * (recent_scores[2] if len(recent_scores) > 2 else 0),
-                "last1_race_class": recent_conditions[0].get("class_label", "UNKNOWN") if len(recent_conditions) > 0 else "UNKNOWN",
-                "last2_race_class": recent_conditions[1].get("class_label", "UNKNOWN") if len(recent_conditions) > 1 else "UNKNOWN",
-                "last3_race_class": recent_conditions[2].get("class_label", "UNKNOWN") if len(recent_conditions) > 2 else "UNKNOWN",
                 "last1_sex_condition": recent_conditions[0].get("sex", "UNKNOWN") if len(recent_conditions) > 0 else "UNKNOWN",
                 "last2_sex_condition": recent_conditions[1].get("sex", "UNKNOWN") if len(recent_conditions) > 1 else "UNKNOWN",
                 "last3_sex_condition": recent_conditions[2].get("sex", "UNKNOWN") if len(recent_conditions) > 2 else "UNKNOWN",
@@ -1234,8 +1278,10 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                 "opponent_delta": field_strength - smoothed_strength(stats[horse]),
             })
             previous_date = horse_history[-1]["date"] if horse_history else None
+            is_winner = winner is not None and horse == text(winner.get("KettoNum"))
             pending_updates.append((horse, {"date": date_value, "finish": integer(row.get("KakuteiJyuni")), "margin": margin_value(row),
                                      "source_race_id": race_id(row),
+                                     "winning_margin": winning_margin_value if is_winner else 0.0,
                                      "history_allowed": history_policy_allows(row, history_policy),
                                      "win": int(integer(row.get("KakuteiJyuni")) == 1), "place": int(1 <= integer(row.get("KakuteiJyuni")) <= 3),
                                      "winner_strength": winner_strength, "field_strength": field_strength,
@@ -1334,8 +1380,6 @@ def evaluate_v1(data: list[dict], pays: dict, start: date, end: date,
         if not train or not test or len({row["target"] for row in train}) < 2:
             continue
         categorical = ["racecourse", "surface", "grade_code", "condition_code", "last1_class", "last2_class", "last3_class"]
-        if "race_class_label" in feature_columns:
-            categorical += ["race_class_label", "last1_race_class", "last2_race_class", "last3_race_class"]
         if "race_sex_condition" in feature_columns:
             categorical += ["race_sex_condition", "race_age_condition", "last1_sex_condition", "last2_sex_condition", "last3_sex_condition",
                             "last1_age_condition", "last2_age_condition", "last3_age_condition"]
