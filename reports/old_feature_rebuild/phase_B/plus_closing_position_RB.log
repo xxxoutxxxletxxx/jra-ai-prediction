@@ -1,0 +1,39 @@
+[Phase5] DB load started
+[Phase5] course features loaded: 0.00s, rows=112, memory=4529.5MB
+[Phase5] course feature join: 15.29s, rows=1127273, memory=6018.8MB
+[Phase5] DB load finished: 24.56s, se_rows=1127273, ra_rows=91603, memory=6018.8MB
+[Phase5] history construction started: rows=717096, memory=7101.4MB
+[Phase5] history races processed: 5000/50515, elapsed=67.71s, memory=7101.4MB
+[Phase5] history races processed: 10000/50515, elapsed=143.06s, memory=7101.4MB
+[Phase5] history races processed: 15000/50515, elapsed=230.14s, memory=7101.4MB
+[Phase5] history races processed: 20000/50515, elapsed=345.31s, memory=7101.4MB
+[Phase5] history races processed: 25000/50515, elapsed=471.26s, memory=7101.4MB
+[Phase5] history races processed: 30000/50515, elapsed=619.62s, memory=7101.4MB
+[Phase5] history races processed: 35000/50515, elapsed=787.83s, memory=7101.4MB
+[Phase5] history races processed: 40000/50515, elapsed=979.04s, memory=7101.4MB
+[Phase5] history races processed: 45000/50515, elapsed=1189.90s, memory=7101.4MB
+[Phase5] history races processed: 50000/50515, elapsed=1406.47s, memory=7101.4MB
+[Phase5] history built: 1439.66s, feature_rows=706014, races=50515, memory=7101.4MB
+[Phase5] cached feature selection: rows=706014, target_races=504
+[Phase5] feature construction finished: 1469.70s, rows=706014, memory=7101.4MB
+[Phase5] LightGBM training RB 2026-07-01: 186.81s, train=700433, test=3721, memory=7101.4MB
+[Phase5] prediction RB 2026-07-01: 186.83s
+[Phase5] LightGBM training RB 2026-08-01: 194.60s, train=700433, test=1860, memory=7555.8MB
+[Phase5] prediction RB 2026-08-01: 194.62s
+[Phase5] metrics/output rows prepared: 1857.98s, predictions=5581, memory=7555.8MB
+[Phase5] CSV/report output finished: 1.08s, output=reports/old_feature_rebuild/phase_B/plus_closing_position_RB, memory=7896.6MB
+{
+  "output": "reports/old_feature_rebuild/phase_B/plus_closing_position_RB",
+  "predictions": {
+    "RB": 5581
+  },
+  "metadata": {
+    "start_month": "2026-07",
+    "end_month_exclusive": "2026-09",
+    "months": 12,
+    "source_rows": 717096,
+    "payout_rows": 50515,
+    "walk_forward": "各評価月の月初より前に確定したレースだけで特徴量生成・学習",
+    "model": "RB"
+  }
+}

@@ -421,6 +421,21 @@ def first_corner_position(row: dict) -> int:
     return value if value > 0 else 0
 
 
+def last_corner_position(row: dict) -> int:
+    """直線に最も近い、取得可能な最終コーナー通過順。過去走の集計にのみ使用する。"""
+    for column in ("Jyuni4c", "Jyuni3c", "Jyuni2c", "Jyuni1c"):
+        value = integer(row.get(column))
+        if value > 0:
+            return value
+    return 0
+
+
+def closing_time_value(row: dict) -> float | None:
+    """過去走の上がり3F(HaronTimeL3)。対象レース自身の値は特徴量に使用しない。"""
+    value = number(row.get("HaronTimeL3"), default=float("nan"))
+    return None if math.isnan(value) or value <= 0 else value
+
+
 def geometry_value(row: dict, name: str, default: float = 0.0) -> float:
     return number(row.get(f"course_{name}"), default)
 
@@ -641,6 +656,33 @@ def distance_band(distance: int) -> str:
     if distance <= 2400:
         return "2100～2400m"
     return "2500m～"
+
+
+def gate_band(gate: int, field_size: int) -> str:
+    """枠適性用の内/中/外バンド。過去走・対象走とも同じ関数で計算する。"""
+    if not gate or not field_size:
+        return "UNKNOWN"
+    third = field_size / 3.0
+    if gate <= third:
+        return "内"
+    if gate <= 2 * third:
+        return "中"
+    return "外"
+
+
+def rest_band(days: int | float | None) -> str:
+    """休養間隔適性用のバンド。前走からの日数(取得不能ならUNKNOWN)。"""
+    if days is None:
+        return "UNKNOWN"
+    if days <= 14:
+        return "0-14"
+    if days <= 30:
+        return "15-30"
+    if days <= 60:
+        return "31-60"
+    if days <= 90:
+        return "61-90"
+    return "91+"
 
 
 def bin_label(probability: float) -> str:
@@ -864,9 +906,14 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
     race_dates = defaultdict(deque)
     stats = defaultdict(lambda: {"races": 0, "wins": 0, "places": 0, "max_class": 0, "best_win_class": 0,
                                  "max_prize": 0.0, "mean_prize": 0.0, "prize_count": 0,
-                                 "adjusted_sum": 0.0, "adjusted_count": 0})
+                                 "adjusted_sum": 0.0, "adjusted_count": 0,
+                                 "finish_sum": 0.0, "normalized_finish_sum": 0.0})
     jockey_state = defaultdict(lambda: {"rides": 0, "wins": 0, "top2": 0, "places": 0, "added_sum": 0.0, "recent": deque(maxlen=30)})
     features = []
+    # Aggregation maps for course x gate and bloodline stats (updated after race results are applied)
+    course_gate_stats = defaultdict(lambda: {"races": 0, "wins": 0, "places": 0})
+    sire_stats = defaultdict(lambda: {"races": 0, "wins": 0, "places": 0})
+    damsire_stats = defaultdict(lambda: {"races": 0, "wins": 0, "places": 0})
     races = defaultdict(list)
     for row in ordered:
         races[race_key(row)].append(row)
@@ -896,10 +943,37 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                 stats[horse]["max_prize"] = max(stats[horse]["max_prize"], prize)
                 stats[horse]["mean_prize"] = (stats[horse]["mean_prize"] * stats[horse]["prize_count"] + prize) / (stats[horse]["prize_count"] + 1)
                 stats[horse]["prize_count"] += 1
+                stats[horse]["finish_sum"] += result["finish"]
+                stats[horse]["normalized_finish_sum"] += (result["finish"] - 1) / max(1, result["field_size"] - 1)
                 histories[horse].append(result)
                 if history_trace is not None and horse == history_trace.get("horse_id"):
                     history_trace.setdefault("appended", []).append(result["source_race_id"])
                 race_dates[horse].append(current_date)
+                # post-race updates: update course x gate and bloodline aggregates
+                try:
+                    ckey = (result.get("racecourse"), result.get("surface"), result.get("distance_band"), result.get("gate_band"))
+                    cg = course_gate_stats[ckey]
+                    cg["races"] = cg.get("races", 0) + 1
+                    cg["wins"] = cg.get("wins", 0) + int(result.get("win", 0))
+                    cg["places"] = cg.get("places", 0) + int(result.get("place", 0))
+                except Exception:
+                    pass
+                try:
+                    sid = result.get("sire") or ""
+                    sd = sire_stats[sid]
+                    sd["races"] = sd.get("races", 0) + 1
+                    sd["wins"] = sd.get("wins", 0) + int(result.get("win", 0))
+                    sd["places"] = sd.get("places", 0) + int(result.get("place", 0))
+                except Exception:
+                    pass
+                try:
+                    did = result.get("damsire") or ""
+                    dd = damsire_stats[did]
+                    dd["races"] = dd.get("races", 0) + 1
+                    dd["wins"] = dd.get("wins", 0) + int(result.get("win", 0))
+                    dd["places"] = dd.get("places", 0) + 1 if int(result.get("place", 0)) else dd.get("places", 0)
+                except Exception:
+                    pass
                 cutoff = current_date - timedelta(days=365)
                 while race_dates[horse] and race_dates[horse][0] < cutoff:
                     race_dates[horse].popleft()
@@ -913,8 +987,15 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
         current_total_prize = sum(current_prizes)
         current_geometry = geometry_signature(horses[0])
         positions = [first_corner_position(item) for item in horses]
+        late_positions = [last_corner_position(item) for item in horses]
         field_count = len(horses)
         observed_frontness = [(1.0 - (value - 1) / max(1, field_count - 1)) if value > 0 else 0.5 for value in positions]
+        observed_late_frontness = [(1.0 - (value - 1) / max(1, field_count - 1)) if value > 0 else 0.5 for value in late_positions]
+        closing_times = [closing_time_value(item) for item in horses]
+        valid_closing = sorted({value for value in closing_times if value is not None})
+        closing_rank = {value: index for index, value in enumerate(valid_closing)}
+        observed_closing_speed = [(1.0 - closing_rank[value] / max(1, len(valid_closing) - 1)) if value is not None else 0.5
+                                  for value in closing_times]
         # Target race results must not contribute to any model feature.
         position_bias = 0.0
         prior_ability = {text(item.get("KettoNum")): stats[text(item.get("KettoNum"))]["wins"] / max(1, stats[text(item.get("KettoNum"))]["races"]) for item in horses}
@@ -973,6 +1054,9 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
             adjusted_recent = [item.get("adjusted_performance", performance_from_result(item)[1]) for item in recent3]
             hidden_recent = [adjusted - raw for adjusted, raw in zip(adjusted_recent, raw_recent)]
             against_recent = [performance_from_result(item)[2] for item in recent3]
+            recent_closing_speed = [item.get("closing_speed", 0.5) for item in recent3]
+            recent_late_frontness = [item.get("late_frontness", 0.5) for item in recent3]
+            recent_position_closing_power = [item.get("frontness", 0.5) * item.get("closing_speed", 0.5) for item in recent3]
             same_geometry = [item.get("adjusted_performance", performance_from_result(item)[1]) for item in histories[horse]
                              if item.get("geometry_signature") == current_geometry]
             recent_class_scores = [float(item.get("class_score", 0.0)) for item in recent3]
@@ -1000,6 +1084,14 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
             racecourse_fit, racecourse_sample_count = historical_value(past, "racecourse", JYO_NAMES.get(text(row.get("idJyoCD")).zfill(2), text(row.get("idJyoCD"))), global_adjusted)
             track_fit, track_sample_count = historical_value(past, "track_condition", current_condition_value, global_adjusted)
             season_fit, season_sample_count = historical_value(past, "season", (date_value.month - 1) // 3, global_adjusted)
+            current_distance_band = distance_band(current_distance)
+            current_surface = surface(row)
+            current_gate_band = gate_band(integer(row.get("Wakuban")), field_count)
+            current_rest_band = rest_band((date_value - recent3[0]["date"]).days if recent3 else None)
+            horse_distance_aptitude, distance_aptitude_sample_count = historical_value(past, "distance_band", current_distance_band, global_adjusted)
+            horse_surface_aptitude, surface_aptitude_sample_count = historical_value(past, "surface", current_surface, global_adjusted)
+            horse_rest_aptitude, rest_aptitude_sample_count = historical_value(past, "rest_band", current_rest_band, global_adjusted)
+            horse_gate_aptitude, gate_aptitude_sample_count = historical_value(past, "gate_band", current_gate_band, global_adjusted)
             weight = number(row.get("Futan"))
             weight_values = [(abs(weight - number(item.get("weight"))) / 10.0, float(item["adjusted_performance"])) for item in past if number(item.get("weight")) > 0 and weight > 0]
             carried_weight_fit, weight_sample_count = fit_from_history(weight_values, 0.0, global_adjusted)
@@ -1030,6 +1122,38 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
             v2_winner = [item["winner"] for item in v2_recent]
             v2_field = [item["field"] for item in v2_recent]
             v2_missing = sum(1 for item in v2_recent if not item.get("winner") and not item.get("field"))
+            # pre-race lookups for course x gate and bloodline aggregates (no leakage: use current maps BEFORE race updates)
+            racecourse_name = JYO_NAMES.get(text(row.get("idJyoCD")).zfill(2), text(row.get("idJyoCD")))
+            surface_name = surface(row)
+            current_distance = integer(row.get("race_Kyori") or row.get("Kyori"))
+            distance_band_value = distance_band(current_distance)
+            gate_band_value = gate_band(integer(row.get("Wakuban")), field_count)
+            course_key = (racecourse_name, surface_name, distance_band_value, gate_band_value)
+            cg = course_gate_stats[course_key]
+            cg_races = cg.get("races", 0)
+            cg_wins = cg.get("wins", 0)
+            cg_places = cg.get("places", 0)
+            cg_win_rate = cg_wins / cg_races if cg_races else 0.0
+            cg_place_rate = cg_places / cg_races if cg_races else 0.0
+            # simple shrink toward prior similar to other stats (prior: +1 win, +5 races)
+            cg_win_rate_shrink = (cg_wins + 1.0) / (cg_races + 5.0) if cg_races else 0.0
+            sire_id = text(row.get("Sire") or row.get("race_Sire") or row.get("SIRE_ID") or row.get("sire") or "")
+            damsire_id = text(row.get("Damsire") or row.get("DamSire") or row.get("DAM_SIRE_ID") or row.get("damsire") or "")
+            s_stats = sire_stats[sire_id]
+            d_stats = damsire_stats[damsire_id]
+            sire_races = s_stats.get("races", 0)
+            sire_wins = s_stats.get("wins", 0)
+            sire_places = s_stats.get("places", 0)
+            damsire_races = d_stats.get("races", 0)
+            damsire_wins = d_stats.get("wins", 0)
+            damsire_places = d_stats.get("places", 0)
+            sire_win_rate = sire_wins / sire_races if sire_races else 0.0
+            sire_place_rate = sire_places / sire_races if sire_races else 0.0
+            damsire_win_rate = damsire_wins / damsire_races if damsire_races else 0.0
+            damsire_place_rate = damsire_places / damsire_races if damsire_races else 0.0
+            sire_win_rate_shrink = (sire_wins + 1.0) / (sire_races + 5.0) if sire_races else 0.0
+            damsire_win_rate_shrink = (damsire_wins + 1.0) / (damsire_races + 5.0) if damsire_races else 0.0
+
             values = {
                 "as_of_date": date_value.isoformat(), "race_id": race_id(row), "horse_id": horse,
                 "target": int(integer(row.get("KakuteiJyuni")) == 1), "date": date_value,
@@ -1096,6 +1220,29 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                 "career_races": current["races"], "career_wins": current["wins"],
                 "career_win_rate": current["wins"] / current["races"] if current["races"] else 0.0,
                 "career_places": current["places"], "career_place_rate": current["places"] / current["races"] if current["races"] else 0.0,
+                "horse_win_rate": current["wins"] / current["races"] if current["races"] else 0.0,
+                "horse_place_rate": current["places"] / current["races"] if current["races"] else 0.0,
+                "horse_race_count": current["races"],
+                "horse_mean_finish": current.get("finish_sum", 0.0) / current["races"] if current["races"] else 0.0,
+                "horse_normalized_mean_finish": current.get("normalized_finish_sum", 0.0) / current["races"] if current["races"] else 0.5,
+                "age": integer(row.get("Barei")), "carried_weight": weight,
+                "last1_closing_speed": recent_closing_speed[0] if len(recent_closing_speed) > 0 else 0.5,
+                "last2_closing_speed": recent_closing_speed[1] if len(recent_closing_speed) > 1 else 0.5,
+                "last3_closing_speed": recent_closing_speed[2] if len(recent_closing_speed) > 2 else 0.5,
+                "mean_closing_speed_last3": mean(recent_closing_speed) if recent_closing_speed else 0.5,
+                "best_closing_speed_last3": max(recent_closing_speed) if recent_closing_speed else 0.5,
+                "last1_late_frontness": recent_late_frontness[0] if len(recent_late_frontness) > 0 else 0.5,
+                "last2_late_frontness": recent_late_frontness[1] if len(recent_late_frontness) > 1 else 0.5,
+                "last3_late_frontness": recent_late_frontness[2] if len(recent_late_frontness) > 2 else 0.5,
+                "mean_late_frontness_last3": mean(recent_late_frontness) if recent_late_frontness else 0.5,
+                "position_closing_power_last1": recent_position_closing_power[0] if len(recent_position_closing_power) > 0 else 0.25,
+                "position_closing_power_last2_mean": mean(recent_position_closing_power[:2]) if recent_position_closing_power else 0.25,
+                "position_closing_power_last3_mean": mean(recent_position_closing_power) if recent_position_closing_power else 0.25,
+                "best_position_closing_power_last3": max(recent_position_closing_power) if recent_position_closing_power else 0.25,
+                "horse_distance_aptitude": horse_distance_aptitude, "distance_aptitude_sample_count": distance_aptitude_sample_count,
+                "horse_surface_aptitude": horse_surface_aptitude, "surface_aptitude_sample_count": surface_aptitude_sample_count,
+                "horse_rest_aptitude": horse_rest_aptitude, "rest_aptitude_sample_count": rest_aptitude_sample_count,
+                "horse_gate_aptitude": horse_gate_aptitude, "gate_aptitude_sample_count": gate_aptitude_sample_count,
                 "recent3_win_rate": mean(item["win"] for item in recent3) if recent3 else 0.0,
                 "recent3_place_rate": mean(item["place"] for item in recent3) if recent3 else 0.0,
                 "recent5_win_rate": mean(item["win"] for item in recent5) if recent5 else 0.0,
@@ -1212,6 +1359,23 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                 "usable_position_history_count": len(position_history),
                 "usable_performance_history_count": len(raw_recent),
             }
+            # inject course x gate and bloodline features into values
+            values.update({
+                "course_gate_sample_count": cg_races,
+                "course_gate_win_rate": cg_win_rate,
+                "course_gate_place_rate": cg_place_rate,
+                "course_gate_win_rate_shrink": cg_win_rate_shrink,
+                "sire_id": sire_id,
+                "sire_race_count": sire_races,
+                "sire_win_rate": sire_win_rate,
+                "sire_place_rate": sire_place_rate,
+                "sire_win_rate_shrink": sire_win_rate_shrink,
+                "damsire_id": damsire_id,
+                "damsire_race_count": damsire_races,
+                "damsire_win_rate": damsire_win_rate,
+                "damsire_place_rate": damsire_place_rate,
+                "damsire_win_rate_shrink": damsire_win_rate_shrink,
+            })
             if history_trace is not None and horse == history_trace.get("horse_id") and race_id(horses[0]) == history_trace.get("target_race_id"):
                 history_trace["performance_used"] = [item["source_race_id"] for item in recent3]
                 history_trace["position_used"] = [item["source_race_id"] for item in histories[horse]]
@@ -1292,6 +1456,9 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                                      "pace_score": mean(observed_frontness), "interval_norm": normalized_interval((date_value - previous_date).days) if previous_date else None,
                                      "racecourse": JYO_NAMES.get(text(row.get("idJyoCD")).zfill(2), text(row.get("idJyoCD"))),
                                      "track_condition": condition_value(row), "season": (date_value.month - 1) // 3,
+                                     "surface": surface(row), "distance_band": distance_band(integer(row.get("race_Kyori") or row.get("Kyori"))),
+                                     "gate_band": gate_band(integer(row.get("Wakuban")), field_count),
+                                     "rest_band": rest_band((date_value - previous_date).days if previous_date else None),
                                      "gate": integer(row.get("Wakuban")), "weight": number(row.get("Futan")),
                                      "first_prize": current_first_prize,
                                      "winner_class_score": current_condition["class_score"],
@@ -1301,9 +1468,14 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                                      "position_advantage": observed_frontness[horses.index(row)] - mean(observed_frontness),
                                      "first_corner_position": first_corner_position(row),
                                      "frontness": observed_frontness[horses.index(row)], "geometry_signature": current_geometry,
+                                     "late_frontness": observed_late_frontness[horses.index(row)],
+                                     "closing_speed": observed_closing_speed[horses.index(row)],
                                      "expected_rank": expected_order.get(horse, field_count), "jockey": text(row.get("KisyuCode")),
                                      "strong_against_bias_v2": -residual_bias * (observed_frontness[horses.index(row)] - mean(observed_frontness)),
                                      "setup_benefit": position_bias * (observed_frontness[horses.index(row)] - mean(observed_frontness))}))
+            # attach sire/damsire identifiers for later aggregation if available
+            pending_updates[-1][1]["sire"] = text(row.get("Sire") or row.get("race_Sire") or row.get("SIRE_ID") or row.get("sire") or "")
+            pending_updates[-1][1]["damsire"] = text(row.get("Damsire") or row.get("DamSire") or row.get("DAM_SIRE_ID") or row.get("damsire") or "")
             jockey = text(row.get("KisyuCode"))
             actual_finish = integer(row.get("KakuteiJyuni"))
             added = (expected_order.get(horse, field_count) - actual_finish) / max(1, field_count)
@@ -1331,6 +1503,8 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
         stats[horse]["max_prize"] = max(stats[horse]["max_prize"], prize)
         stats[horse]["mean_prize"] = (stats[horse]["mean_prize"] * stats[horse]["prize_count"] + prize) / (stats[horse]["prize_count"] + 1)
         stats[horse]["prize_count"] += 1
+        stats[horse]["finish_sum"] += result["finish"]
+        stats[horse]["normalized_finish_sum"] += (result["finish"] - 1) / max(1, result["field_size"] - 1)
         histories[horse].append(result)
         if history_trace is not None and horse == history_trace.get("horse_id"):
             history_trace.setdefault("appended", []).append(result["source_race_id"])
@@ -1351,7 +1525,7 @@ def evaluate_v1(data: list[dict], pays: dict, start: date, end: date,
     feature_columns = feature_columns or V1_FEATURES
     started = time.perf_counter()
     eligible_target_ids = eligible_target_race_ids(data, min_race_first_prize)
-    if history_policy == "baseline" and os.environ.get("PHASE5_USE_CACHE") == "1" and model_label in {"E", "F", "CA", "CB"}:
+    if history_policy == "baseline" and os.environ.get("PHASE5_USE_CACHE") == "1" and model_label in {"E", "F", "G", "CA", "CB"}:
         cached_result = evaluate_cached_dataframe(data, pays, start, end, feature_columns, model_label,
                                                   {race_id(row) for row in data if start <= row["date"] < end
                                                    and (eligible_target_ids is None or race_id(row) in eligible_target_ids)},
@@ -1426,6 +1600,34 @@ def evaluate_v2(data: list[dict], pays: dict, start: date, end: date) -> tuple[l
                        feature_columns=V2_FEATURES, model_label="v2")
 
 
+# Old-netkeiba feature rebuild, Phase A: basic age/weight/career-finish signals absent from G baseline.
+NETKEIBA_PHASE_A_FEATURES = ["age", "carried_weight", "horse_win_rate", "horse_place_rate",
+                            "horse_race_count", "horse_mean_finish", "horse_normalized_mean_finish"]
+# Phase B: HaronTimeL3-normalized closing speed, late-corner frontness, and position x closing power.
+NETKEIBA_PHASE_B_FEATURES = [
+    "last1_closing_speed", "last2_closing_speed", "last3_closing_speed",
+    "mean_closing_speed_last3", "best_closing_speed_last3",
+    "last1_late_frontness", "last2_late_frontness", "last3_late_frontness", "mean_late_frontness_last3",
+    "position_closing_power_last1", "position_closing_power_last2_mean",
+    "position_closing_power_last3_mean", "best_position_closing_power_last3",
+]
+# Phase C: horse-level distance/surface/rest/gate aptitude. Ground aptitude reuses existing track_condition_fit.
+NETKEIBA_PHASE_C_FEATURES = [
+    "horse_distance_aptitude", "horse_surface_aptitude", "horse_rest_aptitude", "horse_gate_aptitude",
+]
+
+# Phase D: course x gate historical win/place rates
+NETKEIBA_PHASE_D_FEATURES = [
+    "course_gate_win_rate", "course_gate_place_rate", "course_gate_sample_count", "course_gate_win_rate_shrink",
+]
+
+# Phase G: bloodline (sire/damsire) aggregated signals
+NETKEIBA_PHASE_G_FEATURES = [
+    "sire_win_rate", "sire_place_rate", "sire_race_count",
+    "damsire_win_rate", "damsire_place_rate", "damsire_race_count",
+]
+
+
 def evaluate_stage(data: list[dict], pays: dict, start: date, end: date, stage: str, history_policy="baseline",
                   min_race_first_prize: float | None = None):
     if stage in REBUILD_POLICY_FEATURES:
@@ -1444,6 +1646,12 @@ def evaluate_stage(data: list[dict], pays: dict, start: date, end: date, stage: 
         columns = PHASE5_FEATURES + RACE_CONDITION_FEATURES + PRIZE_FEATURES
     elif stage == "G":
         columns = PHASE5_FEATURES + PACE_BIAS_V2_FEATURES + RACE_CONDITION_FEATURES + PRIZE_FEATURES
+    elif stage == "RA":
+        columns = PHASE5_FEATURES + PACE_BIAS_V2_FEATURES + RACE_CONDITION_FEATURES + PRIZE_FEATURES + NETKEIBA_PHASE_A_FEATURES
+    elif stage == "RB":
+        columns = PHASE5_FEATURES + PACE_BIAS_V2_FEATURES + RACE_CONDITION_FEATURES + PRIZE_FEATURES + NETKEIBA_PHASE_B_FEATURES
+    elif stage == "RC":
+        columns = PHASE5_FEATURES + PACE_BIAS_V2_FEATURES + RACE_CONDITION_FEATURES + PRIZE_FEATURES + NETKEIBA_PHASE_C_FEATURES
     elif stage == "CA":
         columns = CLEANUP_A_FEATURES
     elif stage == "CB":
@@ -1815,7 +2023,7 @@ def main() -> None:
     parser.add_argument("--end-month", help="評価終了月 YYYY-MM")
     parser.add_argument("--max-eval-races", type=int, help="評価対象レース数。過去履歴は維持")
     parser.add_argument("--prediction-cache-only", action="store_true", help="Prediction Cacheだけを読み込み、学習・DBロードを省略")
-    parser.add_argument("--model", choices=("v0", "v1", "v2", "A", "B", "C", "D", "E", "F", "G", "H", "I", "CA", "CB", "stages", "all"), default="v0")
+    parser.add_argument("--model", choices=("v0", "v1", "v2", "A", "B", "C", "D", "E", "F", "G", "RA", "RB", "RC", "H", "I", "CA", "CB", "stages", "all"), default="v0")
     parser.add_argument("--min-race-first-prize", type=float, help="対象レースの最低1着本賞金。例: 8000000 or 11400000")
     args = parser.parse_args()
     if args.prediction_cache_only:
@@ -1854,6 +2062,10 @@ def main() -> None:
         **{stage: REBUILD_POLICY_FEATURES[stage] for stage in REBUILD_POLICY_FEATURES},
         "CA": CLEANUP_A_FEATURES,
         "CB": CLEANUP_B_FEATURES,
+        "G": PHASE5_FEATURES + PACE_BIAS_V2_FEATURES + RACE_CONDITION_FEATURES + PRIZE_FEATURES,
+        "RA": PHASE5_FEATURES + PACE_BIAS_V2_FEATURES + RACE_CONDITION_FEATURES + PRIZE_FEATURES + NETKEIBA_PHASE_A_FEATURES,
+        "RB": PHASE5_FEATURES + PACE_BIAS_V2_FEATURES + RACE_CONDITION_FEATURES + PRIZE_FEATURES + NETKEIBA_PHASE_B_FEATURES,
+        "RC": PHASE5_FEATURES + PACE_BIAS_V2_FEATURES + RACE_CONDITION_FEATURES + PRIZE_FEATURES + NETKEIBA_PHASE_C_FEATURES,
     }
     for model_name, model_features in feature_lists.items():
         write_feature_list(ROOT / "reports" / f"features_model_{model_name.lower()}.txt", model_features)
@@ -1894,7 +2106,7 @@ def main() -> None:
             write_report(stage_rows, ROOT / "reports" / f"backtest_stage_{stage}",
                          {**metadata, "model": f"stage {stage}"}, stage_importance)
             model_rows[stage] = stage_rows
-    if args.model in ("A", "B", "C", "D", "E", "F", "G", "H", "I", "CA", "CB"):
+    if args.model in ("A", "B", "C", "D", "E", "F", "G", "RA", "RB", "RC", "H", "I", "CA", "CB"):
         rows, importance = evaluate_stage(data, pays, start, end, args.model,
                           min_race_first_prize=args.min_race_first_prize)
         stage_out = args.out
