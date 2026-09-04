@@ -23,9 +23,14 @@ from lightgbm import LGBMRanker
 from sklearn.metrics import brier_score_loss, log_loss, roc_auc_score
 
 try:
-    from src.backtest import CLEANUP_B_FEATURES
+    from src.backtest import (
+        CLEANUP_B_FEATURES,
+        RANKER_MARGIN_CORRECTION_FEATURES,
+    )
+    from src.betting_rules import decide_bet
 except ModuleNotFoundError:  # Supports direct script execution.
-    from backtest import CLEANUP_B_FEATURES
+    from backtest import CLEANUP_B_FEATURES, RANKER_MARGIN_CORRECTION_FEATURES
+    from betting_rules import decide_bet
 
 ROOT = Path(__file__).resolve().parent.parent
 CACHE = ROOT / "data" / "cache" / "phase5_f_features.parquet"
@@ -70,17 +75,25 @@ def payout_map() -> dict[tuple[str, int], float]:
     return values
 
 
-def load_frame() -> tuple[pd.DataFrame, list[str]]:
+def load_frame(feature_columns: list[str] | None = None) -> tuple[pd.DataFrame, list[str]]:
     identifiers = ["race_id", "date", "horse_id", "horse_name", "actual_rank", "target", "odds", "popularity", "umaban", "race_first_prize"]
     available = set(pd.read_parquet(CACHE).columns)
-    requested = list(dict.fromkeys(identifiers + CLEANUP_B_FEATURES))
+    selected_features = feature_columns if feature_columns is not None else CLEANUP_B_FEATURES
+    if feature_columns is not None:
+        missing = [feature for feature in selected_features if feature not in available]
+        if missing:
+            raise SystemExit(
+                f"Feature cache is missing required Ranker features: {missing}. "
+                "Rebuild it with `python -m src.build_feature_cache --model F`."
+            )
+    requested = list(dict.fromkeys(identifiers + selected_features))
     frame = pd.read_parquet(CACHE, columns=[column for column in requested if column in available])
     frame["date"] = pd.to_datetime(frame["date"])
     frame = frame[(frame["race_first_prize"] > 8_000_000) & (frame["actual_rank"] > 0) & (frame["odds"] > 0) & (frame["date"] < TEST_END)].copy()
     values = payout_map()
     frame["win_payout"] = [values.get((race_id, int(umaban)), 0.0) for race_id, umaban in zip(frame["race_id"], frame["umaban"])]
     frame.sort_values(["date", "race_id", "horse_id"], inplace=True)
-    return frame.reset_index(drop=True), [column for column in CLEANUP_B_FEATURES if column in frame]
+    return frame.reset_index(drop=True), [column for column in selected_features if column in frame]
 
 
 def encode_train_test(train: pd.DataFrame, test: pd.DataFrame, features: list[str]) -> tuple[np.ndarray, np.ndarray]:
@@ -155,12 +168,17 @@ def metrics(rows: pd.DataFrame) -> dict:
     top1 = rows[rows["prediction_rank"] == 1]
     top3 = rows[rows["prediction_rank"] <= 3]
     investment = len(top1) * 100
+    rule_selected = top1[[decide_bet(odds, prob)[0] for odds, prob in zip(top1["win_odds"], top1["ranker_win_probability"])]]
+    rule_investment = len(rule_selected) * 100
     return {"races": rows["race_id"].nunique(), "horses": len(rows), "brier": brier_score_loss(target, probability),
             "logloss": log_loss(target, np.clip(probability, 1e-6, 1 - 1e-6)), "auc": roc_auc_score(target, probability),
             "top1_hit_rate": top1["target"].mean(),
             "top3_hit_rate": sum(group["target"].any() for _, group in top3.groupby("race_id")) / rows["race_id"].nunique(),
             "top1_win_roi": top1["win_payout"].sum() / investment * 100 if investment else None,
-            "top1_profit": top1["win_payout"].sum() - investment}
+            "top1_profit": top1["win_payout"].sum() - investment,
+            "rule_bets": len(rule_selected),
+            "rule_win_roi": rule_selected["win_payout"].sum() / rule_investment * 100 if rule_investment else None,
+            "rule_profit": rule_selected["win_payout"].sum() - rule_investment}
 
 
 def calibration_partition(frame: pd.DataFrame, prediction_month: pd.Timestamp, months: int) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -209,7 +227,7 @@ def main() -> None:
     args = parser.parse_args()
     if args.retrain_months != 1:
         raise SystemExit("Only monthly retraining is implemented in this experiment. The setting is explicit for future cadence comparisons.")
-    frame, features = load_frame()
+    frame, features = load_frame(RANKER_MARGIN_CORRECTION_FEATURES)
     months = month_starts(TEST_START, TEST_END)
     walk_rows, training_log = monthly_walk_forward(frame, features, months, args.calibration_months)
     fixed_rows = fixed_backtest(frame, features, months, args.calibration_months)
@@ -238,6 +256,10 @@ def main() -> None:
              f"- Monthly Walk-Forward: Brier {walk['brier']:.6f}, LogLoss {walk['logloss']:.6f}, AUC {walk['auc']:.6f}, Top1 {walk['top1_hit_rate']:.2%}, Top3 {walk['top3_hit_rate']:.2%}, Top1 ROI {walk['top1_win_roi']:.2f}%.",
              f"- Fixed: Brier {fixed['brier']:.6f}, LogLoss {fixed['logloss']:.6f}, AUC {fixed['auc']:.6f}, Top1 {fixed['top1_hit_rate']:.2%}, Top3 {fixed['top3_hit_rate']:.2%}, Top1 ROI {fixed['top1_win_roi']:.2f}%.",
              "- Result: monthly retraining gives a small probability/ranking improvement, but does not improve Top1 win ROI in this final year. It is retained as the leakage-safe operational baseline, not as evidence of a profitable purchase rule.",
+             "", "## Rule-Based Betting (src/betting_rules.py)",
+             "- Rule: odds < 3.0 requires predicted probability >= 0.40; 5.0 <= odds < 20.0 is always bought; everything else is skipped.",
+             f"- Monthly Walk-Forward: {walk['rule_bets']} bets, ROI {walk['rule_win_roi']:.2f}%, profit {walk['rule_profit']:.0f} yen (all Top1: ROI {walk['top1_win_roi']:.2f}%).",
+             f"- Fixed: {fixed['rule_bets']} bets, ROI {fixed['rule_win_roi']:.2f}%, profit {fixed['rule_profit']:.0f} yen (all Top1: ROI {fixed['top1_win_roi']:.2f}%).",
              "", "## Outputs", "- `walk_forward_predictions.csv` is the standard input for the later purchase-condition search.",
              "- `monthly_training_log.csv` records each month’s train end, sample sizes, calibration window, and fixed temperature.",
              "- `monthly_results.csv` reports fixed and walk-forward metrics by month."]

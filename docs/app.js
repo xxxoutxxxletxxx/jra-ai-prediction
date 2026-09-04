@@ -72,6 +72,16 @@ function renderRecommendCard(containerEl, rec) {
   }
   var oddsText = formatOdds(rec.odds);
   var evText = formatExpectedValue(rec.expected_value, rec.odds);
+  var betHtml = "";
+  if (rec.bet_decision) {
+    var betClass = rec.bet_decision === "BET" ? "bet-yes" : "bet-no";
+    var betLabel = rec.bet_decision === "BET" ? "買い" : "見送り";
+    betHtml =
+      '<div class="bet-judgment ' + betClass + '">' +
+        '<span class="bet-badge">' + betLabel + "</span>" +
+        (rec.bet_reason ? '<span class="bet-reason">' + escapeHtml(rec.bet_reason) + "</span>" : "") +
+      "</div>";
+  }
 
   containerEl.innerHTML =
     '<p class="rc-title">今日のAI推奨馬</p>' +
@@ -81,6 +91,7 @@ function renderRecommendCard(containerEl, rec) {
       '<span class="rc-umaban">' + escapeHtml(rec.umaban) + "</span>" +
       '<span class="rc-name">' + escapeHtml(rec.bamei) + "</span>" +
     "</div>" +
+    betHtml +
     '<div class="rc-stats">' +
       '<div class="rc-stat"><span class="label">AIスコア</span><span class="value">' + formatScore(rec.score) + "</span></div>" +
       '<div class="rc-stat"><span class="label">単勝オッズ</span><span class="value' + (rec.odds ? "" : " na") + '">' + oddsText + "</span></div>" +
@@ -125,11 +136,17 @@ function renderRaceList(track, containerEl) {
     html += '<div class="race-card-header"><span>' + escapeHtml(track.name) + " " + escapeHtml(raceNum) + "R</span></div>";
     html += '<div class="top3-list">';
     top3.forEach(function (h) {
+      var betBadge = "";
+      if (h.rank === 1 && h.bet_decision) {
+        betBadge = '<span class="bet-badge-sm ' + (h.bet_decision === "BET" ? "bet-yes" : "bet-no") + '">' +
+          (h.bet_decision === "BET" ? "買い" : "見送り") + "</span>";
+      }
       html +=
         '<div class="top3-row mark-' + h.rank + '">' +
           '<span class="mark">' + markForRank(h.rank) + "</span>" +
           '<span class="umaban-badge">' + escapeHtml(h.umaban) + "</span>" +
           '<span class="horse-name">' + escapeHtml(h.bamei) + "</span>" +
+          betBadge +
           '<span class="score">' + formatScore(h.score) + "</span>" +
         "</div>";
     });

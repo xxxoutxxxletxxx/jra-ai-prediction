@@ -261,6 +261,48 @@ html, body {
   white-space: nowrap;
 }
 
+.bet-judgment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 4px;
+  font-size: 0.85rem;
+}
+
+.bet-badge {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.bet-badge-sm {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.bet-yes {
+  background: rgba(46, 160, 67, 0.18);
+  color: #2ea043;
+  border: 1px solid rgba(46, 160, 67, 0.45);
+}
+
+.bet-no {
+  background: rgba(200, 60, 60, 0.14);
+  color: #c83c3c;
+  border: 1px solid rgba(200, 60, 60, 0.4);
+}
+
+.bet-reason {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+}
+
 .toggle-all-btn {
   width: calc(100% - 24px);
   margin: 8px 12px 12px;

@@ -17,6 +17,9 @@ from datetime import datetime, timedelta
 import json
 import csv
 
+sys.path.insert(0, str(Path(__file__).parent))
+from betting_rules import decide_bet, reason_text
+
 # ロギング設定
 logging.basicConfig(
     level=logging.INFO,
@@ -444,6 +447,8 @@ def predict_upcoming(data, win_rates):
             # 過去成績がない場合は等確率
             prob = 0.125
 
+        # 買い目判定には揺らぎを含まない生出力確率を保持する
+        row['raw_win_probability'] = min(0.99, max(0.01, prob))
         row['predicted_win_probability'] = prob + (hash(ketto) % 100) / 2000.0
         row['predicted_win_probability'] = min(0.99, max(0.01, row['predicted_win_probability']))
 
@@ -481,7 +486,8 @@ def generate_outputs(predictions):
     with open(csv_path, 'w', newline='', encoding='utf-8') as f:
         fieldnames = [
             'race_date', 'idJyoCD', '競馬場名', 'idRaceNum', 'Umaban', 'Bamei',
-            'KisyuCode', 'predicted_win_probability', 'ai_rank', 'Odds', 'expected_value'
+            'KisyuCode', 'predicted_win_probability', 'ai_rank', 'Odds', 'expected_value',
+            'bet_decision', 'bet_reason_code', 'bet_reason'
         ]
         writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
         writer.writeheader()
@@ -507,6 +513,13 @@ def generate_outputs(predictions):
                 'Odds': odds,
                 'expected_value': f"{expected_value:.6f}"
             }
+            # 本命（ai_rank=1）のみ買い目判定。OddsはDB生値の10倍スケール。
+            if pred.get('ai_rank') == 1:
+                bet, reason_code = decide_bet(odds / 10.0 if odds > 0 else None,
+                                              pred.get('raw_win_probability'))
+                row['bet_decision'] = 'BET' if bet else 'SKIP'
+                row['bet_reason_code'] = reason_code
+                row['bet_reason'] = reason_text(reason_code)
             writer.writerow(row)
 
     logger.info(f"    Saved predictions.csv ({len(predictions):,} rows)")
@@ -546,7 +559,17 @@ def generate_outputs(predictions):
                     horse_dict['odds'] = round(float(horse['Odds']), 2)
                 except:
                     pass
-            
+            if horse.get('ai_rank') == 1:
+                raw_odds = 0.0
+                try:
+                    raw_odds = float(str(horse.get('Odds', '0')).strip() or '0')
+                except (TypeError, ValueError):
+                    raw_odds = 0.0
+                bet, reason_code = decide_bet(raw_odds / 10.0 if raw_odds > 0 else None,
+                                              horse.get('raw_win_probability'))
+                horse_dict['bet_decision'] = 'BET' if bet else 'SKIP'
+                horse_dict['bet_reason'] = reason_text(reason_code)
+
             race_dict['horses'].append(horse_dict)
         
         json_data['races'].append(race_dict)

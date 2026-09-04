@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""現行モデル（CLEANUP_E minus recent3_place_rate, 92特徴量）の直近3ヶ月レポート。
+"""現行モデル（着差補正後 Ranker）の直近3ヶ月レポート。
 
 `src/ranker_cleanup_e_no_place_rate_analysis.py` と同一の特徴量構成・学習条件で、
 直近3ヶ月分を月次walk-forwardで再評価し、全出走馬の予測値と条件別回収率を出力する。
@@ -17,8 +17,7 @@ import pandas as pd
 try:
     from src import ranker_walk_forward_backtest as wf
     from src.backtest import (
-        CAREER_COUNT_FEATURES,
-        DEDUP_MARGIN_FEATURES,
+        CLEANUP_F_PLUS_MARGIN_FEATURES,
         distance_band,
         odds_band,
         popularity_band,
@@ -27,8 +26,7 @@ try:
 except ModuleNotFoundError:
     import ranker_walk_forward_backtest as wf
     from backtest import (
-        CAREER_COUNT_FEATURES,
-        DEDUP_MARGIN_FEATURES,
+        CLEANUP_F_PLUS_MARGIN_FEATURES,
         distance_band,
         odds_band,
         popularity_band,
@@ -37,7 +35,6 @@ except ModuleNotFoundError:
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "reports" / "current_model_report_2026_09"
-EXCLUDED_FEATURE = "recent3_place_rate"
 EVAL_START = pd.Timestamp("2026-06-01")
 EVAL_END = pd.Timestamp("2026-09-01")
 
@@ -116,11 +113,8 @@ def condition_roi(top1: pd.DataFrame, key: str) -> list[dict]:
 
 
 def main() -> None:
-    _, baseline_features = wf.load_frame()
-    dedup_features = [feature for feature in baseline_features if feature not in DEDUP_MARGIN_FEATURES]
-    reduced_features = [feature for feature in dedup_features if feature not in CAREER_COUNT_FEATURES]
-    frame, cleanup_e_features = load_frame_with_conditions(reduced_features)
-    features = [feature for feature in cleanup_e_features if feature != EXCLUDED_FEATURE]
+    frame, cleanup_e_features = load_frame_with_conditions(CLEANUP_F_PLUS_MARGIN_FEATURES)
+    features = [feature for feature in CLEANUP_F_PLUS_MARGIN_FEATURES if feature in cleanup_e_features]
 
     months = wf.month_starts(EVAL_START, EVAL_END)
     walk_rows, training_log = wf.monthly_walk_forward(frame, features, months, wf.CALIBRATION_MONTHS)
@@ -156,7 +150,7 @@ def main() -> None:
     write_csv(OUTPUT / "roi_by_month.csv", roi_by_month)
     write_csv(OUTPUT / "monthly_training_log.csv", training_log)
 
-    metadata = {"model": "cleanup_e_minus_recent3_place_rate", "feature_count": len(features),
+    metadata = {"model": "ranker_margin_correction", "feature_count": len(features),
                 "eval_start": EVAL_START.strftime("%Y-%m-%d"), "eval_end_exclusive": EVAL_END.strftime("%Y-%m-%d"),
                 "calibration_months": wf.CALIBRATION_MONTHS, "prize_filter": "race_first_prize > 8,000,000",
                 "prediction_months": [month.strftime("%Y-%m") for month in months], "total_bets_top1": len(top1)}

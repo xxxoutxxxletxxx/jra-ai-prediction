@@ -27,6 +27,11 @@ try:
 except ImportError:  # pragma: no cover - requirements.txt installs scikit-learn
     log_loss = roc_auc_score = None
 
+try:
+    from src.betting_rules import decide_bet, reason_text
+except ModuleNotFoundError:  # Supports direct script execution.
+    from betting_rules import decide_bet, reason_text
+
 plt = None
 if os.environ.get("BACKTEST_ENABLE_PLOTS") == "1":
     try:
@@ -141,8 +146,27 @@ CLASS_MATCHED_FORM_FEATURES = [
     "class_matched_sample_count",
 ]
 CLEANUP_E_FEATURES = CLEANUP_D_FEATURES + WINNING_MARGIN_FEATURES + CLASS_MATCHED_FORM_FEATURES
-# v2: adds winning_margin/class_matched_* columns; forces cache regeneration.
-PHASE5_CACHE_VERSION = "phase5-feature-cache-v2"
+# 2026-09 margin-correction redesign: the production Ranker (CLEANUP_E minus recent3_place_rate, see
+# current_model_report.py) still trained on recent3_win_rate, which evaluates a horse's own raw recent
+# finish position the same way the removed career_win_rate/career_races/raw-margin features did. Drop
+# both raw recent-result rates and extend WINNING_MARGIN_FEATURES from last1-3 to last1-5 with mean/max
+# summaries (see WINNING_MARGIN_LAST5_FEATURES below and the recent5 winning-margin block in
+# build_v1_features()).
+RECENT_RAW_RESULT_FEATURES = {"recent3_win_rate", "recent3_place_rate"}
+CLEANUP_F_FEATURES = [feature for feature in CLEANUP_E_FEATURES if feature not in RECENT_RAW_RESULT_FEATURES]
+WINNING_MARGIN_LAST5_FEATURES = [
+    "last4_winning_margin", "last5_winning_margin", "mean_winning_margin_last5", "max_winning_margin_last5",
+]
+# Final Ranker input for the margin-correction redesign.  No raw finish, raw margin, or
+# career/recent result-rate feature is admitted here; the original source columns remain in
+# every loaded row for targets and audit reports.
+CLEANUP_F_PLUS_MARGIN_FEATURES = CLEANUP_F_FEATURES + WINNING_MARGIN_LAST5_FEATURES
+# Descriptive alias used by the dedicated 12-month comparison.
+RANKER_MARGIN_CORRECTION_FEATURES = CLEANUP_F_PLUS_MARGIN_FEATURES
+# v2: adds winning_margin/class_matched_* columns; v3 adds blowout-margin-corrected performance features
+# (corrected_margin/effective_rank/blowout_margin_value passthrough columns) and the recent5 winning-margin
+# block; both force cache regeneration.
+PHASE5_CACHE_VERSION = "phase5-feature-cache-v3"
 PHASE6_CACHE_VERSION = "phase6-feature-cache-v1"
 PACE_BIAS_V2_FEATURES = [
     "strong_against_bias_v2_last1", "strong_against_bias_v2_last2",
@@ -456,8 +480,13 @@ def prize_class_score(row: dict) -> float:
 
 
 def performance_from_result(result: dict) -> tuple[float, float, float]:
-    """raw performance は margin のみで構成し、着順やレース強度を混ぜない。高い値＝良いperformance。"""
-    margin = max(0.0, float(result.get("margin") or 0.0))
+    """raw performance は margin のみで構成し、着順やレース強度を混ぜない。高い値＝良いperformance。
+
+    marginは通常0以上（0＝勝利、正の値＝着差ぶんだけ負け）だが、圧勝補正で除外された上位馬は
+    effective_margin_for_performance()が意図的に負の値（圧勝補正値のマイナス）を渡す。その場合は
+    クランプせずそのまま-marginを取ることで、通常の勝利より高いraw_performanceを与える。
+    """
+    margin = float(result.get("margin") or 0.0)
     raw = -margin
     class_delta = float(result.get("class_delta", 0.0))
     pace_delta = float(result.get("pace_delta", 0.0))
@@ -581,6 +610,11 @@ def load_data(db_path: Path, min_year: int = 2012) -> tuple[list[dict], dict[tup
         "HaronTimeS3", "HaronTimeS4", "HaronTimeL3", "HaronTimeL4",
     ]
     se_rows = read_table(connection, "NL_SE_RACE_UMA", se_columns, min_year)
+    # Apply the result correction at the raw-result boundary so every downstream
+    # feature builder sees the same derived columns while raw fields stay intact.
+    correction_started = time.perf_counter()
+    apply_blowout_margin_correction(se_rows)
+    phase5_profile(f"blowout margin correction applied: {time.perf_counter() - correction_started:.2f}s, rows={len(se_rows)}, memory={memory_mb():.1f}MB")
     ra_rows = read_table(connection, "NL_RA_RACE", ra_columns, min_year)
     pay_columns = list(RACE_KEY) + [
         f"PayTansyo{i}{suffix}" for i in range(3) for suffix in ("Umaban", "Pay")
@@ -805,12 +839,96 @@ def evaluate(data: list[dict], pays: dict, start: date, end: date) -> list[dict]
 
 
 def margin_value(row: dict) -> float | None:
-    """着差はDBのTimeDiffを優先。ChakusaCDの意味は資料不足のため数値化しない。"""
+    """着差はDBのTimeDiffを優先。ChakusaCDの意味は資料不足のため数値化しない。
+
+    TimeDiffは実データで確認済みの通り、1着からの累積コンマ秒(0.1秒単位、符号付き整数文字列。
+    例: "+057"は1着から5.7秒遅れ)。1着行自体は基準点でありTimeDiffの値に意味がないため
+    max(0.0, ...)で0に丸めている。2着以降の値はそのまま「1着からの累積差」として使える。
+    """
     value = text(row.get("TimeDiff"))
     if value == "":
         return None
     parsed = number(value, float("nan"))
     return None if math.isnan(parsed) else max(0.0, parsed)
+
+
+# 圧勝レース補正の発動しきい値。TimeDiffは0.1秒単位の整数のため、0.6秒/0.5秒を10倍して比較する。
+BLOWOUT_MARGIN_THRESHOLD_1_3 = 6.0
+BLOWOUT_MARGIN_THRESHOLD_1_2 = 5.0
+
+
+def apply_blowout_margin_correction(data: list[dict]) -> None:
+    """rawレース結果を読み込んだ直後の共通処理（load_dataの末尾から呼び出す）。
+
+    元の着順(KakuteiJyuni)・着差(TimeDiff由来のmargin_value)は一切変更せず、各行へ以下の列を追加する。
+    - original_actual_rank / original_margin: 元の着順・着差のスナップショット（保持用）。
+    - corrected_margin: 補正後着差。補正が発動しない、または除外された上位馬自身の行では0.0のまま。
+      補正が発動したレースの実質1着（＝新しい基準馬）以降は、TimeDiffが1着からの累積差である性質を
+      利用し、(自分のTimeDiff − 新基準馬のTimeDiff) として着差を引き直す。
+    - effective_rank: 実質着順。除外された上位馬は元の着順のまま、それ以降は
+      (元の着順 − 除外頭数) に振り直す。
+    - blowout_margin_value: 圧勝補正値。除外された上位馬にのみ付与する、新しい基準馬との実測差
+      （自然な計測値そのもの、恣意的な係数は使わない）。
+    - blowout_excluded / blowout_correction_applied: 補正対象馬か／そのレースで補正が発動したか。
+
+    発動条件: 1着→3着差（3着のTimeDiff、1着は基準0なのでそのまま累積差になる） >= 0.6秒。
+    - 1着→2着差（2着のTimeDiff） >= 0.5秒なら1着のみを除外し、2着を実質1着として2着以降を再計算。
+    - それ未満なら1・2着を除外し、3着を実質1着として3着以降を再計算。
+    出走頭数が3頭未満のレースは対象外（実質着順の再計算に必要な3着が存在しないため）。
+    """
+    grouped: dict[tuple, list[dict]] = defaultdict(list)
+    for row in data:
+        grouped[race_key(row)].append(row)
+    for rows in grouped.values():
+        for row in rows:
+            is_finisher = valid_result(row)
+            row["original_actual_rank"] = integer(row.get("KakuteiJyuni")) if is_finisher else None
+            row["original_margin"] = margin_value(row)
+            row["corrected_margin"] = row["original_margin"] if row["original_margin"] is not None else 0.0
+            row["effective_rank"] = row["original_actual_rank"]
+            row["blowout_margin_value"] = 0.0
+            row["blowout_excluded"] = False
+            row["blowout_correction_applied"] = False
+        finishers = sorted((row for row in rows if valid_result(row)), key=lambda row: integer(row.get("KakuteiJyuni")))
+        if len(finishers) < 3:
+            continue
+        rank1, rank2, rank3 = finishers[0], finishers[1], finishers[2]
+        gap_1_3 = margin_value(rank3)
+        if gap_1_3 is None or gap_1_3 < BLOWOUT_MARGIN_THRESHOLD_1_3:
+            continue
+        gap_1_2 = margin_value(rank2)
+        if gap_1_2 is not None and gap_1_2 >= BLOWOUT_MARGIN_THRESHOLD_1_2:
+            excluded, effective_leader = [rank1], rank2
+        else:
+            excluded, effective_leader = [rank1, rank2], rank3
+        leader_margin = margin_value(effective_leader) or 0.0
+        excluded_count = len(excluded)
+        for row in excluded:
+            row["blowout_margin_value"] = max(0.0, leader_margin - (margin_value(row) or 0.0))
+            row["blowout_excluded"] = True
+            row["blowout_correction_applied"] = True
+        leader_index = finishers.index(effective_leader)
+        for row in finishers[leader_index:]:
+            row["corrected_margin"] = max(0.0, (margin_value(row) or 0.0) - leader_margin)
+            row["effective_rank"] = integer(row.get("KakuteiJyuni")) - excluded_count
+            row["blowout_correction_applied"] = True
+
+
+def effective_margin_for_performance(row: dict) -> float:
+    """馬自身の直近成績評価(raw_performance/adjusted_performanceおよび履歴のmargin)に使う着差。
+
+    圧勝補正で除外された上位馬（本来の1着、あるいは1・2着）は、圧勝補正値(blowout_margin_value)を
+    「強い方向」＝マイナスの着差として与える。raw_performance = -marginなので、マイナスの着差は
+    通常の0着差(＝ただの勝ち)より高いperformanceになり、圧勝で勝ったことが正しく強く評価される。
+    それ以外の馬は、新しい実質1着馬を基準に引き直したcorrected_marginを使う（補正非対象レースでは
+    元のmargin_value(row)と同じ値になる）。
+    """
+    if row.get("blowout_excluded"):
+        return -float(row.get("blowout_margin_value") or 0.0)
+    corrected = row.get("corrected_margin")
+    if corrected is not None:
+        return float(corrected)
+    return float(margin_value(row) or 0.0)
 
 
 def class_code(row: dict) -> str:
@@ -1165,6 +1283,19 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                 "last1_winning_margin": (recent3[0].get("winning_margin") or 0.0) if len(recent3) > 0 else 0.0,
                 "last2_winning_margin": (recent3[1].get("winning_margin") or 0.0) if len(recent3) > 1 else 0.0,
                 "last3_winning_margin": (recent3[2].get("winning_margin") or 0.0) if len(recent3) > 2 else 0.0,
+                "last4_winning_margin": (recent5[3].get("winning_margin") or 0.0) if len(recent5) > 3 else 0.0,
+                "last5_winning_margin": (recent5[4].get("winning_margin") or 0.0) if len(recent5) > 4 else 0.0,
+                # Average/max are over actual wins only; non-winning runs must not dilute a
+                # horse's observed winning margin with artificial zeroes.
+                "mean_winning_margin_last5": mean(
+                    item["winning_margin"] for item in recent5
+                    if item.get("win") and item.get("winning_margin") is not None
+                ) if any(item.get("win") and item.get("winning_margin") is not None for item in recent5) else 0.0,
+                "max_winning_margin_last5": max(
+                    (item["winning_margin"] for item in recent5
+                     if item.get("win") and item.get("winning_margin") is not None),
+                    default=0.0,
+                ),
                 "last1_class_matched_adjusted_performance": class_matched_adjusted[0] if len(class_matched_adjusted) > 0 else 0.0,
                 "last2_class_matched_adjusted_performance": class_matched_adjusted[1] if len(class_matched_adjusted) > 1 else 0.0,
                 "last3_class_matched_adjusted_performance": class_matched_adjusted[2] if len(class_matched_adjusted) > 2 else 0.0,
@@ -1216,6 +1347,16 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                 "expected_position_std": pstdev(expected_position_values) if len(expected_position_values) > 1 else 0.0,
                 "popularity": integer(row.get("Ninki")), "odds": number(row.get("Odds")),
                 "actual_rank": integer(row.get("KakuteiJyuni")), "umaban": integer(row.get("Umaban")),
+                # Blowout margin correction passthrough (requirement #2): original rank/margin are always
+                # preserved verbatim; corrected_margin/effective_rank/blowout_margin_value are the new
+                # derived columns. See apply_blowout_margin_correction() in load_data().
+                "original_actual_rank": row.get("original_actual_rank"),
+                "original_margin": row.get("original_margin"),
+                "corrected_margin": row.get("corrected_margin"),
+                "effective_rank": row.get("effective_rank"),
+                "blowout_margin_value": row.get("blowout_margin_value"),
+                "blowout_excluded": int(bool(row.get("blowout_excluded"))),
+                "blowout_correction_applied": int(bool(row.get("blowout_correction_applied"))),
                 "horse_name": text(row.get("Bamei")), "field_size": len(horses),
                 "career_races": current["races"], "career_wins": current["wins"],
                 "career_win_rate": current["wins"] / current["races"] if current["races"] else 0.0,
@@ -1436,16 +1577,16 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
             prior_class = mean([float(item.get("class_score", 0.0)) for item in horse_history]) if horse_history else 0.0
             prior_pace = mean([float(item.get("pace_score", 0.5)) for item in horse_history]) if horse_history else 0.5
             raw_performance, adjusted_performance, adjustment_total = performance_from_result({
-                "margin": margin_value(row),
+                "margin": effective_margin_for_performance(row),
                 "class_delta": current_condition["class_score"] - prior_class,
                 "pace_delta": mean(observed_frontness) - prior_pace,
                 "opponent_delta": field_strength - smoothed_strength(stats[horse]),
             })
             previous_date = horse_history[-1]["date"] if horse_history else None
             is_winner = winner is not None and horse == text(winner.get("KettoNum"))
-            pending_updates.append((horse, {"date": date_value, "finish": integer(row.get("KakuteiJyuni")), "margin": margin_value(row),
+            pending_updates.append((horse, {"date": date_value, "finish": integer(row.get("KakuteiJyuni")), "margin": effective_margin_for_performance(row),
                                      "source_race_id": race_id(row),
-                                     "winning_margin": winning_margin_value if is_winner else 0.0,
+                                     "winning_margin": winning_margin_value if is_winner else None,
                                      "history_allowed": history_policy_allows(row, history_policy),
                                      "win": int(integer(row.get("KakuteiJyuni")) == 1), "place": int(1 <= integer(row.get("KakuteiJyuni")) <= 3),
                                      "winner_strength": winner_strength, "field_strength": field_strength,
@@ -1674,6 +1815,32 @@ def betting(rows: list[dict], predicate=lambda row: row["prediction_rank"] == 1)
     return {"win": one("win"), "place": one("place")}
 
 
+def rule_betting(rows: list[dict]) -> dict:
+    """betting_rules.decide_bet に基づく本命単勝の購入評価。
+
+    rows の odds はDB生値（10倍スケール）なので倍率に直してから判定する。
+    """
+    selected = []
+    skipped = defaultdict(int)
+    for row in rows:
+        if row["prediction_rank"] != 1:
+            continue
+        raw_odds = number(row.get("odds"))
+        bet, reason_code = decide_bet(raw_odds / 10.0 if raw_odds > 0 else None,
+                                      number(row.get("predicted_probability")))
+        if bet:
+            selected.append(row)
+        else:
+            skipped[reason_code] += 1
+    investment = len(selected) * 100
+    returned = sum(row["win_payout"] for row in selected)
+    return {"bets": len(selected), "wins": sum(row["is_win"] for row in selected),
+            "hit_rate": sum(row["is_win"] for row in selected) / len(selected) if selected else None,
+            "investment": investment, "payout": returned,
+            "roi": returned / investment * 100 if investment else None, "profit": returned - investment,
+            "skipped": dict(skipped)}
+
+
 def metrics(rows: list[dict]) -> dict:
     if not rows:
         return {"races": 0, "logloss": None, "brier_score": None, "roc_auc": None, "top1_hit_rate": None, "top3_hit_rate": None}
@@ -1836,12 +2003,16 @@ def write_report(rows: list[dict], output: Path, metadata: dict, feature_importa
     for month in sorted({row["date"][:7] for row in rows}):
         month_rows = [row for row in rows if row["date"].startswith(month)]
         bets = betting(month_rows)
+        rule_bets = rule_betting(month_rows)
         monthly.append({"month": month, "races": bets["win"]["races"], "top1_win_rate": bets["win"]["hit_rate"],
-                        "win_ROI": bets["win"]["roi"], "place_ROI": bets["place"]["roi"]})
+                        "win_ROI": bets["win"]["roi"], "place_ROI": bets["place"]["roi"],
+                        "rule_bets": rule_bets["bets"], "rule_win_ROI": rule_bets["roi"]})
     total_bets = betting(rows)
+    total_rule_bets = rule_betting(rows)
     monthly.append({"month": "TOTAL", "races": total_bets["win"]["races"],
                     "top1_win_rate": total_bets["win"]["hit_rate"], "win_ROI": total_bets["win"]["roi"],
-                    "place_ROI": total_bets["place"]["roi"]})
+                    "place_ROI": total_bets["place"]["roi"],
+                    "rule_bets": total_rule_bets["bets"], "rule_win_ROI": total_rule_bets["roi"]})
     write_csv(output / "monthly.csv", monthly)
     for name, keys in (("by_racecourse", ["racecourse"]), ("by_surface", ["surface"]),
                        ("by_distance", ["distance"]), ("by_popularity", ["popularity"]), ("by_odds", ["odds"]),
@@ -1869,6 +2040,7 @@ def write_report(rows: list[dict], output: Path, metadata: dict, feature_importa
     write_csv(output / "by_strength.csv", aggregate(strength_values, ["winner_strength_bin", "field_strength_bin"]))
     overall = metrics(rows)
     bets = betting(rows)
+    rule_bets = rule_betting(rows)
     favorite = betting(rows, lambda row: row["popularity"] == 1)
     ai_not_favorite = betting(rows, lambda row: row["prediction_rank"] == 1 and row["popularity"] >= 2)
     risk = max_drawdown(rows)
@@ -1882,7 +2054,9 @@ def write_report(rows: list[dict], output: Path, metadata: dict, feature_importa
         if row["prediction_rank"] == 1 and row["popularity"] >= 2:
             reason_counts[row["reason_code"]] += 1
     reason_examples = [row for row in rows if row["prediction_rank"] == 1 and row["popularity"] >= 2][:10]
-    summary = {"metadata": metadata, "overall": overall, "betting": bets, "favorite": favorite,
+    summary = {"metadata": metadata, "overall": overall, "betting": bets, "rule_betting": rule_bets,
+               "rule_betting_description": "本命単勝の買い目ルール: オッズ3倍未満は予測勝率40%以上のみ購入、5〜20倍は購入、それ以外は見送り（src/betting_rules.py）",
+               "favorite": favorite,
                "ai_rank_1_not_favorite": ai_not_favorite, "risk": risk, "calibration": calibration_rows,
                "spearman_ai_popularity": spearman(rows), "monthly": monthly,
                "strong_conditions": strong, "weak_conditions": weak,
@@ -1912,8 +2086,14 @@ def write_summary_md(path: Path, summary: dict) -> None:
              f"- LogLoss: {overall['logloss']}", f"- Brier Score: {overall['brier_score']}", f"- ROC-AUC: {overall['roc_auc']}",
              f"- Top1 hit rate: {pct(overall['top1_hit_rate'])}", f"- Top3 hit rate: {pct(overall['top3_hit_rate'])}", "",
              "## Betting Performance", f"- Win: {bets['win']['races']} races, hit {pct(bets['win']['hit_rate'])}, ROI {roi(bets['win']['roi'])}, profit {bets['win']['profit']:.0f} yen",
-             f"- Place: {bets['place']['races']} races, hit {pct(bets['place']['hit_rate'])}, ROI {roi(bets['place']['roi'])}, profit {bets['place']['profit']:.0f} yen", "",
-             "## Monthly Performance", "| Month | Races | Top1 Win Rate | Win ROI | Place ROI |", "|---|---:|---:|---:|---:|"]
+             f"- Place: {bets['place']['races']} races, hit {pct(bets['place']['hit_rate'])}, ROI {roi(bets['place']['roi'])}, profit {bets['place']['profit']:.0f} yen", ""]
+    rule = summary.get("rule_betting")
+    if rule:
+        lines += ["## Rule-Based Betting (単勝)",
+                  f"- {summary.get('rule_betting_description', '')}",
+                  f"- Bets: {rule['bets']}, hit {pct(rule['hit_rate'])}, ROI {roi(rule['roi'])}, profit {rule['profit']:.0f} yen",
+                  f"- Skipped by reason: " + ", ".join(f"{code}={count}" for code, count in sorted(rule.get('skipped', {}).items())), ""]
+    lines += ["## Monthly Performance", "| Month | Races | Top1 Win Rate | Win ROI | Place ROI |", "|---|---:|---:|---:|---:|"]
     if summary["metadata"].get("features"):
         lines += ["", "## v1 Features", "- " + ", ".join(summary["metadata"]["features"]),
                   "- " + summary["metadata"].get("categorical_handling", ""),

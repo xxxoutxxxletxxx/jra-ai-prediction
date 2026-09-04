@@ -7,9 +7,14 @@
 - Low-prize races remain in precomputed historical features but are excluded from Ranker train/evaluation targets.
 
 ## Annual Comparison
-- Monthly Walk-Forward: Brier 0.064461, LogLoss 0.235329, AUC 0.761456, Top1 24.89%, Top3 55.62%, Top1 ROI 69.73%.
-- Fixed: Brier 0.064534, LogLoss 0.235645, AUC 0.761367, Top1 24.77%, Top3 55.07%, Top1 ROI 69.79%.
+- Monthly Walk-Forward: Brier 0.064431, LogLoss 0.235949, AUC 0.757947, Top1 26.43%, Top3 54.82%, Top1 ROI 80.50%.
+- Fixed: Brier 0.064421, LogLoss 0.235776, AUC 0.758629, Top1 26.43%, Top3 55.13%, Top1 ROI 80.21%.
 - Result: monthly retraining gives a small probability/ranking improvement, but does not improve Top1 win ROI in this final year. It is retained as the leakage-safe operational baseline, not as evidence of a profitable purchase rule.
+
+## Rule-Based Betting (src/betting_rules.py)
+- Rule: odds < 3.0 requires predicted probability >= 0.40; 5.0 <= odds < 20.0 is always bought; everything else is skipped.
+- Monthly Walk-Forward: 494 bets, ROI 91.88%, profit -4010 yen (all Top1: ROI 80.50%).
+- Fixed: 452 bets, ROI 92.77%, profit -3270 yen (all Top1: ROI 80.21%).
 
 ## Outputs
 - `walk_forward_predictions.csv` is the standard input for the later purchase-condition search.

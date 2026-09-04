@@ -55,9 +55,7 @@ bash scripts/publish_predictions.sh
 > `race.db`、JRA-VAN 元データ、学習用データ、巨大な履歴ファイルは commit 対象に含めません。
 
 ## バックテスト
-
 本番予測や Web サイト生成とは独立して、月次 walk-forward 評価を実行できます。
-
 ```bash
 python3 -m src.backtest --months 12
 ```
@@ -71,6 +69,24 @@ python3 -m src.backtest --start-month 2025-08 --end-month 2026-08 --out reports/
 評価月ごとに、その月の月初より前に確定したレースだけで現行の統計ベースモデルを再学習します。結果は `reports/backtest/` に保存され、`predictions.csv` 単体で条件別集計を再現できます。結果着順・払戻などのレース後確定列は特徴量から除外しています。DBのオッズ・人気が最終値の場合、発走前時点を厳密に再現できないため、レポートに注意書きを出します。PNGは `matplotlib` が利用可能な環境で生成されます。
 
 AI予測1位と1番人気が異なる理由は、`predictions.csv` の `historical_wins`、`historical_races`、`historical_win_rate`、`favorite_probability`、`probability_margin_vs_favorite`、`reason_code`、`prediction_reason` で確認できます。現行モデルの判定ルールは、過去勝率（過去勝数 / 過去出走数）が主スコア、過去履歴がない馬は `1 / 出走頭数`、同率の場合は馬番の小さい順です。人気そのものをスコアに加えているわけではありません。
+
+## 本命の買い目ルール
+
+AI予測1位（本命）の単勝購入判定は `src/betting_rules.py` に集約しています。ルールの根拠は12ヶ月 walk-forward バックテスト（2025-09〜2026-08）のオッズ帯別分析（`reports/betting_rule_analysis/summary.md`）です。
+
+- 単勝オッズ 3.0倍未満: モデル予測勝率が 40% 以上の場合のみ購入（「どう見たって勝つ」水準。閾値は 0.30〜0.60 をテストして選定）
+- 単勝オッズ 5.0倍〜20.0倍未満: 回収率を見込めるボリューム帯として購入
+- 上記以外（3〜5倍・20倍以上・オッズ未取得）: バックテストで回収率が最も低い帯域のため見送り
+
+予測出力では本命馬に `bet_decision`（`BET` / `SKIP`）と `bet_reason` が付き、サイトの推奨馬カードとレース一覧にも表示されます。バックテストレポート（`summary.md` / `summary.json`）の `Rule-Based Betting` 節で同ルールの成績を継続評価できます。
+
+分析の再実行:
+
+```bash
+python3 -m src.betting_rule_threshold_analysis
+```
+
+なお現状のモデルでは、このルール適用後も単勝ROIは100%に届きません（損失削減のフィルタとして機能）。
 
 ## リポジトリ構成
 

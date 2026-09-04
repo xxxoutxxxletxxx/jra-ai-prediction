@@ -88,7 +88,7 @@ def build_horse_entry(row):
     odds = parse_float_or_none(row.get("Odds"))
     expected_value = parse_float_or_none(row.get("expected_value")) if odds is not None else None
 
-    return {
+    entry = {
         "umaban": umaban,
         "bamei": row.get("Bamei", ""),
         "kisyu_code": row.get("KisyuCode", ""),
@@ -97,6 +97,11 @@ def build_horse_entry(row):
         "odds": odds,
         "expected_value": expected_value,
     }
+    # 本命（rank=1）のみ買い目判定が predictions.csv から渡される
+    if row.get("bet_decision"):
+        entry["bet_decision"] = row.get("bet_decision")
+        entry["bet_reason"] = row.get("bet_reason", "")
+    return entry
 
 
 def build_date_structure(date_str, date_rows):
