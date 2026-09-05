@@ -84,6 +84,10 @@ def build_horse_entry(row):
         score = float(row.get("predicted_win_probability", 0) or 0)
     except (TypeError, ValueError):
         score = 0.0
+    try:
+        popularity = int(str(row.get("人気", "0")).strip() or 0)
+    except (TypeError, ValueError):
+        popularity = 0
 
     odds = parse_float_or_none(row.get("Odds"))
     expected_value = parse_float_or_none(row.get("expected_value")) if odds is not None else None
@@ -95,6 +99,7 @@ def build_horse_entry(row):
         "score": round(score, 4),
         "rank": ai_rank,
         "odds": odds,
+        "popularity": popularity,
         "expected_value": expected_value,
     }
     # 本命（rank=1）のみ買い目判定が predictions.csv から渡される

@@ -655,4 +655,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    from ranker_production_predict import main as production_main
+
+    production_main()

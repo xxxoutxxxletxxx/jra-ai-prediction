@@ -1015,11 +1015,14 @@ def smoothed_strength(stat: dict) -> float:
 
 
 def build_v1_features(data: list[dict], history_policy: str = "baseline", feature_target_ids: set[str] | None = None,
-                      history_trace: dict | None = None) -> list[dict]:
+                      history_trace: dict | None = None, include_unfinished: bool = False) -> list[dict]:
     """日付順に一度だけ走査し、各行のas_of_date時点特徴量を作る。"""
     started = time.perf_counter()
     phase5_profile(f"history construction started: rows={len(data)}, memory={memory_mb():.1f}MB")
-    ordered = sorted((row for row in data if valid_result(row)), key=lambda row: (row["date"], race_key(row), integer(row.get("Umaban"))))
+    ordered = sorted(
+        (row for row in data if include_unfinished or valid_result(row)),
+        key=lambda row: (row["date"], race_key(row), integer(row.get("Umaban"))),
+    )
     histories = defaultdict(lambda: deque(maxlen=5))
     race_dates = defaultdict(deque)
     stats = defaultdict(lambda: {"races": 0, "wins": 0, "places": 0, "max_class": 0, "best_win_class": 0,
@@ -1275,6 +1278,10 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
             values = {
                 "as_of_date": date_value.isoformat(), "race_id": race_id(row), "horse_id": horse,
                 "target": int(integer(row.get("KakuteiJyuni")) == 1), "date": date_value,
+                "idJyoCD": text(row.get("idJyoCD")).zfill(2), "idRaceNum": text(row.get("idRaceNum")),
+                "Umaban": integer(row.get("Umaban")), "Bamei": text(row.get("Bamei")),
+                "KisyuCode": text(row.get("KisyuCode")), "Ninki": integer(row.get("Ninki")),
+                "headDataKubun": text(row.get("headDataKubun")),
                 "racecourse": JYO_NAMES.get(text(row.get("idJyoCD")).zfill(2), text(row.get("idJyoCD"))),
                 "surface": surface(row), "distance": integer(row.get("race_Kyori") or row.get("Kyori")),
                 "class_code": class_code(row), "grade_code": text(row.get("race_GradeCD")) or "unknown",
