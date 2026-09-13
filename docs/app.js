@@ -36,6 +36,18 @@ function formatExpectedValue(ev, odds) {
   return n.toFixed(2);
 }
 
+function minimumBuyOdds(score) {
+  var probability = Number(score);
+  if (!isFinite(probability) || probability <= 0) return null;
+  return Math.ceil((1 / probability) * 10 - 1e-9) / 10;
+}
+
+function oddsGuidance(entry) {
+  if (entry.odds !== null && entry.odds !== undefined) return null;
+  var minimumOdds = minimumBuyOdds(entry.score);
+  return minimumOdds === null ? null : "単勝" + minimumOdds.toFixed(1) + "倍以上なら買い";
+}
+
 function markForRank(rank) {
   if (rank === 1) return "◎";
   if (rank === 2) return "○";
@@ -73,7 +85,13 @@ function renderRecommendCard(containerEl, rec) {
   var oddsText = formatOdds(rec.odds);
   var evText = formatExpectedValue(rec.expected_value, rec.odds);
   var betHtml = "";
-  if (rec.bet_decision) {
+  var guidance = oddsGuidance(rec);
+  if (guidance) {
+    betHtml =
+      '<div class="bet-judgment">' +
+        '<span class="bet-badge bet-yes">' + escapeHtml(guidance) + "</span>" +
+      "</div>";
+  } else if (rec.bet_decision) {
     var betClass = rec.bet_decision === "BET" ? "bet-yes" : "bet-no";
     var betLabel = rec.bet_decision === "BET" ? "買い" : "見送り";
     betHtml =
@@ -137,7 +155,10 @@ function renderRaceList(track, containerEl) {
     html += '<div class="top3-list">';
     top3.forEach(function (h) {
       var betBadge = "";
-      if (h.rank === 1 && h.bet_decision) {
+      var guidance = oddsGuidance(h);
+      if (h.rank === 1 && guidance) {
+        betBadge = '<span class="bet-badge-sm bet-yes">' + escapeHtml(guidance) + "</span>";
+      } else if (h.rank === 1 && h.bet_decision) {
         betBadge = '<span class="bet-badge-sm ' + (h.bet_decision === "BET" ? "bet-yes" : "bet-no") + '">' +
           (h.bet_decision === "BET" ? "買い" : "見送り") + "</span>";
       }
