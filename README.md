@@ -40,8 +40,15 @@ GitHub リポジトリ側で次の設定を行います。
 ローカルでは次の手順で予測とサイト更新を行います。
 
 ```bash
-python3 src/race_predict.py
+python3 -m src.ranker_production_predict
 python3 scripts/build_site_data.py
+```
+
+本番予測は12か月walk-forwardバックテストと同じ特徴量、LightGBM Ranker、
+3か月の確率校正、購入判定ルールを使用します。対象日を明示して再実行する場合:
+
+```bash
+python3 -m src.ranker_production_predict --start-date 2026-09-12 --days 1
 ```
 
 または、まとめて更新したい場合:

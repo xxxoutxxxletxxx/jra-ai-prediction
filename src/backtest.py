@@ -60,17 +60,17 @@ LEAK_COLUMNS = [
     "ChakusaCD", "headDataKubun",
 ]
 V1_FEATURES = [
-    "career_races", "career_wins", "career_win_rate", "career_places", "career_place_rate",
+    "career_races", "career_win_rate", "career_places", "career_place_rate",
     "recent3_win_rate", "recent3_place_rate", "recent5_win_rate", "recent5_place_rate",
     "races_last_180d", "races_last_365d", "last1_finish", "last2_finish", "last3_finish",
     "last1_margin", "last2_margin", "last3_margin", "best_margin_last3", "mean_margin_last3",
     "weighted_margin_last3", "last1_winner_strength", "last2_winner_strength", "last3_winner_strength",
     "last1_field_strength", "last2_field_strength", "last3_field_strength",
-    "margin_x_winner_strength", "margin_x_field_strength", "last1_distance", "last2_distance", "last3_distance",
+    "margin_x_winner_strength", "margin_x_field_strength", "last1_distance",
     "current_distance", "field_size",
 ]
 V2_FEATURES = V1_FEATURES + [
-    "last1_winner_strength_v2", "last2_winner_strength_v2", "last3_winner_strength_v2",
+    "last1_winner_strength_v2", "last2_winner_strength_v2",
     "last1_field_strength_v2", "last2_field_strength_v2", "last3_field_strength_v2",
     "last1_margin_x_winner_strength_v2", "last2_margin_x_winner_strength_v2",
     "last3_margin_x_winner_strength_v2", "max_winner_strength_last3",
@@ -84,11 +84,11 @@ V2_FEATURES = V1_FEATURES + [
     "last2_winner_best_win_class_before_target", "last3_winner_best_win_class_before_target", 
 ]
 PRIZE_FEATURES = [
-    "race_first_prize", "race_second_prize", "race_third_prize", "race_total_top5_prize",
+    "race_first_prize",
     "race_first_prize_log", "race_total_top5_prize_log",
-    "last1_race_first_prize", "last2_race_first_prize", "last3_race_first_prize",
+    "last2_race_first_prize", "last3_race_first_prize",
     "last1_race_first_prize_log", "last2_race_first_prize_log", "last3_race_first_prize_log",
-    "max_race_prize_last3", "mean_race_prize_last3", "weighted_race_prize_last3",
+    "max_race_prize_last3",
     "prize_change_from_last1", "prize_change_from_last3_mean", "prize_ratio_vs_last1", "prize_ratio_vs_last3_mean",
     "last1_margin_x_prize_strength", "last2_margin_x_prize_strength", "last3_margin_x_prize_strength",
 ]
@@ -102,7 +102,7 @@ PHASE4_FEATURES = [
     "last1_position_advantage", "last2_position_advantage", "last3_position_advantage",
     "last1_adjusted_performance", "last2_adjusted_performance", "last3_adjusted_performance",
     "best_adjusted_performance_last3", "mean_adjusted_performance_last3", "weighted_adjusted_performance_last3",
-    "hidden_strength_last1", "hidden_strength_last2", "hidden_strength_last3",
+    "hidden_strength_last1", "hidden_strength_last3",
     "max_hidden_strength_last3", "max_strong_against_bias_last3",
     "strong_against_bias_last1", "strong_against_bias_last2", "strong_against_bias_last3",
     "race_position_bias_last1", "race_position_bias_last2", "race_position_bias_last3",
@@ -157,16 +157,17 @@ CLEANUP_F_FEATURES = [feature for feature in CLEANUP_E_FEATURES if feature not i
 WINNING_MARGIN_LAST5_FEATURES = [
     "last4_winning_margin", "last5_winning_margin", "mean_winning_margin_last5", "max_winning_margin_last5",
 ]
+COURSE_WAKUBAN_FEATURES = ["course_gate_win_rate", "course_gate_place_rate"]
 # Final Ranker input for the margin-correction redesign.  No raw finish, raw margin, or
 # career/recent result-rate feature is admitted here; the original source columns remain in
 # every loaded row for targets and audit reports.
-CLEANUP_F_PLUS_MARGIN_FEATURES = CLEANUP_F_FEATURES + WINNING_MARGIN_LAST5_FEATURES
+CLEANUP_F_PLUS_MARGIN_FEATURES = CLEANUP_F_FEATURES + WINNING_MARGIN_LAST5_FEATURES + COURSE_WAKUBAN_FEATURES
 # Descriptive alias used by the dedicated 12-month comparison.
 RANKER_MARGIN_CORRECTION_FEATURES = CLEANUP_F_PLUS_MARGIN_FEATURES
 # v2: adds winning_margin/class_matched_* columns; v3 adds blowout-margin-corrected performance features
 # (corrected_margin/effective_rank/blowout_margin_value passthrough columns) and the recent5 winning-margin
 # block; both force cache regeneration.
-PHASE5_CACHE_VERSION = "phase5-feature-cache-v3"
+PHASE5_CACHE_VERSION = "phase5-feature-cache-v4"
 PHASE6_CACHE_VERSION = "phase6-feature-cache-v1"
 PACE_BIAS_V2_FEATURES = [
     "strong_against_bias_v2_last1", "strong_against_bias_v2_last2",
@@ -1031,7 +1032,7 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                                  "finish_sum": 0.0, "normalized_finish_sum": 0.0})
     jockey_state = defaultdict(lambda: {"rides": 0, "wins": 0, "top2": 0, "places": 0, "added_sum": 0.0, "recent": deque(maxlen=30)})
     features = []
-    # Aggregation maps for course x gate and bloodline stats (updated after race results are applied)
+    # Aggregation maps for course x Wakuban and bloodline stats (updated after race results are applied)
     course_gate_stats = defaultdict(lambda: {"races": 0, "wins": 0, "places": 0})
     sire_stats = defaultdict(lambda: {"races": 0, "wins": 0, "places": 0})
     damsire_stats = defaultdict(lambda: {"races": 0, "wins": 0, "places": 0})
@@ -1072,7 +1073,7 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                 race_dates[horse].append(current_date)
                 # post-race updates: update course x gate and bloodline aggregates
                 try:
-                    ckey = (result.get("racecourse"), result.get("surface"), result.get("distance_band"), result.get("gate_band"))
+                    ckey = (result.get("racecourse"), result.get("surface"), result.get("distance_band"), result.get("gate"))
                     cg = course_gate_stats[ckey]
                     cg["races"] = cg.get("races", 0) + 1
                     cg["wins"] = cg.get("wins", 0) + int(result.get("win", 0))
@@ -1243,13 +1244,13 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
             v2_winner = [item["winner"] for item in v2_recent]
             v2_field = [item["field"] for item in v2_recent]
             v2_missing = sum(1 for item in v2_recent if not item.get("winner") and not item.get("field"))
-            # pre-race lookups for course x gate and bloodline aggregates (no leakage: use current maps BEFORE race updates)
+            # Pre-race course x Wakuban lookup. Same-day results are still pending, so target results cannot leak in.
             racecourse_name = JYO_NAMES.get(text(row.get("idJyoCD")).zfill(2), text(row.get("idJyoCD")))
             surface_name = surface(row)
             current_distance = integer(row.get("race_Kyori") or row.get("Kyori"))
             distance_band_value = distance_band(current_distance)
-            gate_band_value = gate_band(integer(row.get("Wakuban")), field_count)
-            course_key = (racecourse_name, surface_name, distance_band_value, gate_band_value)
+            wakuban = integer(row.get("Wakuban"))
+            course_key = (racecourse_name, surface_name, distance_band_value, wakuban)
             cg = course_gate_stats[course_key]
             cg_races = cg.get("races", 0)
             cg_wins = cg.get("wins", 0)
@@ -1312,8 +1313,7 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                 "is_filly_mare_only": current_condition["filly_only"],
                 "is_2yo_only": int(current_condition["age"] == "TWO_YEAR_OLD_ONLY"),
                 "is_3yo_only": int(current_condition["age"] == "THREE_YEAR_OLD_ONLY"),
-                "race_first_prize": current_first_prize, "race_second_prize": current_prizes[1],
-                "race_third_prize": current_prizes[2], "race_total_top5_prize": current_total_prize,
+                "race_first_prize": current_first_prize,
                 "race_first_prize_log": prize_log(current_first_prize), "race_total_top5_prize_log": prize_log(current_total_prize),
                 "distance_change_fit": distance_change_fit, "distance_change_fit_sample_count": distance_sample_count,
                 "course_shape_fit": course_shape_fit, "course_shape_fit_sample_count": course_shape_sample_count,
@@ -1365,7 +1365,7 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                 "blowout_excluded": int(bool(row.get("blowout_excluded"))),
                 "blowout_correction_applied": int(bool(row.get("blowout_correction_applied"))),
                 "horse_name": text(row.get("Bamei")), "field_size": len(horses),
-                "career_races": current["races"], "career_wins": current["wins"],
+                "career_races": current["races"],
                 "career_win_rate": current["wins"] / current["races"] if current["races"] else 0.0,
                 "career_places": current["places"], "career_place_rate": current["places"] / current["races"] if current["races"] else 0.0,
                 "horse_win_rate": current["wins"] / current["races"] if current["races"] else 0.0,
@@ -1415,15 +1415,12 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                 "margin_x_winner_strength": (recent3[0]["margin"] * recent3[0]["winner_strength"] if recent3 and recent3[0]["margin"] is not None else 0.0),
                 "margin_x_field_strength": (recent3[0]["margin"] * recent3[0]["field_strength"] if recent3 and recent3[0]["margin"] is not None else 0.0),
                 "last1_distance": recent3[0]["distance"] if len(recent3) > 0 else 0,
-                "last2_distance": recent3[1]["distance"] if len(recent3) > 1 else 0,
-                "last3_distance": recent3[2]["distance"] if len(recent3) > 2 else 0,
                 "last1_class": recent3[0]["class_code"] if len(recent3) > 0 else "unknown",
                 "last2_class": recent3[1]["class_code"] if len(recent3) > 1 else "unknown",
                 "last3_class": recent3[2]["class_code"] if len(recent3) > 2 else "unknown",
                 "current_distance": integer(row.get("race_Kyori") or row.get("Kyori")),
                 "last1_winner_strength_v2": v2_winner[0] if len(v2_winner) > 0 else 0.0,
                 "last2_winner_strength_v2": v2_winner[1] if len(v2_winner) > 1 else 0.0,
-                "last3_winner_strength_v2": v2_winner[2] if len(v2_winner) > 2 else 0.0,
                 "last1_field_strength_v2": v2_field[0] if len(v2_field) > 0 else 0.0,
                 "last2_field_strength_v2": v2_field[1] if len(v2_field) > 1 else 0.0,
                 "last3_field_strength_v2": v2_field[2] if len(v2_field) > 2 else 0.0,
@@ -1471,7 +1468,6 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                 "class_change_last1": class_change_last1,
                 "class_change_last3_mean": class_change_last3_mean,
                 "hidden_strength_last1": hidden_recent[0] if len(hidden_recent) > 0 else 0.0,
-                "hidden_strength_last2": hidden_recent[1] if len(hidden_recent) > 1 else 0.0,
                 "hidden_strength_last3": hidden_recent[2] if len(hidden_recent) > 2 else 0.0,
                 "max_hidden_strength_last3": max(hidden_recent) if hidden_recent else 0.0,
                 "max_strong_against_bias_last3": max(against_recent) if against_recent else 0.0,
@@ -1535,15 +1531,12 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
             recent_prizes = [item.get("first_prize", 0.0) for item in recent3]
             recent_prize_logs = [prize_log(value) for value in recent_prizes]
             values.update({
-                "last1_race_first_prize": recent_prizes[0] if len(recent_prizes) > 0 else 0.0,
                 "last2_race_first_prize": recent_prizes[1] if len(recent_prizes) > 1 else 0.0,
                 "last3_race_first_prize": recent_prizes[2] if len(recent_prizes) > 2 else 0.0,
                 "last1_race_first_prize_log": recent_prize_logs[0] if len(recent_prize_logs) > 0 else 0.0,
                 "last2_race_first_prize_log": recent_prize_logs[1] if len(recent_prize_logs) > 1 else 0.0,
                 "last3_race_first_prize_log": recent_prize_logs[2] if len(recent_prize_logs) > 2 else 0.0,
                 "max_race_prize_last3": max(recent_prizes) if recent_prizes else 0.0,
-                "mean_race_prize_last3": mean(recent_prizes) if recent_prizes else 0.0,
-                "weighted_race_prize_last3": sum(value * weight for value, weight in zip(recent_prizes, (0.5, 0.3, 0.2))),
                 "prize_change_from_last1": current_first_prize - recent_prizes[0] if recent_prizes else 0.0,
                 "prize_change_from_last3_mean": current_first_prize - mean(recent_prizes) if recent_prizes else 0.0,
                 "prize_ratio_vs_last1": current_first_prize / recent_prizes[0] if recent_prizes and recent_prizes[0] > 0 else 1.0,

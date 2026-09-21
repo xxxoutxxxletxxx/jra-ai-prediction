@@ -112,7 +112,7 @@ fi
 ok
 
 print_header "[3/7] AI予測"
-python3 src/race_predict.py || fail "src/race_predict.py が失敗しました。"
+python3 -m src.ranker_production_predict || fail "src.ranker_production_predict が失敗しました。"
 ok
 
 PREDICTIONS_FILE="$PROJECT_ROOT/output/predictions.csv"

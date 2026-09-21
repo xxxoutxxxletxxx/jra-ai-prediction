@@ -162,6 +162,44 @@ def add_probabilities(rows: pd.DataFrame, scores: np.ndarray, temperature: float
     return result
 
 
+def forecast_ranker(
+    training: pd.DataFrame,
+    evaluation: pd.DataFrame,
+    features: list[str],
+    prediction_start: pd.Timestamp,
+    calibration_months: int = CALIBRATION_MONTHS,
+    mode: str = "production",
+) -> tuple[pd.DataFrame, dict]:
+    """Fit, calibrate, and score with the same as-of procedure in every environment."""
+    calibration_train, calibration = calibration_partition(
+        training, prediction_start, calibration_months
+    )
+    temperature = 1.0
+    calibration_brier = None
+    if not calibration_train.empty and not calibration.empty:
+        calibration_scores = ranker_scores(calibration_train, calibration, features)
+        temperature, calibration_brier = select_temperature(calibration, calibration_scores)
+
+    final_train = training[training["date"] < prediction_start]
+    scores = ranker_scores(final_train, evaluation, features)
+    train_end = prediction_start - pd.Timedelta(days=1)
+    predictions = add_probabilities(
+        evaluation, scores, temperature, train_end, mode
+    )
+    metadata = {
+        "train_start": final_train["date"].min(),
+        "train_end": train_end,
+        "train_races": final_train["race_id"].nunique(),
+        "train_horses": len(final_train),
+        "calibration_start": calibration["date"].min() if not calibration.empty else None,
+        "calibration_end": calibration["date"].max() if not calibration.empty else None,
+        "calibration_races": calibration["race_id"].nunique(),
+        "temperature": temperature,
+        "calibration_brier": calibration_brier,
+    }
+    return predictions, metadata
+
+
 def metrics(rows: pd.DataFrame) -> dict:
     probability = rows["ranker_win_probability"].to_numpy()
     target = rows["target"].to_numpy()
@@ -192,31 +230,31 @@ def monthly_walk_forward(frame: pd.DataFrame, features: list[str], months: list[
     predictions, logs = [], []
     for prediction_month in months:
         prediction_end = prediction_month + pd.DateOffset(months=1)
-        final_train = frame[frame["date"] < prediction_month]
-        calibration_train, calibration = calibration_partition(frame, prediction_month, calibration_months)
         evaluation = frame[(frame["date"] >= prediction_month) & (frame["date"] < prediction_end)]
-        calibration_scores = ranker_scores(calibration_train, calibration, features)
-        temperature, calibration_brier = select_temperature(calibration, calibration_scores)
-        scores = ranker_scores(final_train, evaluation, features)
-        month_rows = add_probabilities(evaluation, scores, temperature, prediction_month - pd.Timedelta(days=1), "monthly_walk_forward")
+        month_rows, metadata = forecast_ranker(
+            frame,
+            evaluation,
+            features,
+            prediction_month,
+            calibration_months,
+            "monthly_walk_forward",
+        )
         predictions.append(month_rows)
-        logs.append({"prediction_month": prediction_month.strftime("%Y-%m"), "train_start": final_train["date"].min().strftime("%Y-%m-%d"),
-                     "train_end": (prediction_month - pd.Timedelta(days=1)).strftime("%Y-%m-%d"), "train_races": final_train["race_id"].nunique(),
-                     "train_horses": len(final_train), "calibration_start": calibration["date"].min().strftime("%Y-%m-%d"),
-                     "calibration_end": calibration["date"].max().strftime("%Y-%m-%d"), "calibration_races": calibration["race_id"].nunique(),
-                     "temperature": temperature, "calibration_brier": calibration_brier, "evaluation_races": evaluation["race_id"].nunique(),
+        logs.append({"prediction_month": prediction_month.strftime("%Y-%m"), "train_start": metadata["train_start"].strftime("%Y-%m-%d"),
+                     "train_end": metadata["train_end"].strftime("%Y-%m-%d"), "train_races": metadata["train_races"],
+                     "train_horses": metadata["train_horses"], "calibration_start": metadata["calibration_start"].strftime("%Y-%m-%d"),
+                     "calibration_end": metadata["calibration_end"].strftime("%Y-%m-%d"), "calibration_races": metadata["calibration_races"],
+                     "temperature": metadata["temperature"], "calibration_brier": metadata["calibration_brier"], "evaluation_races": evaluation["race_id"].nunique(),
                      "evaluation_horses": len(evaluation)})
     return pd.concat(predictions, ignore_index=True), logs
 
 
 def fixed_backtest(frame: pd.DataFrame, features: list[str], months: list[pd.Timestamp], calibration_months: int) -> pd.DataFrame:
-    calibration_train, calibration = calibration_partition(frame, TEST_START, calibration_months)
-    calibration_scores = ranker_scores(calibration_train, calibration, features)
-    temperature, _ = select_temperature(calibration, calibration_scores)
-    train = frame[frame["date"] < TEST_START]
     evaluation = frame[(frame["date"] >= TEST_START) & (frame["date"] < TEST_END)]
-    scores = ranker_scores(train, evaluation, features)
-    return add_probabilities(evaluation, scores, temperature, TEST_START - pd.Timedelta(days=1), "fixed")
+    predictions, _ = forecast_ranker(
+        frame, evaluation, features, TEST_START, calibration_months, "fixed"
+    )
+    return predictions
 
 
 def main() -> None:

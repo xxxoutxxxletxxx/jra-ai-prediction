@@ -29,9 +29,9 @@ if ! git remote get-url origin >/dev/null 2>&1; then
 fi
 
 echo "================================================================"
-echo "[1/6] race_predict.py を実行します"
+echo "[1/6] 検証済みRanker本番予測を実行します"
 echo "================================================================"
-python3 src/race_predict.py
+python3 -m src.ranker_production_predict
 
 echo ""
 echo "================================================================"
