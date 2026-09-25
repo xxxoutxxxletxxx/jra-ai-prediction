@@ -21,7 +21,11 @@ const randomBetween = (random, min, max) => min + random() * (max - min);
 const randomInt = (random, min, max) => Math.floor(randomBetween(random, min, max + 1));
 const pick = (random, values) => values[Math.floor(random() * values.length)];
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-const ODDS_SLOPE = 2.0;
+const ODDS_PROFILES = [
+  { key: 'balanced', label: '大混戦', slope: 1.05, payoutFactor: 0.8 },
+  { key: 'standard', label: '標準', slope: 2.0, payoutFactor: 0.8 },
+  { key: 'favorite', label: '本命集中', slope: 3.6, payoutFactor: 0.65 }
+];
 export const RESCUE_AMOUNT = 20000;
 
 export function makeRandom(seed = Math.random()) {
@@ -47,15 +51,15 @@ function makeComment(condition) {
   return COMMENT_BY_LEVEL.veryLow;
 }
 
-export function calculateOdds(horses) {
+export function calculateOdds(horses, profile = ODDS_PROFILES[1]) {
   const rawPopularity = horses.map((horse) => horse.strength * 0.7 + (9 - horse.previousFinish) / 8 * 100 * 0.3);
-  const popularity = rawPopularity.map((score) => score ** ODDS_SLOPE);
+  const popularity = rawPopularity.map((score) => score ** profile.slope);
   const total = popularity.reduce((sum, value) => sum + value, 0);
   return horses.map((horse, index) => ({
     ...horse,
     popularityScore: rawPopularity[index],
     marketProbability: popularity[index] / total,
-    odds: Number(clamp(0.8 / (popularity[index] / total), 1.2, 35).toFixed(1))
+    odds: Number(clamp(profile.payoutFactor / (popularity[index] / total), 1.2, 35).toFixed(1))
   }));
 }
 
@@ -63,6 +67,7 @@ export function generateRace(random = Math.random) {
   const venue = pick(random, VENUES);
   const distance = pick(random, DISTANCES);
   const track = pick(random, TRACKS);
+  const oddsProfile = random() < 0.35 ? ODDS_PROFILES[0] : random() < 0.54 ? ODDS_PROFILES[1] : ODDS_PROFILES[2];
   const usedNames = new Set();
   const horses = Array.from({ length: 8 }, (_, index) => {
     const condition = randomBetween(random, 20, 98);
@@ -87,7 +92,7 @@ export function generateRace(random = Math.random) {
       finalPosition: 0
     };
   });
-  return { venue, month: randomInt(random, 1, 12), distance, track, horses: calculateOdds(horses) };
+  return { venue, month: randomInt(random, 1, 12), distance, track, oddsProfile: oddsProfile.label, horses: calculateOdds(horses, oddsProfile) };
 }
 
 export function simulateRace(race, random = Math.random) {

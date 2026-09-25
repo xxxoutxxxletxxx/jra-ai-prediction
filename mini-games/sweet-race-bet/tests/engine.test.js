@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { acceptRescue, createGame, generateRace, makeRandom, placeBet, RESCUE_AMOUNT, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace } from '../src/engine.js';
+import { acceptRescue, calculateOdds, createGame, generateRace, makeRandom, placeBet, RESCUE_AMOUNT, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace } from '../src/engine.js';
 
 const race = () => generateRace(makeRandom(0.42));
 
@@ -30,6 +30,14 @@ test('raceScore最大の馬が1着', () => {
 });
 
 test('オッズは正の値', () => assert.ok(race().horses.every((horse) => horse.odds > 0)));
+
+test('オッズ傾向によって倍率の差が変わる', () => {
+  const horses = race().horses.map((horse) => ({ ...horse, odds: 0 }));
+  const balanced = calculateOdds(horses, { slope: 1.05, payoutFactor: 0.8 });
+  const favorite = calculateOdds(horses, { slope: 3.6, payoutFactor: 0.65 });
+  const spread = (values) => Math.max(...values.map((horse) => horse.odds)) - Math.min(...values.map((horse) => horse.odds));
+  assert.ok(spread(favorite) > spread(balanced));
+});
 import { acceptRescue, createGame, generateRace, makeRandom, placeBet, RESCUE_AMOUNT, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace } from '../src/engine.js';
 
 test('BETは所持金を超えられない', () => {

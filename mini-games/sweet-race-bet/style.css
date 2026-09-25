@@ -54,9 +54,10 @@ h1 small { display: block; color: var(--ink); font-size: .28em; letter-spacing: 
 .section-title { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin: 20px 0 12px; }
 h2, h3 { margin: 0; font-family: 'Baloo 2', sans-serif; }
 h2 { font-size: 2rem; } h3 { font-size: 1.35rem; }
-.race-info { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
+.race-info { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 18px; }
 .info-item { background: #fff7df; border-radius: 16px; padding: 12px; text-align: center; }
 .info-item b { display: block; font-size: 1.18rem; margin-top: 3px; } .info-item span { color: var(--muted); font-size: .77rem; }
+.odds-style { background: #ffe0e8; } .odds-style b { color: #d94f72; }
 .horse-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .horse-card { display: grid; grid-template-columns: 55px 58px 1fr auto; align-items: center; gap: 12px; border: 2px solid var(--line); border-radius: 19px; padding: 12px; background: #fff; text-align: left; transition: .18s ease; }
 .horse-card.selected { border-color: var(--pink); background: #fff0f3; box-shadow: 0 0 0 3px #ffc2d0; transform: translateY(-2px); }
