@@ -5,8 +5,22 @@
 .mystery-face { display: block; margin-top: 38px; font-size: 1.45rem; font-weight: 900; }
 .mystery-bag { position: absolute; right: -22px; bottom: -8px; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: #75d6bc; border: 4px solid #fff; font-size: 1.4rem; font-weight: 900; }
 .chase-ending { background: linear-gradient(135deg, #fff0b0, #ffd2df); color: var(--ink); } .chase-ending h2 { color: #d94f72; font-size: 2.7rem; }
-.chase-stage { position: relative; height: 100px; overflow: hidden; margin: 18px 0; border-bottom: 4px dashed #e8ad70; background: #fff8dc; border-radius: 16px; }
-.runner-character, .mystery-chaser { position: absolute; top: 35px; font-size: 2.6rem; animation: chase-run 2.2s linear infinite; } .runner-character { left: 15%; } .mystery-chaser { left: 62%; animation-delay: .25s; } @keyframes chase-run { 50% { transform: translateX(28px) translateY(-7px); } 100% { transform: translateX(85vw); } }
+.chase-stage { position: relative; height: 190px; overflow: hidden; margin: 18px 0; border-bottom: 7px solid #e8ad70; background: repeating-linear-gradient(90deg, transparent 0 42px, rgba(232,173,112,.35) 42px 50px), #fff8dc; border-radius: 16px; }
+.chase-stage:after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 30px; background: #bde3c4; border-top: 4px solid #78b887; }
+.person { position: absolute; z-index: 2; top: 48px; width: 66px; height: 112px; animation: human-run 1.15s ease-in-out infinite; }
+.runner-character { left: 16%; } .mystery-chaser { left: 59%; animation-delay: .16s; }
+.person-label { position: absolute; left: 50%; top: -28px; transform: translateX(-50%); padding: 4px 8px; border-radius: 8px; background: #fff; white-space: nowrap; font-size: .72rem; font-weight: 800; box-shadow: 0 3px 0 rgba(57,47,77,.12); }
+.person-head { position: absolute; left: 19px; top: 0; width: 30px; height: 30px; border-radius: 50%; background: #ffd0a6; border: 3px solid var(--ink); }
+.person-head:after { content: ''; position: absolute; left: 2px; top: -5px; width: 22px; height: 10px; border-radius: 50%; background: #6b4b43; }
+.person-head.sunglasses { background: #ffca9a; } .person-head.sunglasses:before { content: '■ ■'; position: absolute; z-index: 1; left: 1px; top: 7px; color: #292437; font-size: .62rem; letter-spacing: 1px; }
+.person-body { position: absolute; left: 23px; top: 29px; width: 22px; height: 45px; border-radius: 10px 10px 6px 6px; background: #ff6f91; border: 3px solid var(--ink); }
+.person-body.suit { background: #50456f; } .person-body.suit:after { content: 'C'; position: absolute; left: 6px; top: 12px; color: #ffe177; font-weight: 900; }
+.person-arm, .person-leg { position: absolute; z-index: -1; width: 11px; border: 3px solid var(--ink); border-radius: 8px; transform-origin: top center; }
+.person-arm { top: 34px; height: 38px; background: #ffd0a6; } .person-arm.arm-front { left: 43px; transform: rotate(-50deg); } .person-arm.arm-back { left: 15px; transform: rotate(48deg); }
+.person-leg { top: 69px; height: 43px; background: #5f79ba; } .person-leg.leg-front { left: 37px; transform: rotate(-38deg); } .person-leg.leg-back { left: 18px; transform: rotate(38deg); }
+.mystery-chaser .person-leg { background: #50456f; } .person-bag { position: absolute; right: -12px; top: 48px; display: grid; place-items: center; width: 28px; height: 28px; border: 3px solid var(--ink); border-radius: 50%; background: #75d6bc; font-weight: 900; }
+.chase-line { position: absolute; z-index: 1; width: 42px; border-top: 4px dashed #e8ad70; animation: dash-move .7s linear infinite; } .line-one { left: 35%; top: 72px; } .line-two { left: 43%; top: 105px; animation-delay: .2s; } @keyframes dash-move { to { transform: translateX(-20px); opacity: .25; } }
+@keyframes human-run { 0%, 100% { transform: translateY(0) rotate(2deg); } 50% { transform: translateY(-8px) rotate(-4deg); } }
 .chip { padding: 10px 14px; background: #f1eafa; color: #66508b; } .chip.active { background: var(--pink); color: #fff; } .chip:disabled { cursor: not-allowed; opacity: .4; filter: grayscale(1); } .amount-input { width: 120px; padding: 10px; border: 2px solid var(--line); border-radius: 12px; }
 @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap');
 
