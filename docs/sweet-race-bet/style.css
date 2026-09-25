@@ -1,0 +1,90 @@
+.rescue-screen, .chase-ending { position: relative; overflow: hidden; padding: 32px 18px 38px; text-align: center; background: linear-gradient(135deg, #2f2a4d, #66518b); color: #fff; border-radius: 24px; }
+.mystery-mark { color: #ffe177; font-family: 'Baloo 2', sans-serif; font-size: 3.8rem; font-weight: 800; letter-spacing: .2em; }
+.mystery-man { width: 150px; height: 115px; margin: 4px auto 18px; position: relative; border-radius: 50% 50% 35% 35%; background: #ffcc70; border: 5px solid #fff; box-shadow: 0 8px 0 #e5a34e; color: #392f4d; }
+.mystery-hat { position: absolute; left: 38px; top: -20px; font-size: 3rem; color: #ff6f91; transform: rotate(-15deg); }
+.mystery-face { display: block; margin-top: 38px; font-size: 1.45rem; font-weight: 900; }
+.mystery-bag { position: absolute; right: -22px; bottom: -8px; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: #75d6bc; border: 4px solid #fff; font-size: 1.4rem; font-weight: 900; }
+.chase-ending { background: linear-gradient(135deg, #fff0b0, #ffd2df); color: var(--ink); } .chase-ending h2 { color: #d94f72; font-size: 2.7rem; }
+.chase-stage { position: relative; height: 100px; overflow: hidden; margin: 18px 0; border-bottom: 4px dashed #e8ad70; background: #fff8dc; border-radius: 16px; }
+.runner-character, .mystery-chaser { position: absolute; top: 35px; font-size: 2.6rem; animation: chase-run 2.2s linear infinite; } .runner-character { left: 15%; } .mystery-chaser { left: 62%; animation-delay: .25s; } @keyframes chase-run { 50% { transform: translateX(28px) translateY(-7px); } 100% { transform: translateX(85vw); } }
+.chip { padding: 10px 14px; background: #f1eafa; color: #66508b; } .chip.active { background: var(--pink); color: #fff; } .chip:disabled { cursor: not-allowed; opacity: .4; filter: grayscale(1); } .amount-input { width: 120px; padding: 10px; border: 2px solid var(--line); border-radius: 12px; }
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap');
+
+:root { --ink: #392f4d; --muted: #786e85; --cream: #fff9ed; --pink: #ff6f91; --yellow: #ffc857; --mint: #75d6bc; --blue: #72a7e8; --line: #eadfce; --shadow: 0 16px 40px rgba(96, 63, 66, .12); }
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--ink); background: radial-gradient(circle at 8% 8%, #fff1af 0 10%, transparent 27%), radial-gradient(circle at 93% 25%, #ffd4de 0 8%, transparent 28%), linear-gradient(145deg, #fffaf0 0%, #edf9f0 100%); font-family: 'M PLUS Rounded 1c', sans-serif; min-height: 100vh; }
+button, input { font: inherit; }
+button { border: 0; cursor: pointer; color: inherit; }
+.app-shell { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 52px; }
+.topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 22px; }
+.brand-block { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.topbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.header-home { padding: 5px 10px; border: 2px solid rgba(255,255,255,.95); border-radius: 10px; background: rgba(255,255,255,.72); color: var(--muted); font-size: .78rem; font-weight: 800; }
+.header-home:hover { background: #fff; color: var(--pink); }
+.brand { font-family: 'Baloo 2', sans-serif; font-size: 1.55rem; font-weight: 800; letter-spacing: .02em; }
+.brand span { color: var(--pink); }
+.money-pill { padding: 10px 16px; border: 2px solid #fff; background: rgba(255,255,255,.75); border-radius: 999px; font-weight: 800; box-shadow: 0 6px 18px rgba(88,70,70,.08); }
+.hero, .panel { background: rgba(255,255,255,.88); border: 2px solid rgba(255,255,255,.95); border-radius: 28px; box-shadow: var(--shadow); }
+.hero { padding: clamp(32px, 8vw, 82px) clamp(22px, 7vw, 86px); text-align: center; position: relative; overflow: hidden; }
+.hero:after { content: '✦'; position: absolute; right: 8%; top: 16%; color: var(--yellow); font-size: 4rem; transform: rotate(16deg); }
+.kicker { display: inline-block; background: #fff0b9; padding: 8px 14px; border-radius: 99px; font-weight: 800; color: #927330; }
+h1 { margin: 14px 0 8px; font-family: 'Baloo 2', sans-serif; font-size: clamp(3rem, 8vw, 6.5rem); line-height: .9; color: var(--pink); text-shadow: 4px 5px 0 #ffe1a5; }
+h1 small { display: block; color: var(--ink); font-size: .28em; letter-spacing: .15em; text-shadow: none; margin-top: 14px; }
+.lede { color: var(--muted); max-width: 540px; margin: 20px auto 30px; line-height: 1.9; }
+.actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; }
+.primary, .secondary, .ghost, .chip { border-radius: 15px; padding: 13px 20px; font-weight: 800; transition: transform .18s ease, box-shadow .18s ease; }
+.primary { background: var(--pink); color: white; box-shadow: 0 6px 0 #d94f72; }
+.secondary { background: var(--mint); color: #184d45; box-shadow: 0 6px 0 #51b59c; }
+.ghost { background: #fff7db; color: #80662c; }
+.primary:hover, .secondary:hover, .ghost:hover, .chip:hover { transform: translateY(-2px); }
+.section-title { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin: 20px 0 12px; }
+h2, h3 { margin: 0; font-family: 'Baloo 2', sans-serif; }
+h2 { font-size: 2rem; } h3 { font-size: 1.35rem; }
+.race-info { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
+.info-item { background: #fff7df; border-radius: 16px; padding: 12px; text-align: center; }
+.info-item b { display: block; font-size: 1.18rem; margin-top: 3px; } .info-item span { color: var(--muted); font-size: .77rem; }
+.horse-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.horse-card { display: grid; grid-template-columns: 55px 58px 1fr auto; align-items: center; gap: 12px; border: 2px solid var(--line); border-radius: 19px; padding: 12px; background: #fff; text-align: left; transition: .18s ease; }
+.horse-card.selected { border-color: var(--pink); background: #fff0f3; box-shadow: 0 0 0 3px #ffc2d0; transform: translateY(-2px); }
+.horse-card:focus-within, .horse-card:hover { border-color: #ffafc1; }
+.horse-number { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 12px; font-weight: 900; background: var(--bib, #ff6f91); color: var(--bib-text, #fff); border: 2px solid #85818a; }
+.horse-icon { --coat: #8d5b3f; --mane: #3d2634; width: 58px; height: 52px; position: relative; display: block; }
+.horse-icon:before { content: ''; position: absolute; width: 31px; height: 27px; left: 14px; top: 9px; border-radius: 58% 50% 44% 48%; background: var(--coat); border: 2px solid rgba(57,47,77,.2); z-index: 1; }
+.cap { position: absolute; left: 23px; top: 0; width: 25px; height: 13px; border-radius: 15px 15px 4px 4px; background: var(--bib); border: 2px solid #85818a; z-index: 4; }
+.cap:after { content: ''; position: absolute; left: -5px; bottom: -4px; width: 31px; height: 5px; border-radius: 50%; background: var(--bib); border: 2px solid #85818a; }
+.ear { position: absolute; top: 3px; width: 10px; height: 17px; border: 2px solid rgba(57,47,77,.2); border-radius: 90% 20% 70% 20%; background: var(--coat); z-index: 0; }
+.neck { position: absolute; left: 8px; top: 25px; width: 20px; height: 25px; border-radius: 70% 35% 0 0; background: var(--coat); border: 2px solid rgba(57,47,77,.2); z-index: 0; transform: rotate(8deg); }
+.ear-back { left: 20px; transform: rotate(-28deg); } .ear-front { left: 32px; transform: rotate(18deg); }
+.mane { position: absolute; left: 10px; top: 9px; width: 18px; height: 29px; border-radius: 80% 10% 80% 10%; transform: rotate(-18deg); background: var(--mane); z-index: 2; }
+.leg { position: absolute; top: 36px; width: 6px; height: 13px; border-radius: 0 0 5px 5px; background: var(--coat); border: 2px solid rgba(57,47,77,.2); z-index: 0; transform-origin: top; }
+.leg-back { left: 17px; transform: rotate(9deg); } .leg-front { left: 38px; transform: rotate(-9deg); }
+.eye { position: absolute; left: 34px; top: 19px; width: 5px; height: 6px; border-radius: 50%; background: var(--ink); z-index: 5; }
+.eye-wink { top: 21px; height: 2px; border-radius: 80% 10%; transform: rotate(-18deg); }
+.muzzle { position: absolute; left: 38px; top: 22px; width: 17px; height: 13px; border-radius: 25% 65% 55% 35%; background: var(--coat); border: 2px solid rgba(57,47,77,.2); z-index: 4; }
+.muzzle:before { content: ''; position: absolute; right: 3px; top: 3px; width: 4px; height: 4px; border-radius: 50%; background: var(--ink); }
+.muzzle:after { content: ''; position: absolute; right: 1px; bottom: 1px; width: 8px; height: 3px; border-bottom: 2px solid var(--ink); border-radius: 50%; transform: rotate(-8deg); }
+.face { position: absolute; left: 29px; top: 29px; width: 9px; height: 5px; z-index: 6; }
+.face:before { position: absolute; color: var(--ink); font-size: 11px; font-style: normal; line-height: 1; }
+.face-happy:before { content: '⌣'; left: 0; top: -2px; }
+.face-calm:before { content: '−'; left: 1px; top: -2px; }
+.face-wink:before { content: '⌣'; left: 0; top: -2px; transform: rotate(180deg); }
+.bib { position: absolute; right: 0; bottom: 0; font-size: 12px; width: 22px; height: 22px; border-radius: 50%; color: var(--bib-text); display: grid; place-items: center; background: var(--bib); border: 2px solid rgba(57,47,77,.18); z-index: 5; }
+.accent { position: absolute; left: 0; bottom: 3px; color: var(--bib); font-size: 12px; font-style: normal; font-weight: 900; z-index: 4; }
+.horse-main { min-width: 0; } .horse-name { font-weight: 800; font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .horse-meta, .horse-form { color: var(--muted); font-size: .78rem; margin-top: 3px; }
+.odds { text-align: right; color: #e05278; font-weight: 900; font-size: 1.18rem; } .odds small { display: block; color: var(--muted); font-size: .7rem; font-weight: 500; }
+.bet-panel { margin-top: 18px; padding: 16px; background: rgba(255,255,255,.95); border: 2px solid white; border-radius: 20px; box-shadow: 0 12px 30px rgba(90,60,65,.16); }
+.bet-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; } .chip { padding: 10px 14px; background: #f1eafa; color: #66508b; } .chip.active { background: var(--pink); color: #fff; } .amount-input { width: 120px; padding: 10px; border: 2px solid var(--line); border-radius: 12px; }
+.notice { margin: 12px 0 0; color: var(--muted); min-height: 25px; } .notice.error { color: #d94f72; font-weight: 700; }
+.race-track { padding: 18px 18px 10px; background: #dff5e6; border-radius: 22px; border: 3px solid white; overflow: hidden; }
+.track-lane { position: relative; height: 57px; border-bottom: 2px dashed rgba(57,47,77,.22); } .track-lane:last-child { border-bottom: 0; }
+.runner { position: absolute; left: 0; top: 4px; width: 57px; height: 49px; animation: bob .44s ease-in-out infinite alternate, gallop .28s linear infinite; transition: left .78s cubic-bezier(.2,.7,.2,1); } .runner .horse-icon { transform: scale(.9); }
+@keyframes bob { to { transform: translateY(-6px) rotate(2deg); } }
+.race-banner { text-align: center; margin: 18px 0 8px; color: #db5273; font-size: 1.6rem; font-weight: 900; min-height: 34px; }
+.race-commentary { min-height: 28px; text-align: center; color: var(--muted); font-weight: 700; }
+.race-live { padding: 7px 12px; border-radius: 99px; background: #ffedf1; color: #db5273; font-size: .75rem; font-weight: 900; letter-spacing: .12em; animation: live-pulse 1s infinite; }
+@keyframes gallop { 50% { margin-left: 3px; } } @keyframes live-pulse { 50% { opacity: .55; } }
+.result-list { display: grid; gap: 8px; } .result-row { display: grid; grid-template-columns: 58px 58px 1fr auto; align-items: center; padding: 10px 14px; border-radius: 14px; background: #fff; border: 2px solid transparent; } .result-row.winner { background: #fff1b9; border-color: #ffd265; } .position { font-family: 'Baloo 2'; font-size: 1.5rem; font-weight: 800; } .payout { padding: 22px; margin: 18px 0; border-radius: 22px; background: linear-gradient(120deg, #fff0ae, #ffd3df); text-align: center; } .payout.hit { animation: pop .5s ease both; } .payout h2 { color: #d94f72; } @keyframes pop { 50% { transform: scale(1.04) rotate(-1deg); } }
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; } .stat { padding: 15px; border-radius: 16px; background: #fff7df; } .stat-highlight { background: #ffe2ea; } .stat span { display: block; color: var(--muted); font-size: .8rem; } .stat b { font-size: 1.35rem; }
+.history-table { width: 100%; border-collapse: collapse; font-size: .9rem; } .history-table th, .history-table td { text-align: left; padding: 11px 8px; border-bottom: 1px solid var(--line); } .empty { padding: 32px; text-align: center; color: var(--muted); }
+.confetti-layer { pointer-events: none; position: fixed; inset: 0; z-index: 4; overflow: hidden; } .confetti-layer.active:before, .confetti-layer.active:after { content: '✦  •  ✧  ✦  •  ✧  ✦'; position: absolute; inset: 0; color: var(--pink); font-size: 2rem; letter-spacing: 30px; animation: fall 1.3s linear both; } .confetti-layer.active:after { color: var(--yellow); animation-delay: .15s; } @keyframes fall { from { transform: translateY(-20%) rotate(0); opacity: 1; } to { transform: translateY(110%) rotate(25deg); opacity: 0; } }
+@media (max-width: 680px) { .app-shell { width: min(100% - 20px, 560px); padding-top: 16px; } .topbar { align-items: flex-start; } .race-info { grid-template-columns: repeat(2, 1fr); } .horse-grid { grid-template-columns: 1fr; } .horse-card { grid-template-columns: 42px 52px 1fr auto; gap: 8px; padding: 9px; } .horse-name { font-size: .95rem; } .hero { padding: 42px 18px 48px; } h1 { font-size: 4rem; } .stat-grid { grid-template-columns: repeat(2, 1fr); } .result-row { grid-template-columns: 45px 50px 1fr auto; padding: 8px; } .bet-panel { bottom: 6px; } }
