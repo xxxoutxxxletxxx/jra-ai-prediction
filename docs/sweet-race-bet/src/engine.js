@@ -21,7 +21,7 @@ const randomBetween = (random, min, max) => min + random() * (max - min);
 const randomInt = (random, min, max) => Math.floor(randomBetween(random, min, max + 1));
 const pick = (random, values) => values[Math.floor(random() * values.length)];
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-const ODDS_SLOPE = 1.4;
+const ODDS_SLOPE = 2.0;
 export const RESCUE_AMOUNT = 20000;
 
 export function makeRandom(seed = Math.random()) {
