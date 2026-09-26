@@ -1,5 +1,5 @@
 import { acceptRescue, createGame, placeBet, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace, titleForMoney } from './engine.js';
-import { clearHistory, readHistory, saveGameResult, summarizeHistory } from './storage.js';
+import { clearHistory, fetchLeaderboard, readHistory, rankingNameError, saveGameResult, submitLeaderboardEntry, summarizeHistory } from './storage.js';
 
 const app = document.querySelector('#app');
 const confetti = document.querySelector('.confetti-layer');
@@ -8,6 +8,10 @@ let screen = 'start';
 let selectedHorse = null;
 let selectedAmount = 100;
 let lastResult = null;
+let ranking = [];
+let rankingStatus = 'idle';
+let rankingError = '';
+let submittingRanking = false;
 
 const coins = (value) => `${Math.round(value).toLocaleString('ja-JP')}コイン`;
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -16,12 +20,12 @@ const header = (showMoney = true) => `<header class="topbar"><div class="brand-b
 const panel = (content, className = '') => `<section class="panel ${className}">${content}</section>`;
 
 function render() {
-  const views = { start: renderStart, history: renderHistory, bet: renderBet, race: renderRace, result: renderResult, rescue: renderRescueOffer, final: renderFinal, special: renderSpecialEnding };
+  const views = { start: renderStart, history: renderHistory, ranking: renderRanking, bet: renderBet, race: renderRace, result: renderResult, rescue: renderRescueOffer, final: renderFinal, special: renderSpecialEnding };
   app.innerHTML = `${header(screen !== 'start' && screen !== 'history' && screen !== 'final')}${views[screen]()}`;
 }
 
 function renderStart() {
-  return `<section class="hero"><span class="kicker">ぜんぶ架空のスイーツ競馬</span><h1>スイート<br>レース<small>BET</small></h1><p class="lede">かわいい8頭のスイーツホースから、今日の主役を予想しよう。軍資金はゲーム内の10,000コイン。5レースを遊んで、最後に笑うのは誰？</p><div class="actions"><button class="primary" data-action="start">ゲームスタート</button><button class="secondary" data-action="history">過去成績</button></div><p class="notice">遊び方：馬の情報とオッズを見て1頭にBET。的中すればオッズ分の払戻です。</p></section>`;
+  return `<section class="hero"><span class="kicker">ぜんぶ架空のスイーツ競馬</span><h1>スイート<br>レース<small>BET</small></h1><p class="lede">かわいい8頭のスイーツホースから、今日の主役を予想しよう。軍資金はゲーム内の10,000コイン。5レースを遊んで、最後に笑うのは誰？</p><div class="actions"><button class="primary" data-action="start">ゲームスタート</button><button class="secondary" data-action="ranking">全国ランキング</button><button class="ghost" data-action="history">過去成績</button></div><p class="notice">遊び方：馬の情報とオッズを見て1頭にBET。的中すればオッズ分の払戻です。</p></section>`;
 }
 
 function renderHistory() {
@@ -29,6 +33,11 @@ function renderHistory() {
   const summary = summarizeHistory(history);
   const rows = history.length ? history.map((record) => `<tr><td>${escapeHtml(new Date(record.playedAt).toLocaleString('ja-JP'))}</td><td>${coins(record.finalMoney)}</td><td>${record.profit >= 0 ? '+' : ''}${coins(record.profit)}</td><td>${record.betCount} / ${record.hitCount}</td><td>${record.betCount ? Math.round(record.hitCount / record.betCount * 100) : 0}%</td><td>${record.rescueUsed ? escapeHtml(record.rescueStatusLabel || '利用あり') : 'なし'}</td></tr>`).join('') : `<tr><td colspan="6" class="empty">まだプレイ記録がありません</td></tr>`;
   return `${panel(`<div class="section-title"><div><span class="kicker">ARCHIVE</span><h2>過去成績</h2></div><button class="ghost" data-action="home">スタートへ</button></div><div class="stat-grid"><div class="stat"><span>プレイ回数</span><b>${summary.games}</b></div><div class="stat stat-highlight"><span>最高的中率</span><b>${Math.round(summary.bestHitRate * 100)}%</b></div><div class="stat"><span>歴代最高所持金</span><b>${coins(summary.bestMoney)}</b></div><div class="stat"><span>歴代最大払戻</span><b>${coins(summary.maxPayout)}</b></div></div><div style="overflow:auto"><table class="history-table"><thead><tr><th>プレイ日時</th><th>最終所持金</th><th>収支</th><th>BET / 的中</th><th>的中率</th><th>救済イベント</th></tr></thead><tbody>${rows}</tbody></table></div><div class="actions" style="margin-top:20px"><button class="ghost" data-action="clear-history">過去成績をリセット</button></div>`)}`;
+}
+
+function renderRanking() {
+  const content = rankingStatus === 'loading' ? '<p class="notice ranking-state">全国ランキングを読み込んでいます…</p>' : rankingStatus === 'error' ? `<div class="ranking-state"><p class="notice error">${escapeHtml(rankingError)}</p><button class="secondary" data-action="ranking">再読み込み</button></div>` : `<div style="overflow:auto"><table class="history-table ranking-table"><thead><tr><th>順位</th><th>プレイヤー名</th><th>スコア</th></tr></thead><tbody>${ranking.length ? ranking.map((record, index) => `<tr class="${index < 3 ? 'ranking-top' : ''}"><td>${index + 1}</td><td>${escapeHtml(record.player_name)}</td><td><strong>${coins(record.score)}</strong></td></tr>`).join('') : '<tr><td colspan="3" class="empty">まだ登録された記録がありません</td></tr>'}</tbody></table></div>`;
+  return `${panel(`<div class="section-title"><div><span class="kicker">NATIONAL RANKING</span><h2>全国ランキング</h2></div><button class="ghost" data-action="home">スタートへ</button></div><p class="notice">5レース終了時の最終所持金で競います。全国TOP100を表示しています。</p>${content}`)}`;
 }
 
 function raceInfo(race) { return `<div class="race-info"><div class="info-item"><span>開催月</span><b>${race.month}月</b></div><div class="info-item"><span>開催場</span><b>${race.venue}</b></div><div class="info-item"><span>距離</span><b>${race.distance}m</b></div><div class="info-item"><span>馬場</span><b>${race.track}</b></div><div class="info-item odds-style"><span>オッズ傾向</span><b>${race.oddsProfile}</b></div></div>`; }
@@ -66,10 +75,51 @@ function renderSpecialEnding() {
 
 function renderFinal() {
   const profit = game.money - game.initialMoney;
-  return `${panel(`<div class="hero" style="box-shadow:none;border:0;background:transparent;padding:30px 10px"><span class="kicker">GAME CLEAR</span><h2>${titleForMoney(game.money, game.rescueStatus)}</h2><p class="lede">5レースおつかれさまでした。あなたの最終成績です。</p><div class="stat-grid"><div class="stat"><span>初期資金</span><b>${coins(game.initialMoney)}</b></div><div class="stat"><span>最終所持金</span><b>${coins(game.money)}</b></div><div class="stat"><span>収支</span><b>${profit >= 0 ? '+' : ''}${coins(profit)}</b></div><div class="stat"><span>BET回数</span><b>${game.betCount}</b></div><div class="stat"><span>的中回数 / 的中率</span><b>${game.hitCount} / ${game.betCount ? Math.round(game.hitCount / game.betCount * 100) : 0}%</b></div><div class="stat"><span>最大払戻</span><b>${coins(game.maxPayout)}</b></div></div><div class="result-list">${game.records.map((record) => `<div class="result-row"><strong>第${record.raceNumber}R</strong><span>${record.bet ? escapeHtml(record.bet.name) : '見送り'}</span><span>${record.winner}</span><span>${record.hit ? `+${coins(record.payout)}` : '-'}</span></div>`).join('')}</div><div class="actions" style="margin-top:22px"><button class="primary" data-action="start">もう一度遊ぶ</button><button class="secondary" data-action="history">過去成績</button></div></div>`)}`;
+  const registration = game.rankingRegistered ? '<div class="ranking-registered"><strong>全国ランキングに登録しました</strong><button class="secondary" data-action="ranking">ランキングを見る</button></div>' : `<div class="ranking-register"><h3>この記録を全国ランキングに登録しますか？</h3><p class="notice">ユーザー名は日本語・ローマ字で入力できます。</p><div class="ranking-form"><input id="ranking-name" class="amount-input" maxlength="40" placeholder="ユーザー名" aria-label="ランキングユーザー名" ${submittingRanking ? 'disabled' : ''}><button class="primary" data-action="register-ranking" ${submittingRanking ? 'disabled' : ''}>${submittingRanking ? '登録中…' : '登録する'}</button></div><p class="notice" id="ranking-error" role="alert"></p><button class="ghost" data-action="skip-ranking">今回は登録しない</button></div>`;
+  return `${panel(`<div class="hero" style="box-shadow:none;border:0;background:transparent;padding:30px 10px"><span class="kicker">GAME CLEAR</span><h2>${titleForMoney(game.money, game.rescueStatus)}</h2><p class="lede">5レースおつかれさまでした。あなたの最終成績です。</p><div class="stat-grid"><div class="stat"><span>初期資金</span><b>${coins(game.initialMoney)}</b></div><div class="stat"><span>最終所持金</span><b>${coins(game.money)}</b></div><div class="stat"><span>収支</span><b>${profit >= 0 ? '+' : ''}${coins(profit)}</b></div><div class="stat"><span>BET回数</span><b>${game.betCount}</b></div><div class="stat"><span>的中回数 / 的中率</span><b>${game.hitCount} / ${game.betCount ? Math.round(game.hitCount / game.betCount * 100) : 0}%</b></div><div class="stat"><span>最大払戻</span><b>${coins(game.maxPayout)}</b></div></div><div class="result-list">${game.records.map((record) => `<div class="result-row"><strong>第${record.raceNumber}R</strong><span>${record.bet ? escapeHtml(record.bet.name) : '見送り'}</span><span>${record.winner}</span><span>${record.hit ? `+${coins(record.payout)}` : '-'}</span></div>`).join('')}</div>${registration}<div class="actions" style="margin-top:22px"><button class="primary" data-action="start">もう一度遊ぶ</button><button class="secondary" data-action="ranking">全国ランキング</button><button class="ghost" data-action="history">過去成績</button></div></div>`)}`;
 }
 
-function startGame() { game = createGame(Math.random); screen = 'bet'; selectedHorse = null; selectedAmount = 100; render(); }
+async function openRanking() {
+  screen = 'ranking';
+  rankingStatus = 'loading';
+  rankingError = '';
+  render();
+  try {
+    ranking = await fetchLeaderboard();
+    rankingStatus = 'ready';
+  } catch (error) {
+    rankingStatus = 'error';
+    rankingError = '全国ランキングを取得できませんでした。時間をおいて再読み込みしてください。';
+  }
+  render();
+}
+
+async function registerRanking() {
+  if (submittingRanking) return;
+  const input = document.querySelector('#ranking-name');
+  const userName = String(input?.value || '').trim();
+  const error = rankingNameError(userName);
+  if (error) {
+    const errorElement = document.querySelector('#ranking-error');
+    if (errorElement) errorElement.textContent = error;
+    return;
+  }
+  submittingRanking = true;
+  render();
+  try {
+    await submitLeaderboardEntry(userName, game.money);
+    game.rankingRegistered = true;
+  } catch (submitError) {
+    submittingRanking = false;
+    const errorElement = document.querySelector('#ranking-error');
+    if (errorElement) errorElement.textContent = '全国ランキングへの登録に失敗しました。時間をおいて再試行してください。';
+    return;
+  }
+  submittingRanking = false;
+  render();
+}
+
+function startGame() { game = createGame(Math.random); game.rankingRegistered = false; screen = 'bet'; selectedHorse = null; selectedAmount = 100; render(); }
 function confirmBet(skip = false) {
   const amountInput = document.querySelector('#amount');
   if (!skip) selectedAmount = Number(amountInput?.value || selectedAmount);
@@ -143,6 +193,7 @@ app.addEventListener('click', (event) => {
   if (amount) { selectedAmount = amount === 'max' ? game.money : Number(amount); render(); return; }
   if (action === 'start') startGame();
   if (action === 'history') { screen = 'history'; render(); }
+  if (action === 'ranking') openRanking();
   if (action === 'home') { screen = 'start'; render(); }
   if (action === 'confirm-bet') confirmBet();
   if (action === 'skip-bet') confirmBet(true);
@@ -150,6 +201,8 @@ app.addEventListener('click', (event) => {
   if (action === 'next') nextRace();
   if (action === 'accept-rescue') acceptRescueOffer();
   if (action === 'decline-rescue') declineRescueOffer();
+  if (action === 'register-ranking') registerRanking();
+  if (action === 'skip-ranking') { game.rankingRegistered = true; render(); }
   if (action === 'clear-history' && window.confirm('過去成績をすべて削除しますか？')) { clearHistory(); render(); }
 });
 app.addEventListener('input', (event) => { if (event.target.id === 'amount') selectedAmount = Number(event.target.value); });
