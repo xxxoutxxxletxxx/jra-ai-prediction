@@ -1,5 +1,5 @@
 import { acceptRescue, createGame, placeBet, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace, titleForMoney } from './engine.js';
-import { clearHistory, fetchLeaderboard, readHistory, rankingNameError, saveGameResult, submitLeaderboardEntry, summarizeHistory } from './storage.js?v=20260927-ranking-rpc-v2';
+import { clearHistory, fetchLeaderboard, readHistory, rankingNameError, saveGameResult, submitLeaderboardEntry, summarizeHistory } from './storage.js?v=20260927-race-skip';
 
 const app = document.querySelector('#app');
 const confetti = document.querySelector('.confetti-layer');
@@ -12,11 +12,13 @@ let ranking = [];
 let rankingStatus = 'idle';
 let rankingError = '';
 let submittingRanking = false;
+let raceAnimationTimers = [];
+let raceResultRevealed = false;
 
 const coins = (value) => `${Math.round(value).toLocaleString('ja-JP')}コイン`;
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const horseIcon = (horse, className = '') => `<span class="horse-icon ${className}" style="--coat:${horse.icon.coat};--mane:${horse.icon.mane};--bib:${horse.icon.bib};--bib-text:${horse.icon.bibText}"><i class="neck"></i><i class="ear ear-back"></i><i class="ear ear-front"></i><i class="cap"></i><i class="mane"></i><i class="leg leg-back"></i><i class="leg leg-front"></i><i class="eye eye-near eye-${horse.icon.face}"></i><i class="muzzle"></i><i class="face face-${horse.icon.face}"></i><i class="bib">${horse.number}</i></span>`;
-const header = (showMoney = true) => `<header class="topbar"><div class="brand-block">${screen !== 'start' ? '<button class="header-home" data-action="home">← スタートに戻る</button>' : ''}<div class="brand">🍬 スイート<span>レース</span>BET</div></div><div class="topbar-actions">${showMoney && game ? `<div class="money-pill">軍資金 ${coins(game.money)}</div>` : ''}</div></header>`;
+const header = (showMoney = true) => `<header class="topbar"><div class="brand-block">${screen !== 'start' ? '<button class="header-home" data-action="home">← スタートに戻る</button>' : ''}<div class="brand">🍬 スイート<span>レース</span>BET</div></div><div class="topbar-actions">${showMoney && game ? `<div class="money-pill">軍資金 ${coins(game.money)}</div>` : ''}${screen === 'race' ? '<button class="race-skip" data-action="skip-race">スキップ <span aria-hidden="true">»</span></button>' : ''}</div></header>`;
 const panel = (content, className = '') => `<section class="panel ${className}">${content}</section>`;
 
 function render() {
@@ -128,6 +130,8 @@ function confirmBet(skip = false) {
   game.money = result.money; game.currentBet = result.bet; game.resolvedRace = simulateRace(game.currentRace, Math.random); screen = 'race'; render(); animateRace();
 }
 function animateRace() {
+  clearRaceAnimationTimers();
+  raceResultRevealed = false;
   const runners = [...document.querySelectorAll('[data-runner]')];
   const { horses } = game.resolvedRace;
   const orders = [
@@ -154,15 +158,17 @@ function animateRace() {
     document.querySelector('#race-banner').textContent = text;
     document.querySelector('#race-commentary').textContent = commentary;
   };
-  stages.forEach(([delay, text, commentary], index) => setTimeout(() => move(index, text, commentary), delay));
-  setTimeout(() => {
+  stages.forEach(([delay, text, commentary], index) => raceAnimationTimers.push(setTimeout(() => move(index, text, commentary), delay)));
+  raceAnimationTimers.push(setTimeout(() => {
     horses.forEach((horse) => {
       const runner = document.querySelector(`[data-runner="${horse.number}"]`);
-      runner.style.left = `${90 + (9 - horse.finalPosition) * 0.8}%`;
+      if (runner) runner.style.left = `${90 + (9 - horse.finalPosition) * 0.8}%`;
     });
-  }, 5050);
-  setTimeout(revealResult, 5900);
+  }, 5050));
+  raceAnimationTimers.push(setTimeout(finishRaceAnimation, 5900));
 }
+function clearRaceAnimationTimers() { raceAnimationTimers.forEach(clearTimeout); raceAnimationTimers = []; }
+function finishRaceAnimation() { if (raceResultRevealed || screen !== 'race') return; raceResultRevealed = true; clearRaceAnimationTimers(); revealResult(); }
 function revealResult() { lastResult = settleBet(game.money, game.currentBet, game.resolvedRace); game.money = lastResult.money; game.betCount += game.currentBet ? 1 : 0; game.hitCount += lastResult.hit ? 1 : 0; game.maxPayout = Math.max(game.maxPayout, lastResult.payout); const winner = game.resolvedRace.horses.find((horse) => horse.finalPosition === 1); game.records.push({ raceNumber: game.raceNumber, bet: game.currentBet ? { name: game.currentRace.horses.find((horse) => horse.number === game.currentBet.horseNumber).name, amount: game.currentBet.amount } : null, winner: winner.name, hit: lastResult.hit, payout: lastResult.payout }); screen = 'result'; render(); if (lastResult.hit) { confetti.classList.add('active'); setTimeout(() => confetti.classList.remove('active'), 1500); } }
 function saveCurrentResult() { saveGameResult({ playedAt: new Date().toISOString(), finalMoney: game.money, profit: game.money - game.initialMoney, betCount: game.betCount, hitCount: game.hitCount, maxPayout: game.maxPayout, rescueUsed: game.rescueUsed, rescueStatusLabel: game.rescueStatus === 'repaid' ? '20,000コイン返却成功' : game.rescueStatus === 'failed' ? '返却失敗' : game.rescueStatus === 'gameover' ? '救済資金も使い切ってGAME OVER' : 'なし' }); }
 function nextRace() {
@@ -197,7 +203,7 @@ app.addEventListener('click', (event) => {
   if (action === 'home') { screen = 'start'; render(); }
   if (action === 'confirm-bet') confirmBet();
   if (action === 'skip-bet') confirmBet(true);
-  if (action === 'reveal-result') revealResult();
+  if (action === 'skip-race') finishRaceAnimation();
   if (action === 'next') nextRace();
   if (action === 'accept-rescue') acceptRescueOffer();
   if (action === 'decline-rescue') declineRescueOffer();

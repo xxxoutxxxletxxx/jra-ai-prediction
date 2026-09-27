@@ -35,6 +35,9 @@ button { border: 0; cursor: pointer; color: inherit; }
 .topbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .header-home { padding: 5px 10px; border: 2px solid rgba(255,255,255,.95); border-radius: 10px; background: rgba(255,255,255,.72); color: var(--muted); font-size: .78rem; font-weight: 800; }
 .header-home:hover { background: #fff; color: var(--pink); }
+.race-skip { min-height: 44px; padding: 9px 14px; border: 2px solid #fff; border-radius: 13px; background: var(--ink); color: #fff; font-weight: 800; box-shadow: 0 6px 18px rgba(57,47,77,.18); }
+.race-skip:hover { background: #514365; transform: translateY(-2px); }
+.race-skip span { margin-left: 3px; font-size: 1.2em; }
 .brand { font-family: 'Baloo 2', sans-serif; font-size: 1.55rem; font-weight: 800; letter-spacing: .02em; }
 .brand span { color: var(--pink); }
 .money-pill { padding: 10px 16px; border: 2px solid #fff; background: rgba(255,255,255,.75); border-radius: 999px; font-weight: 800; box-shadow: 0 6px 18px rgba(88,70,70,.08); }
