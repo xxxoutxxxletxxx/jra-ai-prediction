@@ -55,6 +55,19 @@ h1 small { display: block; color: var(--ink); font-size: .28em; letter-spacing: 
 .ghost { background: #fff7db; color: #80662c; }
 .primary:hover, .secondary:hover, .ghost:hover, .chip:hover { transform: translateY(-2px); }
 .section-title { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin: 20px 0 12px; }
+.mode-intro { margin-bottom: 16px; }
+.mode-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.mode-card { display: flex; min-height: 150px; flex-direction: column; align-items: flex-start; gap: 8px; padding: 18px; border: 2px solid var(--line); border-radius: 18px; background: #fff; text-align: left; transition: .18s ease; }
+.mode-card:hover, .mode-card.selected { border-color: var(--pink); background: #fff0f3; transform: translateY(-2px); }
+.mode-card strong { font-family: 'Baloo 2', sans-serif; font-size: 1.45rem; }
+.mode-card span { color: var(--muted); font-size: .85rem; line-height: 1.5; }
+.mode-card small { margin-top: auto; color: #d94f72; font-weight: 800; }
+.bet-mode-banner { display: flex; align-items: center; gap: 10px; margin: 12px 0; padding: 10px 14px; border-radius: 14px; background: #fff0b9; }
+.bet-mode-banner span { color: var(--muted); font-size: .85rem; }
+.race-section-title { position: relative; display: block; }
+.race-heading { width: 100%; }
+.race-heading-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.race-section-title .race-live { position: absolute; right: 0; bottom: 0; }
 h2, h3 { margin: 0; font-family: 'Baloo 2', sans-serif; }
 h2 { font-size: 2rem; } h3 { font-size: 1.35rem; }
 .race-info { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 18px; }
@@ -106,4 +119,5 @@ h2 { font-size: 2rem; } h3 { font-size: 1.35rem; }
 .history-table { width: 100%; border-collapse: collapse; font-size: .9rem; } .history-table th, .history-table td { text-align: left; padding: 11px 8px; border-bottom: 1px solid var(--line); } .empty { padding: 32px; text-align: center; color: var(--muted); }
 .ranking-register, .ranking-registered { margin-top: 22px; padding: 18px; border: 2px solid #ffd265; border-radius: 16px; background: #fff8df; text-align: center; } .ranking-register h3 { margin: 0 0 8px; } .ranking-form { display: flex; gap: 8px; max-width: 520px; margin: 12px auto 8px; } .ranking-form .amount-input { flex: 1; min-width: 0; } .ranking-register .notice { min-height: 1.3em; } .ranking-table th:first-child, .ranking-table td:first-child { width: 72px; text-align: center; } .ranking-top td:first-child { color: #d94f72; font-weight: 900; font-size: 1.15rem; } .ranking-registered { display: flex; align-items: center; justify-content: center; gap: 14px; }
 .confetti-layer { pointer-events: none; position: fixed; inset: 0; z-index: 4; overflow: hidden; } .confetti-layer.active:before, .confetti-layer.active:after { content: '✦  •  ✧  ✦  •  ✧  ✦'; position: absolute; inset: 0; color: var(--pink); font-size: 2rem; letter-spacing: 30px; animation: fall 1.3s linear both; } .confetti-layer.active:after { color: var(--yellow); animation-delay: .15s; } @keyframes fall { from { transform: translateY(-20%) rotate(0); opacity: 1; } to { transform: translateY(110%) rotate(25deg); opacity: 0; } }
-@media (max-width: 680px) { .app-shell { width: min(100% - 20px, 560px); padding-top: 16px; } .topbar { align-items: flex-start; } .race-info { grid-template-columns: repeat(2, 1fr); } .horse-grid { grid-template-columns: 1fr; } .horse-card { grid-template-columns: 42px 52px 1fr auto; gap: 8px; padding: 9px; } .horse-name { font-size: .95rem; } .hero { padding: 42px 18px 48px; } h1 { font-size: 4rem; } .stat-grid { grid-template-columns: repeat(2, 1fr); } .result-row { grid-template-columns: 45px 50px 1fr auto auto; padding: 8px; } .ranking-form { flex-direction: column; } .ranking-registered { flex-direction: column; } .bet-panel { bottom: 6px; } }
+@media (max-width: 860px) { .mode-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 680px) { .app-shell { width: min(100% - 20px, 560px); padding-top: 16px; } .topbar { align-items: flex-start; } .race-info { grid-template-columns: repeat(2, 1fr); } .horse-grid { grid-template-columns: 1fr; } .horse-card { grid-template-columns: 42px 52px 1fr auto; gap: 8px; padding: 9px; } .horse-name { font-size: .95rem; } .hero { padding: 42px 18px 48px; } h1 { font-size: 4rem; } h2 { font-size: 1.7rem; } .stat-grid { grid-template-columns: repeat(2, 1fr); } .result-row { grid-template-columns: 45px 50px 1fr auto auto; padding: 8px; } .ranking-form { flex-direction: column; } .ranking-registered { flex-direction: column; } .bet-panel { bottom: 6px; } .mode-grid { grid-template-columns: 1fr; } .mode-card { min-height: 110px; } .bet-mode-banner { align-items: flex-start; flex-direction: column; gap: 2px; } .race-heading-row { gap: 8px; } }

@@ -26,6 +26,12 @@ const ODDS_PROFILES = [
   { key: 'standard', label: '標準', slope: 2.0, payoutFactor: 0.8 },
   { key: 'favorite', label: '本命集中', slope: 3.6, payoutFactor: 0.65 }
 ];
+export const BET_MODES = {
+  win: { key: 'win', label: '単勝', description: '1着を当てる', minHorses: 1, maxHorses: 1, payoutRate: 1 },
+  place: { key: 'place', label: '複勝', description: '3着以内を当てる', minHorses: 1, maxHorses: 1, payoutRate: 0.8 },
+  quinella: { key: 'quinella', label: '馬連', description: '1・2着の2頭を当てる', minHorses: 2, maxHorses: 2, payoutRate: 0.75 },
+  trifecta: { key: 'trifecta', label: '三連単', description: '1・2・3着を順番どおり当てる', minHorses: 3, maxHorses: 3, payoutRate: 0.725 }
+};
 export const RESCUE_AMOUNT = 20000;
 
 export function makeRandom(seed = Math.random()) {
@@ -110,17 +116,28 @@ export function simulateRace(race, random = Math.random) {
   return { ...race, horses: ranked };
 }
 
-export function placeBet(money, selectedHorseNumber, amount) {
-  if (!selectedHorseNumber || !Number.isFinite(amount) || amount <= 0 || amount > money) return { ok: false, reason: 'BET額または所持金を確認してください' };
-  return { ok: true, money: money - amount, bet: { horseNumber: selectedHorseNumber, amount } };
+export function placeBet(money, selectedHorseNumbers, amount, modeKey = 'win') {
+  const mode = BET_MODES[modeKey] || BET_MODES.win;
+  const horseNumbers = Array.isArray(selectedHorseNumbers) ? selectedHorseNumbers : [selectedHorseNumbers];
+  if (horseNumbers.length < mode.minHorses || horseNumbers.length > mode.maxHorses || new Set(horseNumbers).size !== horseNumbers.length || !Number.isFinite(amount) || amount <= 0 || amount > money) return { ok: false, reason: `${mode.label}の選択頭数とBET額を確認してください` };
+  return { ok: true, money: money - amount, bet: { horseNumbers, amount, modeKey } };
 }
 
 export function settleBet(money, bet, resultRace) {
   if (!bet) return { money, payout: 0, hit: false };
-  const winner = resultRace.horses.find((horse) => horse.finalPosition === 1);
-  const hit = winner.number === bet.horseNumber;
-  const payout = hit ? Math.round(bet.amount * resultRace.horses.find((horse) => horse.number === bet.horseNumber).odds) : 0;
-  return { money: money + payout, payout, hit };
+  const mode = BET_MODES[bet.modeKey] || BET_MODES.win;
+  const positions = resultRace.horses.slice().sort((a, b) => a.finalPosition - b.finalPosition).map((horse) => horse.number);
+  const selected = bet.horseNumbers;
+  const hit = mode.key === 'win'
+    ? selected[0] === positions[0]
+    : mode.key === 'place'
+      ? positions.slice(0, 3).includes(selected[0])
+      : mode.key === 'quinella'
+        ? selected.slice().sort((a, b) => a - b).join(',') === positions.slice(0, 2).slice().sort((a, b) => a - b).join(',')
+        : selected.join(',') === positions.slice(0, 3).join(',');
+  const odds = selected.reduce((value, number) => value * (resultRace.horses.find((horse) => horse.number === number)?.odds || 1), 1);
+  const payout = hit ? Math.round(bet.amount * (mode.key === 'win' ? odds : Math.max(1.2, odds * mode.payoutRate))) : 0;
+  return { money: money + payout, payout, hit, odds: hit ? payout / bet.amount : 0 };
 }
 
 export function shouldTriggerRescue(money, raceNumber, rescueUsed) {
@@ -142,7 +159,7 @@ export function settleRescue(money, borrowedAmount) {
 }
 
 export function createGame(random = Math.random) {
-  return { initialMoney: 10000, money: 10000, raceNumber: 1, betCount: 0, hitCount: 0, maxPayout: 0, records: [], currentRace: generateRace(random), currentBet: null, borrowedAmount: 0, rescueUsed: false, rescueStatus: null };
+  return { initialMoney: 10000, money: 10000, raceNumber: 1, betCount: 0, hitCount: 0, maxPayout: 0, records: [], currentRace: generateRace(random), currentBet: null, betMode: 'win', borrowedAmount: 0, rescueUsed: false, rescueStatus: null };
 }
 
 export function titleForMoney(money, rescueStatus = null) {

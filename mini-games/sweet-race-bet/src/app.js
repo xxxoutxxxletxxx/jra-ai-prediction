@@ -1,11 +1,12 @@
-import { acceptRescue, createGame, placeBet, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace, titleForMoney } from './engine.js';
+import { acceptRescue, BET_MODES, createGame, placeBet, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace, titleForMoney } from './engine.js?v=20260927-bet-modes';
 import { clearHistory, fetchLeaderboard, readHistory, rankingNameError, saveGameResult, submitLeaderboardEntry, summarizeHistory } from './storage.js?v=20260927-race-skip-position';
 
 const app = document.querySelector('#app');
 const confetti = document.querySelector('.confetti-layer');
 let game = null;
 let screen = 'start';
-let selectedHorse = null;
+let selectedHorses = [];
+let selectedMode = 'win';
 let selectedAmount = 100;
 let lastResult = null;
 let ranking = [];
@@ -22,12 +23,17 @@ const header = (showMoney = true) => `<header class="topbar"><div class="brand-b
 const panel = (content, className = '') => `<section class="panel ${className}">${content}</section>`;
 
 function render() {
-  const views = { start: renderStart, history: renderHistory, ranking: renderRanking, bet: renderBet, race: renderRace, result: renderResult, rescue: renderRescueOffer, final: renderFinal, special: renderSpecialEnding };
+  const views = { start: renderStart, mode: renderModeSelect, history: renderHistory, ranking: renderRanking, bet: renderBet, race: renderRace, result: renderResult, rescue: renderRescueOffer, final: renderFinal, special: renderSpecialEnding };
   app.innerHTML = `${header(screen !== 'start' && screen !== 'history' && screen !== 'final')}${views[screen]()}`;
 }
 
 function renderStart() {
   return `<section class="hero"><span class="kicker">ぜんぶ架空のスイーツ競馬</span><h1>スイート<br>レース<small>BET</small></h1><p class="lede">かわいい8頭のスイーツホースから、今日の主役を予想しよう。軍資金はゲーム内の10,000コイン。5レースを遊んで、最後に笑うのは誰？</p><div class="actions"><button class="primary" data-action="start">ゲームスタート</button><button class="secondary" data-action="ranking">全国ランキング</button><button class="ghost" data-action="history">過去成績</button></div><p class="notice">遊び方：馬の情報とオッズを見て1頭にBET。的中すればオッズ分の払戻です。</p></section>`;
+}
+
+function renderModeSelect() {
+  const modes = Object.values(BET_MODES).map((mode) => `<button class="mode-card ${selectedMode === mode.key ? 'selected' : ''}" data-mode="${mode.key}"><strong>${mode.label}</strong><span>${mode.description}</span><small>${mode.key === 'win' ? '払戻率 100%' : `払戻率 ${mode.payoutRate * 100}%`}</small></button>`).join('');
+  return `${panel(`<div class="section-title"><div><span class="kicker">BET MODE</span><h2>ゲームモードを選ぼう</h2></div><button class="ghost" data-action="home">戻る</button></div><p class="notice mode-intro">最初は単勝がおすすめ。モードに応じて選べる馬の数が変わります。</p><div class="mode-grid">${modes}</div><div class="actions" style="margin-top:22px"><button class="primary" data-action="begin-mode">このモードで遊ぶ</button></div>`)}`;
 }
 
 function renderHistory() {
@@ -43,12 +49,14 @@ function renderRanking() {
 }
 
 function raceInfo(race) { return `<div class="race-info"><div class="info-item"><span>開催月</span><b>${race.month}月</b></div><div class="info-item"><span>開催場</span><b>${race.venue}</b></div><div class="info-item"><span>距離</span><b>${race.distance}m</b></div><div class="info-item"><span>馬場</span><b>${race.track}</b></div><div class="info-item odds-style"><span>オッズ傾向</span><b>${race.oddsProfile}</b></div></div>`; }
-function horseCard(horse) { return `<button class="horse-card ${selectedHorse === horse.number ? 'selected' : ''}" data-horse="${horse.number}" style="--bib:${horse.icon.bib};--bib-text:${horse.icon.bibText}">${horse.number ? `<span class="horse-number">${horse.number}</span>` : ''}${horseIcon(horse)}<span class="horse-main"><span class="horse-name">${escapeHtml(horse.name)}</span><span class="horse-meta">${horse.age}歳 ${horse.gender} ・ 前走 ${horse.previousFinish}着</span><span class="horse-form">${escapeHtml(horse.conditionComment)}</span></span><span class="odds">${horse.odds.toFixed(1)}<small>単勝</small></span></button>`; }
+function horseCard(horse) { return `<button class="horse-card ${selectedHorses.includes(horse.number) ? 'selected' : ''}" data-horse="${horse.number}" style="--bib:${horse.icon.bib};--bib-text:${horse.icon.bibText}">${horse.number ? `<span class="horse-number">${horse.number}</span>` : ''}${horseIcon(horse)}<span class="horse-main"><span class="horse-name">${escapeHtml(horse.name)}</span><span class="horse-meta">${horse.age}歳 ${horse.gender} ・ 前走 ${horse.previousFinish}着</span><span class="horse-form">${escapeHtml(horse.conditionComment)}</span></span><span class="odds">${horse.odds.toFixed(1)}<small>単勝</small></span></button>`; }
 
 function renderBet() {
   const race = game.currentRace;
-  const selected = race.horses.find((horse) => horse.number === selectedHorse);
-  return `${panel(`<div class="section-title"><div><span class="kicker">RACE ${game.raceNumber} / 5</span><h2>出走馬をチェック</h2></div><span class="money-pill">${coins(game.money)}</span></div>${raceInfo(race)}<div class="horse-grid">${race.horses.map(horseCard).join('')}</div><div class="bet-panel"><h3>${selected ? `${escapeHtml(selected.name)}にBET` : 'まずは馬を選ぼう'}</h3><div class="bet-controls"><button class="chip ${selectedAmount === 100 ? 'active' : ''}" data-amount="100">100コイン</button><button class="chip ${selectedAmount === 500 ? 'active' : ''}" data-amount="500">500コイン</button><button class="chip ${selectedAmount === 1000 ? 'active' : ''}" data-amount="1000">1,000コイン</button><button class="chip ${selectedAmount === 2000 ? 'active' : ''}" data-amount="2000">2,000コイン</button><button class="chip ${selectedAmount === 5000 ? 'active' : ''}" data-amount="5000">5,000コイン</button><button class="chip ${selectedAmount === 10000 ? 'active' : ''}" data-amount="10000" ${game.money < 10000 ? 'disabled' : ''}>10,000コイン</button><button class="chip ${selectedAmount === game.money ? 'active' : ''}" data-amount="max">MAX</button><input class="amount-input" id="amount" type="number" min="1" max="${game.money}" value="${selectedAmount}" aria-label="BET額"></div><p class="notice ${selected && selectedAmount > game.money ? 'error' : ''}">${selected ? `${escapeHtml(selected.name)}に${coins(selectedAmount)} BET` : 'BETなしでレースを見ることもできます。'}</p><div class="actions"><button class="primary" data-action="confirm-bet">BETしてレースへ</button><button class="ghost" data-action="skip-bet">BETせず見る</button></div></div>`)}`;
+  const mode = BET_MODES[game.betMode];
+  const selected = race.horses.filter((horse) => selectedHorses.includes(horse.number));
+  const selectedNames = selected.map((horse) => escapeHtml(horse.name)).join('・');
+  return `${panel(`<div class="section-title"><div><span class="kicker">RACE ${game.raceNumber} / 5</span><h2>出走馬をチェック</h2></div><span class="money-pill">${coins(game.money)}</span></div><div class="bet-mode-banner"><strong>${mode.label}</strong><span>${mode.description} / 払戻率 ${mode.payoutRate * 100}%</span></div>${raceInfo(race)}<div class="horse-grid">${race.horses.map(horseCard).join('')}</div><div class="bet-panel"><h3>${selected.length ? `${selectedNames}を選択中` : `${mode.minHorses}頭${mode.maxHorses > mode.minHorses ? `〜${mode.maxHorses}頭` : ''}を選ぼう`}</h3><div class="bet-controls"><button class="chip ${selectedAmount === 100 ? 'active' : ''}" data-amount="100">100コイン</button><button class="chip ${selectedAmount === 500 ? 'active' : ''}" data-amount="500">500コイン</button><button class="chip ${selectedAmount === 1000 ? 'active' : ''}" data-amount="1000">1,000コイン</button><button class="chip ${selectedAmount === 2000 ? 'active' : ''}" data-amount="2000">2,000コイン</button><button class="chip ${selectedAmount === 5000 ? 'active' : ''}" data-amount="5000">5,000コイン</button><button class="chip ${selectedAmount === 10000 ? 'active' : ''}" data-amount="10000" ${game.money < 10000 ? 'disabled' : ''}>10,000コイン</button><button class="chip ${selectedAmount === game.money ? 'active' : ''}" data-amount="max">MAX</button><input class="amount-input" id="amount" type="number" min="1" max="${game.money}" value="${selectedAmount}" aria-label="BET額"></div><p class="notice ${selected.length && selectedAmount > game.money ? 'error' : ''}">${selected.length ? `${selectedNames}に${coins(selectedAmount)} BET` : 'BETなしでレースを見ることもできます。'}</p><div class="actions"><button class="primary" data-action="confirm-bet">BETしてレースへ</button><button class="ghost" data-action="skip-bet">BETせず見る</button></div></div>`)}`;
 }
 
 function renderRace() {
@@ -59,9 +67,11 @@ function renderRace() {
 function renderResult() {
   const race = game.resolvedRace;
   const settlement = lastResult;
-  const betHorse = game.currentBet && race.horses.find((horse) => horse.number === game.currentBet.horseNumber);
-  const message = !game.currentBet ? '<h2>今回は見送りました</h2><p>じっくりレースを楽しみました。</p>' : settlement.hit ? `<h2>🎉 的中！！ 🎉</h2><p>${escapeHtml(betHorse.name)}が1着！ ${coins(game.currentBet.amount)} → ${coins(settlement.payout)}</p>` : `<h2>ざんねん……！</h2><p>次のレースで取り返そう！</p>`;
-  return `${panel(`<div class="section-title"><div><span class="kicker">RESULT</span><h2>第${game.raceNumber}レース 結果</h2></div></div><div class="payout ${settlement.hit ? 'hit' : ''}">${message}</div><div class="result-list">${race.horses.map((horse) => { const isBetHorse = game.currentBet?.horseNumber === horse.number; return `<div class="result-row ${horse.finalPosition === 1 ? 'winner' : ''} ${isBetHorse ? 'bet-horse' : ''}"><span class="position">${horse.finalPosition}着</span>${horseIcon(horse)}<strong>${escapeHtml(horse.name)}</strong>${isBetHorse ? '<span class="bet-marker">あなたのBET</span>' : '<span></span>'}<span>${horse.odds.toFixed(1)}倍</span></div>`; }).join('')}</div><div class="actions" style="margin-top:22px"><button class="primary" data-action="next">${game.raceNumber === 5 ? '最終リザルトへ' : `第${game.raceNumber + 1}レースへ`}</button></div>`)}`;
+  const mode = BET_MODES[game.betMode];
+  const betHorses = game.currentBet ? race.horses.filter((horse) => game.currentBet.horseNumbers.includes(horse.number)) : [];
+  const betNames = betHorses.map((horse) => escapeHtml(horse.name)).join('・');
+  const message = !game.currentBet ? '<h2>今回は見送りました</h2><p>じっくりレースを楽しみました。</p>' : settlement.hit ? `<h2>🎉 的中！！ 🎉</h2><p>${escapeHtml(mode.label)} ${betNames} / ${coins(game.currentBet.amount)} → ${coins(settlement.payout)}</p>` : `<h2>ざんねん……！</h2><p>${escapeHtml(mode.label)}は不的中。次のレースで取り返そう！</p>`;
+  return `${panel(`<div class="section-title"><div><span class="kicker">RESULT</span><h2>第${game.raceNumber}レース 結果</h2></div></div><div class="payout ${settlement.hit ? 'hit' : ''}">${message}</div><div class="result-list">${race.horses.map((horse) => { const isBetHorse = game.currentBet?.horseNumbers.includes(horse.number); return `<div class="result-row ${horse.finalPosition === 1 ? 'winner' : ''} ${isBetHorse ? 'bet-horse' : ''}"><span class="position">${horse.finalPosition}着</span>${horseIcon(horse)}<strong>${escapeHtml(horse.name)}</strong>${isBetHorse ? '<span class="bet-marker">あなたのBET</span>' : '<span></span>'}<span>${horse.odds.toFixed(1)}倍</span></div>`; }).join('')}</div><div class="actions" style="margin-top:22px"><button class="primary" data-action="next">${game.raceNumber === 5 ? '最終リザルトへ' : `第${game.raceNumber + 1}レースへ`}</button></div>`)}`;
 }
 
 function renderRescueOffer() {
@@ -121,11 +131,12 @@ async function registerRanking() {
   render();
 }
 
-function startGame() { game = createGame(Math.random); game.rankingRegistered = false; screen = 'bet'; selectedHorse = null; selectedAmount = 100; render(); }
+function startGame() { game = createGame(Math.random); game.rankingRegistered = false; screen = 'mode'; selectedHorses = []; selectedMode = 'win'; selectedAmount = 100; render(); }
+function beginMode() { game.betMode = selectedMode; screen = 'bet'; selectedHorses = []; selectedAmount = 100; render(); }
 function confirmBet(skip = false) {
   const amountInput = document.querySelector('#amount');
   if (!skip) selectedAmount = Number(amountInput?.value || selectedAmount);
-  const result = skip ? { ok: true, money: game.money, bet: null } : placeBet(game.money, selectedHorse, selectedAmount);
+  const result = skip ? { ok: true, money: game.money, bet: null } : placeBet(game.money, selectedHorses, selectedAmount, game.betMode);
   if (!result.ok) { document.querySelector('.notice').textContent = result.reason; document.querySelector('.notice').classList.add('error'); return; }
   game.money = result.money; game.currentBet = result.bet; game.resolvedRace = simulateRace(game.currentRace, Math.random); screen = 'race'; render(); animateRace();
 }
@@ -169,7 +180,7 @@ function animateRace() {
 }
 function clearRaceAnimationTimers() { raceAnimationTimers.forEach(clearTimeout); raceAnimationTimers = []; }
 function finishRaceAnimation() { if (raceResultRevealed || screen !== 'race') return; raceResultRevealed = true; clearRaceAnimationTimers(); revealResult(); }
-function revealResult() { lastResult = settleBet(game.money, game.currentBet, game.resolvedRace); game.money = lastResult.money; game.betCount += game.currentBet ? 1 : 0; game.hitCount += lastResult.hit ? 1 : 0; game.maxPayout = Math.max(game.maxPayout, lastResult.payout); const winner = game.resolvedRace.horses.find((horse) => horse.finalPosition === 1); game.records.push({ raceNumber: game.raceNumber, bet: game.currentBet ? { name: game.currentRace.horses.find((horse) => horse.number === game.currentBet.horseNumber).name, amount: game.currentBet.amount } : null, winner: winner.name, hit: lastResult.hit, payout: lastResult.payout }); screen = 'result'; render(); if (lastResult.hit) { confetti.classList.add('active'); setTimeout(() => confetti.classList.remove('active'), 1500); } }
+function revealResult() { lastResult = settleBet(game.money, game.currentBet, game.resolvedRace); game.money = lastResult.money; game.betCount += game.currentBet ? 1 : 0; game.hitCount += lastResult.hit ? 1 : 0; game.maxPayout = Math.max(game.maxPayout, lastResult.payout); const winner = game.resolvedRace.horses.find((horse) => horse.finalPosition === 1); game.records.push({ raceNumber: game.raceNumber, bet: game.currentBet ? { name: game.resolvedRace.horses.filter((horse) => game.currentBet.horseNumbers.includes(horse.number)).map((horse) => horse.name).join('・'), amount: game.currentBet.amount } : null, winner: winner.name, hit: lastResult.hit, payout: lastResult.payout }); screen = 'result'; render(); if (lastResult.hit) { confetti.classList.add('active'); setTimeout(() => confetti.classList.remove('active'), 1500); } }
 function saveCurrentResult() { saveGameResult({ playedAt: new Date().toISOString(), finalMoney: game.money, profit: game.money - game.initialMoney, betCount: game.betCount, hitCount: game.hitCount, maxPayout: game.maxPayout, rescueUsed: game.rescueUsed, rescueStatusLabel: game.rescueStatus === 'repaid' ? '20,000コイン返却成功' : game.rescueStatus === 'failed' ? '返却失敗' : game.rescueStatus === 'gameover' ? '救済資金も使い切ってGAME OVER' : 'なし' }); }
 function nextRace() {
   if (game.raceNumber === 5) {
@@ -183,21 +194,32 @@ function nextRace() {
   game.raceNumber += 1;
   if (shouldGameOverAfterRescue(game.money, game.raceNumber, game.rescueUsed)) { game.rescueStatus = 'gameover'; saveCurrentResult(); screen = 'special'; render(); return; }
   if (shouldTriggerRescue(game.money, game.raceNumber, game.rescueUsed)) { screen = 'rescue'; render(); return; }
-  game.currentRace = createGame(Math.random).currentRace; game.currentBet = null; selectedHorse = null; selectedAmount = Math.min(100, game.money); screen = 'bet'; render();
+  game.currentRace = createGame(Math.random).currentRace; game.currentBet = null; selectedHorses = []; selectedAmount = Math.min(100, game.money); screen = 'bet'; render();
 }
-function acceptRescueOffer() { Object.assign(game, acceptRescue(game.money)); game.currentRace = createGame(Math.random).currentRace; game.currentBet = null; selectedHorse = null; selectedAmount = 100; screen = 'bet'; render(); }
+function acceptRescueOffer() { Object.assign(game, acceptRescue(game.money)); game.currentRace = createGame(Math.random).currentRace; game.currentBet = null; selectedHorses = []; selectedAmount = 100; screen = 'bet'; render(); }
 function declineRescueOffer() { game.rescueUsed = true; game.rescueStatus = 'gameover'; saveCurrentResult(); screen = 'special'; render(); }
 
 app.addEventListener('click', (event) => {
+  const modeTarget = event.target.closest('[data-mode]');
+  if (modeTarget) { selectedMode = modeTarget.dataset.mode; render(); return; }
   const actionTarget = event.target.closest('[data-action]');
   const horseTarget = event.target.closest('[data-horse]');
   const amountTarget = event.target.closest('[data-amount]');
   const { action } = actionTarget?.dataset || {};
   const { horse } = horseTarget?.dataset || {};
   const { amount } = amountTarget?.dataset || {};
-  if (horse) { selectedHorse = Number(horse); render(); return; }
+  if (horse) {
+    const number = Number(horse);
+    const mode = BET_MODES[game?.betMode || selectedMode];
+    if (selectedHorses.includes(number)) selectedHorses = selectedHorses.filter((value) => value !== number);
+    else if (selectedHorses.length < mode.maxHorses) selectedHorses = mode.maxHorses === 1 ? [number] : [...selectedHorses, number];
+    render();
+    return;
+  }
   if (amount) { selectedAmount = amount === 'max' ? game.money : Number(amount); render(); return; }
   if (action === 'start') startGame();
+  if (action === 'begin-mode') beginMode();
+  if (action === 'home') { screen = 'start'; render(); }
   if (action === 'history') { screen = 'history'; render(); }
   if (action === 'ranking') openRanking();
   if (action === 'home') { screen = 'start'; render(); }
