@@ -3,6 +3,7 @@ export const RANKING_KEY = 'sweet-race-bet-ranking-v1';
 const SUPABASE_URL = 'https://knfznjurrjoozdwhkffm.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_lKNG7O9cPnR_9dV_9BDUxg__j6c5vEX';
 const LEADERBOARD_ENDPOINT = `${SUPABASE_URL}/rest/v1/leaderboard`;
+const LEADERBOARD_RPC_ENDPOINT = `${SUPABASE_URL}/rest/v1/rpc/submit_leaderboard_entry`;
 
 export function readHistory(storage = globalThis.localStorage) {
   if (!storage) return [];
@@ -78,10 +79,10 @@ export async function fetchLeaderboard() {
 }
 
 export async function submitLeaderboardEntry(playerName, score) {
-  const response = await fetch(LEADERBOARD_ENDPOINT, {
+  const response = await fetch(LEADERBOARD_RPC_ENDPOINT, {
     method: 'POST',
     headers: { ...supabaseHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
-    body: JSON.stringify({ player_name: playerName, score, created_at: new Date().toISOString() })
+    body: JSON.stringify({ p_player_name: playerName, p_score: score })
   });
   if (!response.ok) {
     let detail = '';

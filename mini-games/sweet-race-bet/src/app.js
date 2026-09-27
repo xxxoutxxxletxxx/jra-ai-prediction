@@ -1,5 +1,5 @@
 import { acceptRescue, createGame, placeBet, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace, titleForMoney } from './engine.js';
-import { clearHistory, fetchLeaderboard, readHistory, rankingNameError, saveGameResult, submitLeaderboardEntry, summarizeHistory } from './storage.js?v=20260927-registration-fix';
+import { clearHistory, fetchLeaderboard, readHistory, rankingNameError, saveGameResult, submitLeaderboardEntry, summarizeHistory } from './storage.js?v=20260927-ranking-rpc';
 
 const app = document.querySelector('#app');
 const confetti = document.querySelector('.confetti-layer');
