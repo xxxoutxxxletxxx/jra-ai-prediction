@@ -1,5 +1,5 @@
 import { acceptRescue, createGame, placeBet, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace, titleForMoney } from './engine.js';
-import { clearHistory, fetchLeaderboard, readHistory, rankingNameError, saveGameResult, submitLeaderboardEntry, summarizeHistory } from './storage.js';
+import { clearHistory, fetchLeaderboard, readHistory, rankingNameError, saveGameResult, submitLeaderboardEntry, summarizeHistory } from './storage.js?v=20260927-registration-fix';
 
 const app = document.querySelector('#app');
 const confetti = document.querySelector('.confetti-layer');
@@ -112,7 +112,7 @@ async function registerRanking() {
   } catch (submitError) {
     submittingRanking = false;
     const errorElement = document.querySelector('#ranking-error');
-    if (errorElement) errorElement.textContent = '全国ランキングへの登録に失敗しました。時間をおいて再試行してください。';
+    if (errorElement) errorElement.textContent = submitError.message || '全国ランキングへの登録に失敗しました。時間をおいて再試行してください。';
     return;
   }
   submittingRanking = false;

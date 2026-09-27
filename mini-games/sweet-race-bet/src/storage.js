@@ -81,8 +81,17 @@ export async function submitLeaderboardEntry(playerName, score) {
   const response = await fetch(LEADERBOARD_ENDPOINT, {
     method: 'POST',
     headers: { ...supabaseHeaders(), 'Content-Type': 'application/json', Prefer: 'return=representation' },
-    body: JSON.stringify({ player_name: playerName, score })
+    body: JSON.stringify({ player_name: playerName, score, created_at: new Date().toISOString() })
   });
-  if (!response.ok) throw new Error(`ランキング登録に失敗しました (${response.status})`);
+  if (!response.ok) {
+    let detail = '';
+    try {
+      const payload = await response.json();
+      detail = payload.message || payload.hint || '';
+    } catch {
+      detail = '';
+    }
+    throw new Error(`ランキング登録に失敗しました (${response.status})${detail ? `: ${detail}` : ''}`);
+  }
   return response.json();
 }
