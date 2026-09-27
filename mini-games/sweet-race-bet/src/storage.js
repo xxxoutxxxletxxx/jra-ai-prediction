@@ -2,7 +2,7 @@ export const HISTORY_KEY = 'sweet-race-bet-history-v1';
 export const RANKING_KEY = 'sweet-race-bet-ranking-v1';
 const SUPABASE_URL = 'https://knfznjurrjoozdwhkffm.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_lKNG7O9cPnR_9dV_9BDUxg__j6c5vEX';
-const LEADERBOARD_ENDPOINT = `${SUPABASE_URL}/rest/v1/leaderboard`;
+const LEADERBOARD_LIST_RPC_ENDPOINT = `${SUPABASE_URL}/rest/v1/rpc/get_leaderboard`;
 const LEADERBOARD_RPC_ENDPOINT = `${SUPABASE_URL}/rest/v1/rpc/submit_leaderboard_entry`;
 
 export function readHistory(storage = globalThis.localStorage) {
@@ -73,7 +73,7 @@ function supabaseHeaders() {
 }
 
 export async function fetchLeaderboard() {
-  const response = await fetch(`${LEADERBOARD_ENDPOINT}?select=id,player_name,score,created_at&order=score.desc,created_at.asc&limit=100`, { headers: supabaseHeaders() });
+  const response = await fetch(LEADERBOARD_LIST_RPC_ENDPOINT, { method: 'POST', headers: supabaseHeaders() });
   if (!response.ok) throw new Error(`ランキング取得に失敗しました (${response.status})`);
   return response.json();
 }
