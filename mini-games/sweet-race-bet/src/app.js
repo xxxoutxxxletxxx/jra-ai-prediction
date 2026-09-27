@@ -1,5 +1,5 @@
 import { acceptRescue, createGame, placeBet, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace, titleForMoney } from './engine.js';
-import { clearHistory, fetchLeaderboard, readHistory, rankingNameError, saveGameResult, submitLeaderboardEntry, summarizeHistory } from './storage.js?v=20260927-race-skip';
+import { clearHistory, fetchLeaderboard, readHistory, rankingNameError, saveGameResult, submitLeaderboardEntry, summarizeHistory } from './storage.js?v=20260927-race-skip-position';
 
 const app = document.querySelector('#app');
 const confetti = document.querySelector('.confetti-layer');
@@ -18,7 +18,7 @@ let raceResultRevealed = false;
 const coins = (value) => `${Math.round(value).toLocaleString('ja-JP')}コイン`;
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const horseIcon = (horse, className = '') => `<span class="horse-icon ${className}" style="--coat:${horse.icon.coat};--mane:${horse.icon.mane};--bib:${horse.icon.bib};--bib-text:${horse.icon.bibText}"><i class="neck"></i><i class="ear ear-back"></i><i class="ear ear-front"></i><i class="cap"></i><i class="mane"></i><i class="leg leg-back"></i><i class="leg leg-front"></i><i class="eye eye-near eye-${horse.icon.face}"></i><i class="muzzle"></i><i class="face face-${horse.icon.face}"></i><i class="bib">${horse.number}</i></span>`;
-const header = (showMoney = true) => `<header class="topbar"><div class="brand-block">${screen !== 'start' ? '<button class="header-home" data-action="home">← スタートに戻る</button>' : ''}<div class="brand">🍬 スイート<span>レース</span>BET</div></div><div class="topbar-actions">${showMoney && game ? `<div class="money-pill">軍資金 ${coins(game.money)}</div>` : ''}${screen === 'race' ? '<button class="race-skip" data-action="skip-race">スキップ <span aria-hidden="true">»</span></button>' : ''}</div></header>`;
+const header = (showMoney = true) => `<header class="topbar"><div class="brand-block">${screen !== 'start' ? '<button class="header-home" data-action="home">← スタートに戻る</button>' : ''}<div class="brand">🍬 スイート<span>レース</span>BET</div></div><div class="topbar-actions">${showMoney && game ? `<div class="money-pill">軍資金 ${coins(game.money)}</div>` : ''}</div></header>`;
 const panel = (content, className = '') => `<section class="panel ${className}">${content}</section>`;
 
 function render() {
@@ -53,7 +53,7 @@ function renderBet() {
 
 function renderRace() {
   const race = game.resolvedRace;
-  return `${panel(`<div class="section-title"><div><span class="kicker">RACE ${game.raceNumber} / 5</span><h2>${escapeHtml(race.venue)} ${race.distance}m</h2></div><span class="race-live">LIVE</span></div><div class="race-banner" id="race-banner">まもなくスタート！</div><div class="race-track">${race.horses.map((horse) => `<div class="track-lane"><div class="runner" data-runner="${horse.number}">${horseIcon(horse)}</div></div>`).join('')}</div><div class="race-commentary" id="race-commentary">ゲートが開く、その瞬間を待とう！</div>`)}`;
+  return `${panel(`<div class="section-title race-section-title"><div class="race-heading"><div class="race-heading-row"><span class="kicker">RACE ${game.raceNumber} / 5</span><button class="race-skip" data-action="skip-race">スキップ <span aria-hidden="true">»</span></button></div><h2>${escapeHtml(race.venue)} ${race.distance}m</h2></div><span class="race-live">LIVE</span></div><div class="race-banner" id="race-banner">まもなくスタート！</div><div class="race-track">${race.horses.map((horse) => `<div class="track-lane"><div class="runner" data-runner="${horse.number}">${horseIcon(horse)}</div></div>`).join('')}</div><div class="race-commentary" id="race-commentary">ゲートが開く、その瞬間を待とう！</div>`)}`;
 }
 
 function renderResult() {
