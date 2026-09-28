@@ -89,14 +89,18 @@ function calculateSpecialScore(maxDrawsToday, bestNumber) {
   return Math.round(base + difficulty * bonus);
 }
 
-export function calculateScore(maxDrawsToday, bestNumber) {
+export function calculateScore(maxDrawsToday, bestNumber, isReleaseDay = false) {
   const draws = Math.max(1, Math.min(10, Number(maxDrawsToday)));
   const best = Math.max(1, Math.min(100, Number(bestNumber)));
-  if ([1, 2, 3].includes(best)) return calculateSpecialScore(draws, best);
+  if ([1, 2, 3].includes(best)) {
+    const specialScore = calculateSpecialScore(draws, best);
+    return isReleaseDay ? specialScore + (best === 1 ? 80 : best === 2 ? 60 : 50) : specialScore;
+  }
 
   const performanceRatio = expectedBest(draws) / best;
   const score = SCORE_BALANCE.expectedScore + SCORE_BALANCE.expectedCurve * Math.tanh(Math.log(performanceRatio));
-  return Math.max(0, Math.min(100, Math.round(score)));
+  const releaseDayBonus = isReleaseDay && best <= 9 ? 25 : 0;
+  return Math.max(0, Math.min(125, Math.round(score) + releaseDayBonus));
 }
 
 export function scoreJudgment(score) {

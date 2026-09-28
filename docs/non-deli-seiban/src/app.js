@@ -13,6 +13,7 @@ const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => (
 const delay = (callback, milliseconds) => { clearTimeout(transitionTimer); transitionTimer = setTimeout(callback, milliseconds); };
 const formatNumber = (number) => `${number}番`;
 const scoreDrawsForState = () => state.exitedEarly ? state.actualDraws : state.maxDrawsToday;
+const scoreForState = () => calculateScore(scoreDrawsForState(), state.bestNumber, state.venue?.isReleaseDay === true);
 
 function startGame() {
   const venue = chooseVenue();
@@ -58,7 +59,7 @@ function finishLive() {
   state.phase = 'live';
   render();
   delay(() => {
-    if (state.bestNumber <= 3) return showSpecialEnding();
+    if (state.bestNumber <= 3 || (state.venue.isReleaseDay && state.bestNumber <= 9)) return showSpecialEnding();
     state.phase = 'result';
     render();
   }, 1800);
@@ -71,8 +72,8 @@ function showSpecialEnding() {
   delay(() => {
     state.specialStep = 1;
     render();
-    delay(() => { state.specialStep = 2; render(); delay(() => { state.phase = 'result'; render(); }, state.bestNumber === 1 ? 1500 : 1100); }, 900);
-  }, 850);
+    delay(() => { state.specialStep = 2; render(); delay(() => { state.phase = 'result'; render(); }, state.bestNumber === 1 ? 1900 : state.venue.isReleaseDay ? 1600 : 1100); }, state.venue.isReleaseDay ? 1200 : 900);
+  }, state.venue.isReleaseDay ? 1100 : 850);
 }
 
 function render() {
@@ -105,15 +106,16 @@ function renderPhase() {
 
 function renderReleaseIntro() {
   return state.releaseStep === 0
-    ? '<section class="screen cinematic-screen release-intro-screen"><p class="eyebrow">SPECIAL RELEASE DAY</p><p class="release-copy">今日は――<br><strong>リリース日当日。</strong></p></section>'
-    : '<section class="screen cinematic-screen release-intro-screen"><div class="release-cd" aria-hidden="true"></div><p class="release-copy">購入列が長い。<br><strong>入場券は、たった1回。</strong></p></section>';
+    ? '<section class="screen cinematic-screen release-intro-screen"><div class="release-rays" aria-hidden="true"></div><div class="release-sparkles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><p class="eyebrow">SPECIAL RELEASE DAY</p><p class="release-copy">今日は――<br><strong>リリース日当日。</strong></p><p class="release-subcopy">特別な一日が、はじまる。</p></section>'
+    : '<section class="screen cinematic-screen release-intro-screen"><div class="release-rays" aria-hidden="true"></div><div class="release-sparkles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div class="release-cd" aria-hidden="true"></div><p class="release-copy">購入列が長い。<br><strong>入場券は、たった1回。</strong></p><p class="release-subcopy">一度きりの神引きに挑め。</p></section>';
 }
 
 function renderSpecialEnding() {
   const isUltimate = state.bestNumber === 1;
+  const { isReleaseDay } = state.venue;
   const numberText = state.specialStep === 0 ? state.bestNumber : state.specialStep === 1 ? '…………' : `${state.bestNumber}番!?`;
-  const message = isUltimate ? '伝説の1番。最前列の景色が待っている。' : '一桁の神引き。今日は勝ち確。';
-  return `<section class="screen special-screen ${isUltimate ? 'ultimate-number' : 'premium-number'}"><div class="special-lights" aria-hidden="true"><i></i><i></i><i></i></div><div class="special-confetti" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><p class="eyebrow">${isUltimate ? 'ULTIMATE NUMBER' : 'PREMIUM NUMBER'}</p>${isUltimate ? '<span class="special-crown" aria-hidden="true">★</span>' : ''}<strong class="special-number">${numberText}</strong>${state.specialStep === 2 ? `<p class="special-burst">${message}</p>` : ''}</section>`;
+  const message = isUltimate ? '伝説の1番。最前列の景色が待っている。' : isReleaseDay ? 'リリース日限定の一桁。今日は完全勝利。' : '一桁の神引き。今日は勝ち確。';
+  return `<section class="screen special-screen ${isUltimate ? 'ultimate-number' : 'premium-number'} ${isReleaseDay ? 'release-day-number' : ''}"><div class="special-lights" aria-hidden="true"><i></i><i></i><i></i></div><div class="special-confetti" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><p class="eyebrow">${isReleaseDay ? 'RELEASE DAY MIRACLE' : isUltimate ? 'ULTIMATE NUMBER' : 'PREMIUM NUMBER'}</p>${isUltimate ? '<span class="special-crown" aria-hidden="true">★</span>' : ''}<strong class="special-number">${numberText}</strong>${state.specialStep === 2 ? `<p class="special-burst">${message}</p>` : ''}</section>`;
 }
 
 function renderVenue() {
@@ -146,6 +148,7 @@ function renderTicketChoices() {
 
 function renderResult() {
   const score = calculateScore(scoreDrawsForState(), state.bestNumber);
+    const score = scoreForState();
   const expected = expectedBest(state.actualDraws);
   const comment = commentForScore(score, state.bestNumber);
   const registration = state.rankingRegistered
@@ -176,6 +179,7 @@ function saveCurrentPlay() {
   if (state.saved) return;
   state.saved = true;
   saveHistory({ playedAt: new Date().toISOString(), venue: state.venue.name, maxDrawsToday: state.maxDrawsToday, actualDraws: state.actualDraws, bestNumber: state.bestNumber, score: calculateScore(scoreDrawsForState(), state.bestNumber), exitedEarly: state.exitedEarly });
+  saveHistory({ playedAt: new Date().toISOString(), venue: state.venue.name, maxDrawsToday: state.maxDrawsToday, actualDraws: state.actualDraws, bestNumber: state.bestNumber, score: scoreForState(), exitedEarly: state.exitedEarly });
 }
 
 async function openRanking() {
@@ -204,6 +208,7 @@ async function registerRanking() {
   render();
   try {
     await submitRanking(playerName, calculateScore(scoreDrawsForState(), state.bestNumber));
+      await submitRanking(playerName, scoreForState());
     state.rankingRegistered = true;
   } catch (submitError) {
     rankingError = submitError.message || '全国対戦への登録に失敗しました。';

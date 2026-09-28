@@ -67,6 +67,13 @@ test('途中撤退は実際の抽選回数をScoreの基準にする', () => {
   assert.ok(earlyExitScore > maxDrawScore);
 });
 
+test('リリース当日の1桁は通常日より高いScoreになる', () => {
+  for (let number = 1; number <= 9; number += 1) {
+    assert.ok(calculateScore(1, number, true) > calculateScore(1, number));
+  }
+  assert.equal(calculateScore(1, 10, true), calculateScore(1, 10));
+});
+
 test('1回チャンスの1番が理論上の最高Scoreになる', () => {
   const best = calculateScore(1, 1);
   assert.equal(best, 501);
