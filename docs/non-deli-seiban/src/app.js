@@ -132,7 +132,8 @@ function renderTicketChoices() {
 }
 
 function renderResult() {
-  const score = calculateScore(state.maxDrawsToday, state.bestNumber);
+  const scoreDraws = state.exitedEarly ? state.actualDraws : state.maxDrawsToday;
+  const score = calculateScore(scoreDraws, state.bestNumber);
   const expected = expectedBest(state.actualDraws);
   const comment = commentForScore(score, state.bestNumber);
   const registration = state.rankingRegistered
@@ -162,7 +163,8 @@ function renderRanking() {
 function saveCurrentPlay() {
   if (state.saved) return;
   state.saved = true;
-  saveHistory({ playedAt: new Date().toISOString(), venue: state.venue.name, maxDrawsToday: state.maxDrawsToday, actualDraws: state.actualDraws, bestNumber: state.bestNumber, score: calculateScore(state.maxDrawsToday, state.bestNumber), exitedEarly: state.exitedEarly });
+  const scoreDraws = state.exitedEarly ? state.actualDraws : state.maxDrawsToday;
+  saveHistory({ playedAt: new Date().toISOString(), venue: state.venue.name, maxDrawsToday: state.maxDrawsToday, actualDraws: state.actualDraws, bestNumber: state.bestNumber, score: calculateScore(scoreDraws, state.bestNumber), exitedEarly: state.exitedEarly });
 }
 
 async function openRanking() {

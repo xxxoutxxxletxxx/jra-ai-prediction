@@ -46,11 +46,10 @@ test('同じ良番は少ないチャンスほど高得点になる', () => {
   assert.ok(calculateScore(1, 3) > calculateScore(10, 3));
 });
 
-test('途中撤退は実際の抽選回数でScoreを上げない', () => {
-  const earlyExitScore = calculateScore(10, 5);
+test('途中撤退は実際の抽選回数を期待値の基準にする', () => {
+  const earlyExitScore = calculateScore(1, 5);
   const maxDrawScore = calculateScore(10, 5);
-  assert.equal(earlyExitScore, maxDrawScore);
-  assert.ok(calculateScore(1, 5) > earlyExitScore);
+  assert.ok(earlyExitScore > maxDrawScore);
 });
 
 test('1回チャンスの1番が理論上の最高Scoreになる', () => {
