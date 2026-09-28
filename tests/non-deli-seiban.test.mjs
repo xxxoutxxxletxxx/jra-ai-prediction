@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calculateScore, claimTicket, drawTicket, drawTicketCandidates, expectedBest } from '../docs/non-deli-seiban/src/engine.mjs';
+import { normalizeRanking } from '../docs/non-deli-seiban/src/storage.mjs';
 
 test('期待BESTは最大抽選回数から計算する', () => {
   assert.equal(expectedBest(1), 50.5);
@@ -27,6 +28,16 @@ test('候補3枚は未使用かつ重複せず、選んだ1枚だけが確定す
   assert.equal(used.size, 2);
   claimTicket(used, candidates[1]);
   assert.deepEqual([...used].sort((left, right) => left - right), [1, 2, 4]);
+});
+
+test('全国対戦は同じ名前の最高Scoreだけを参照する', () => {
+  const ranking = normalizeRanking([
+    { player_name: '[RIRIEVENT-GO] すず', score: 95 },
+    { player_name: '[RIRIEVENT-GO] すず', score: 210 },
+    { player_name: '[RIRIEVENT-GO] あお', score: 180 },
+    { player_name: '別ゲームの記録', score: 9999 }
+  ]);
+  assert.deepEqual(ranking.map((record) => [record.player_name, record.score]), [['すず', 210], ['あお', 180]]);
 });
 
 test('同じ良番は少ないチャンスほど高得点になる', () => {
