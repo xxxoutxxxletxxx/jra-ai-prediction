@@ -143,12 +143,23 @@ const understandableScoreLabels = [
   '神！', '神！', '神！', '神！', '神！'
 ];
 
+const scoreMoodOpeners = {
+  low: ['はい、終わり！', '逆にここまで引けるのすごい。', '今日の運、寝坊しました。', 'これはもう笑うしかない。', '後方から失礼します。', '番号がしっかり現実を見せてくる。', '大丈夫、推しは見えなくても愛は見える。', 'この悔しさ、次回のネタにします。'],
+  hmm: ['う〜ん、味わい深い！', '惜しい！ たぶん！', '笑顔で受け取るタイプの結果。', 'これはこれで思い出です。', '運がちょっとだけ塩対応。', 'まだ笑っていられる、えらい。', '番号にツッコミを入れていこう。', '次回に期待する余白がある。'],
+  endure: ['耐え！ 今日は耐えでいこう！', 'まあ、現場に来た時点で勝ち！', 'ギリギリ笑顔をキープ！', '普通に楽しめる、たぶん！', 'この結果、後からじわじわくる。', '声量でScoreを補正します！', '番号は普通、テンションは自由！', 'ここから盛り上がれば優勝！'],
+  okay: ['まあまあまあまあ、やったー！', 'これは良い意味で自慢できる！', 'テンション、前方寄りです！', '今日の運、働いてる！', 'この番号なら笑顔で入場！', 'ちょっと勝った顔をしていい！', 'コールの声が一段大きくなる！', '友達に送るなら今！'],
+  high: ['神！ 勝ち確！', '前方きたー！', 'これは声が出るやつ！', '今日の主役、整理券です！', 'コールの準備、至急開始！', '運が本気を出してきた！', 'その番号、拍手！', '開演前からもう楽しい！']
+};
+
 export function commentForScore(score, bestNumber, random = Math.random) {
   const scoreBand = Math.min(understandableScoreLabels.length - 1, Math.max(0, Math.floor(Number(score) / 5)));
   const label = bestNumber <= 3 ? '神！' : understandableScoreLabels[scoreBand];
   const zoneStart = scoreBand * 5;
   const zoneEnd = scoreBand === understandableScoreLabels.length - 1 ? '100+' : `${zoneStart + 4}`;
+  const mood = scoreBand <= 4 ? 'low' : scoreBand <= 7 ? 'hmm' : scoreBand <= 11 ? 'endure' : scoreBand <= 13 ? 'okay' : 'high';
+  const openerBank = scoreMoodOpeners[bestNumber <= 3 ? 'high' : mood];
+  const opener = openerBank[Math.floor(random() * openerBank.length)];
   const phrase = scoreCommentBanks[scoreBand][Math.floor(random() * scoreCommentBanks[scoreBand].length)];
   const zoneLine = scoreBand === 8 ? '' : `SCORE ZONE: ${zoneStart}〜${zoneEnd}点\n`;
-  return `${zoneLine}${label}\n${phrase}`;
+  return `${zoneLine}${label}\n${opener} ${phrase}`;
 }
