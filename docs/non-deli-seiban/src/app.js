@@ -1,4 +1,4 @@
-import { calculateScore, chooseDrawCount, chooseVenue, commentForScore, drawTicket, expectedBest, scoreJudgment } from './engine.mjs';
+import { calculateScore, chooseDrawCount, chooseVenue, claimTicket, commentForScore, drawTicketCandidates, expectedBest, scoreJudgment } from './engine.mjs';
 
 const app = document.querySelector('#app');
 let state;
@@ -14,11 +14,24 @@ function startGame() {
   render();
 }
 
-function drawNumber() {
+function beginDraw() {
   if (state.actualDraws >= state.maxDrawsToday) return finishLive();
-  state.numbers.push(drawTicket(state.usedNumbers));
+  state.phase = 'draw-zone';
+  render();
+}
+
+function chooseDrawZone(zone) {
+  state.selectedZone = zone;
+  state.ticketChoices = drawTicketCandidates(state.usedNumbers);
+  state.phase = 'choose-ticket';
+  render();
+}
+
+function chooseTicket(number) {
+  state.numbers.push(claimTicket(state.usedNumbers, number));
   state.actualDraws += 1;
   state.bestNumber = Math.min(...state.numbers);
+  state.ticketChoices = [];
   state.phase = 'ticket';
   render();
 }
@@ -65,6 +78,8 @@ function renderPhase() {
   if (state.phase === 'venue') return renderVenue();
   if (state.phase === 'watching') return `<section class="screen story-screen waiting queue-view"><div class="scene queue-scene" aria-hidden="true"><span class="queue-tent"></span><span class="queue-rail"></span><span class="queue-heads"></span></div><p class="eyebrow">OBSERVING</p><div class="pulse-mark">…</div><p class="story-copy">購入列の様子を見ている……</p></section>`;
   if (state.phase === 'draw-count') return `<section class="screen story-screen"><p class="eyebrow">TODAY'S CHANCE</p><p class="story-copy">今日は</p><h2 class="draw-count">${state.maxDrawsToday}回</h2><p class="story-copy">入場券を引けそうだ。</p><button class="main-button" data-action="to-draw">入場券を引きに行く</button></section>`;
+  if (state.phase === 'draw-zone') return renderDrawZone();
+  if (state.phase === 'choose-ticket') return renderTicketChoices();
   if (state.phase === 'ticket') return renderTicket();
   if (state.phase === 'live') return `<section class="screen live-screen ${state.bestNumber <= 9 ? 'stage-only' : 'audience-view'}"><div class="scene live-scene" aria-hidden="true"><span class="stage-skyline"></span><span class="stage-roof"></span><span class="stage-lights"></span><span class="stage-tent tent-left"></span><span class="stage-tent tent-right"></span><span class="stage-platform"></span><span class="idol-silhouette"></span><span class="audience-silhouette"></span></div><div class="live-light"></div><p class="eyebrow">LIVE EVENT</p><h2>楽しいライブだった……</h2><p>今日の結果を振り返っています。</p></section>`;
   if (state.phase === 'special') return `<section class="screen special-screen"><p class="eyebrow">SPECIAL NUMBER</p><strong class="special-number">${state.specialStep === 0 ? '1' : state.specialStep === 1 ? '…………' : '1番？'}</strong>${state.specialStep === 2 ? '<p class="special-burst">最前確定演出</p>' : ''}</section>`;
@@ -89,6 +104,15 @@ function renderTicket() {
   return `<section class="screen ticket-screen"><p class="eyebrow">ADMISSION TICKET</p><div class="ticket-card"><span class="ticket-label">CYNHN / RELEASE EVENT</span><span class="ticket-number">${formatNumber(state.numbers.at(-1))}</span><span class="ticket-note">入場整理券</span></div><div class="draw-status"><span>最大 ${state.maxDrawsToday}回</span><strong>BEST ${formatNumber(state.bestNumber)}</strong><span>残り ${remaining}回</span></div><div class="actions">${canDraw ? '<button class="main-button" data-action="draw">もう1枚引く</button>' : ''}<button class="secondary-button" data-action="stop">ここでやめる</button></div><p class="tiny">同じ番号は出ません。良番を確保したら撤退もできます。</p></section>`;
 }
 
+function renderDrawZone() {
+  const zones = ['左上', '右上', '中央', '左下', '右下'];
+  return `<section class="screen draw-box-screen"><p class="eyebrow">DRAW A TICKET</p><h2>くじ箱の中、どこから引く？</h2><p class="draw-instruction">5つの場所から、手を入れる場所を選んでください。</p><div class="lottery-box" aria-label="整理券のくじ箱">${zones.map((zone) => `<button class="draw-zone zone-${zone}" data-zone="${zone}" aria-label="${zone}から引く"><span>${zone}</span></button>`).join('')}</div></section>`;
+}
+
+function renderTicketChoices() {
+  return `<section class="screen choice-screen"><p class="eyebrow">YOUR HAND FOUND THREE</p><h2>3枚、手に当たった。</h2><p class="draw-instruction">この中から1枚だけ引く。</p><div class="ticket-choice-grid">${state.ticketChoices.map((number, index) => `<button class="ticket-choice" data-ticket="${number}"><span>整理券</span><strong>${index + 1}</strong><small>これを引く</small></button>`).join('')}</div></section>`;
+}
+
 function renderResult() {
   const score = calculateScore(state.maxDrawsToday, state.bestNumber);
   const expected = expectedBest(state.actualDraws);
@@ -98,11 +122,14 @@ function renderResult() {
 
 app.addEventListener('click', (event) => {
   const { action } = event.target.closest('[data-action]')?.dataset || {};
+  const { zone } = event.target.closest('[data-zone]')?.dataset || {};
+  const { ticket } = event.target.closest('[data-ticket]')?.dataset || {};
+  if (zone) { chooseDrawZone(zone); return; }
+  if (ticket) { chooseTicket(Number(ticket)); return; }
   if (!action) return;
   if (action === 'start' || action === 'restart') startGame();
   if (action === 'watch') { state.phase = 'watching'; render(); delay(() => { state.phase = 'draw-count'; render(); }, 1200); }
-  if (action === 'to-draw') drawNumber();
-  if (action === 'draw') drawNumber();
+  if (action === 'to-draw' || action === 'draw') beginDraw();
   if (action === 'stop') stopDrawing();
 });
 

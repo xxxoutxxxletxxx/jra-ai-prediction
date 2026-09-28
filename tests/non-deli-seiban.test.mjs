@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateScore, drawTicket, expectedBest } from '../docs/non-deli-seiban/src/engine.mjs';
+import { calculateScore, claimTicket, drawTicket, drawTicketCandidates, expectedBest } from '../docs/non-deli-seiban/src/engine.mjs';
 
 test('期待BESTは最大抽選回数から計算する', () => {
   assert.equal(expectedBest(1), 50.5);
@@ -16,6 +16,17 @@ test('同じ番号は同一プレイで重複しない', () => {
   assert.equal(first, 1);
   assert.equal(second, 2);
   assert.equal(used.size, 2);
+});
+
+test('候補3枚は未使用かつ重複せず、選んだ1枚だけが確定する', () => {
+  const used = new Set([1, 2]);
+  const randomValues = [0, 0.01, 0.02, 0.03];
+  const random = () => randomValues.shift() ?? 0.5;
+  const candidates = drawTicketCandidates(used, 3, random);
+  assert.deepEqual(candidates, [3, 4, 5]);
+  assert.equal(used.size, 2);
+  claimTicket(used, candidates[1]);
+  assert.deepEqual([...used].sort((left, right) => left - right), [1, 2, 4]);
 });
 
 test('同じ良番は少ないチャンスほど高得点になる', () => {

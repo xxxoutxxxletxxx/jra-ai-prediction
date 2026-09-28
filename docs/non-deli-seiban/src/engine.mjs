@@ -36,6 +36,22 @@ export function drawTicket(usedNumbers, random = Math.random) {
   return number;
 }
 
+export function drawTicketCandidates(usedNumbers, count = 3, random = Math.random) {
+  if (usedNumbers.size + count > 100) throw new Error('整理番号の候補を出せません');
+  const candidates = new Set();
+  while (candidates.size < count) {
+    const number = randomInt(random, 1, 100);
+    if (!usedNumbers.has(number)) candidates.add(number);
+  }
+  return [...candidates];
+}
+
+export function claimTicket(usedNumbers, number) {
+  if (!Number.isInteger(number) || number < 1 || number > 100 || usedNumbers.has(number)) throw new Error('この整理番号は選べません');
+  usedNumbers.add(number);
+  return number;
+}
+
 export function expectedBest(maxDrawsToday) {
   return 101 / (maxDrawsToday + 1);
 }
