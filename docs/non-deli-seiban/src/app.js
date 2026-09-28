@@ -147,8 +147,7 @@ function renderTicketChoices() {
 }
 
 function renderResult() {
-  const score = calculateScore(scoreDrawsForState(), state.bestNumber);
-    const score = scoreForState();
+  const score = scoreForState();
   const expected = expectedBest(state.actualDraws);
   const comment = commentForScore(score, state.bestNumber);
   const registration = state.rankingRegistered
@@ -178,7 +177,6 @@ function renderRanking() {
 function saveCurrentPlay() {
   if (state.saved) return;
   state.saved = true;
-  saveHistory({ playedAt: new Date().toISOString(), venue: state.venue.name, maxDrawsToday: state.maxDrawsToday, actualDraws: state.actualDraws, bestNumber: state.bestNumber, score: calculateScore(scoreDrawsForState(), state.bestNumber), exitedEarly: state.exitedEarly });
   saveHistory({ playedAt: new Date().toISOString(), venue: state.venue.name, maxDrawsToday: state.maxDrawsToday, actualDraws: state.actualDraws, bestNumber: state.bestNumber, score: scoreForState(), exitedEarly: state.exitedEarly });
 }
 
@@ -207,8 +205,7 @@ async function registerRanking() {
   rankingError = '';
   render();
   try {
-    await submitRanking(playerName, calculateScore(scoreDrawsForState(), state.bestNumber));
-      await submitRanking(playerName, scoreForState());
+    await submitRanking(playerName, scoreForState());
     state.rankingRegistered = true;
   } catch (submitError) {
     rankingError = submitError.message || '全国対戦への登録に失敗しました。';
