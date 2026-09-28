@@ -62,13 +62,21 @@ function renderStart() {
 }
 
 function renderPhase() {
-  if (state.phase === 'venue') return `<section class="screen story-screen venue-view"><div class="scene venue-scene" aria-hidden="true"><span class="venue-building"></span><span class="venue-sign">RELEASE EVENT</span><span class="venue-sidewalk"></span></div><p class="eyebrow">TODAY'S EVENT</p><p class="story-copy">本日のリリイベ会場は――</p><h2 class="venue-name">${escapeHtml(state.venue.name)}</h2><button class="text-button" data-action="watch">購入列の様子を見る</button></section>`;
+  if (state.phase === 'venue') return renderVenue();
   if (state.phase === 'watching') return `<section class="screen story-screen waiting queue-view"><div class="scene queue-scene" aria-hidden="true"><span class="queue-tent"></span><span class="queue-rail"></span><span class="queue-heads"></span></div><p class="eyebrow">OBSERVING</p><div class="pulse-mark">…</div><p class="story-copy">購入列の様子を見ている……</p></section>`;
   if (state.phase === 'draw-count') return `<section class="screen story-screen"><p class="eyebrow">TODAY'S CHANCE</p><p class="story-copy">今日は</p><h2 class="draw-count">${state.maxDrawsToday}回</h2><p class="story-copy">入場券を引けそうだ。</p><button class="main-button" data-action="to-draw">入場券を引きに行く</button></section>`;
   if (state.phase === 'ticket') return renderTicket();
   if (state.phase === 'live') return `<section class="screen live-screen ${state.bestNumber <= 9 ? 'stage-only' : 'audience-view'}"><div class="scene live-scene" aria-hidden="true"><span class="stage-skyline"></span><span class="stage-roof"></span><span class="stage-lights"></span><span class="stage-tent tent-left"></span><span class="stage-tent tent-right"></span><span class="stage-platform"></span><span class="idol-silhouette"></span><span class="audience-silhouette"></span></div><div class="live-light"></div><p class="eyebrow">LIVE EVENT</p><h2>楽しいライブだった……</h2><p>今日の結果を振り返っています。</p></section>`;
   if (state.phase === 'special') return `<section class="screen special-screen"><p class="eyebrow">SPECIAL NUMBER</p><strong class="special-number">${state.specialStep === 0 ? '1' : state.specialStep === 1 ? '…………' : '1番？'}</strong>${state.specialStep === 2 ? '<p class="special-burst">最前確定演出</p>' : ''}</section>`;
   return renderResult();
+}
+
+function renderVenue() {
+  const isTowerRecords = state.venue.name.includes('タワーレコード');
+  const scene = isTowerRecords
+    ? '<div class="scene venue-scene tower-records-scene" aria-hidden="true"><span class="tower-building"></span><span class="tower-glass-tower"></span><span class="tower-sign">TOWER<br>RECORDS</span><span class="tower-road"></span></div>'
+    : '<div class="scene venue-scene" aria-hidden="true"><span class="venue-building"></span><span class="venue-sign">RELEASE EVENT</span><span class="venue-sidewalk"></span></div>';
+  return `<section class="screen story-screen venue-view ${isTowerRecords ? 'tower-records-view' : ''}">${scene}<p class="eyebrow">TODAY'S EVENT</p><p class="story-copy">本日のリリイベ会場は――</p><h2 class="venue-name">${escapeHtml(state.venue.name)}</h2><button class="text-button" data-action="watch">購入列の様子を見る</button></section>`;
 }
 
 function renderTicket() {
