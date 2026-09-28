@@ -13,6 +13,22 @@ a { color: inherit; }
 .brand { letter-spacing: .06em; color: #7b7065; }
 .screen { min-height: calc(100vh - 90px); padding: clamp(34px, 8vw, 74px) clamp(22px, 7vw, 60px); background: rgba(255,250,242,.9); border: 1px solid rgba(255,255,255,.8); box-shadow: var(--shadow); text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; position: relative; }
 .screen:before { content: ''; width: 70px; height: 4px; background: var(--orange); position: absolute; top: 25px; left: 30px; }
+.screen > :not(.scene) { position: relative; z-index: 1; }
+.scene { position: absolute; z-index: 0; inset: 0; overflow: hidden; pointer-events: none; }
+.venue-view { background: #cbd8d5; }
+.venue-scene { background: linear-gradient(180deg, #9bb9c1 0 48%, #d7cfc1 49% 100%); }
+.venue-building { position: absolute; left: 7%; right: 7%; bottom: 13%; height: 48%; border: 3px solid rgba(24,35,43,.25); background: linear-gradient(90deg, #e8dfd1 0 11%, #f8f1e5 11% 89%, #d7c8b4 89%); box-shadow: 0 18px 0 rgba(24,35,43,.12); }
+.venue-building:before { content: ''; position: absolute; inset: 18% 7% 12%; background: repeating-linear-gradient(90deg, #6e8d92 0 25px, #d8e9e4 25px 34px, #6e8d92 34px 59px); opacity: .72; }
+.venue-building:after { content: ''; position: absolute; left: 35%; right: 35%; bottom: 0; height: 48%; background: #49666d; border: 5px solid #e8dfd1; }
+.venue-sign { position: absolute; top: 25%; left: 50%; transform: translateX(-50%) rotate(-2deg); padding: 5px 13px; background: var(--orange); color: #fffaf2; border: 2px solid #fff; font: 500 .6rem 'DM Mono', monospace; letter-spacing: .08em; box-shadow: 4px 5px 0 rgba(24,35,43,.16); }
+.venue-sidewalk { position: absolute; left: -10%; right: -10%; bottom: 0; height: 16%; transform: skewY(-3deg); background: repeating-linear-gradient(90deg, #b8aa97 0 52px, #cbbfad 52px 55px); border-top: 4px solid rgba(24,35,43,.2); }
+.queue-view { background: #d4c4ae; }
+.queue-scene { background: linear-gradient(180deg, #4b6670 0 47%, #c8b395 48% 100%); }
+.queue-tent { position: absolute; left: 5%; right: 5%; top: 16%; height: 24%; background: repeating-linear-gradient(90deg, #e45f38 0 45px, #f5c84c 45px 90px); clip-path: polygon(4% 0, 96% 0, 100% 100%, 0 100%); border-top: 5px solid #fffaf2; box-shadow: 0 12px 0 rgba(24,35,43,.2); }
+.queue-tent:after { content: '入場整理券'; position: absolute; left: 50%; top: 32%; transform: translateX(-50%); color: #fffaf2; font-weight: 900; font-size: clamp(.7rem, 3vw, 1rem); letter-spacing: .16em; white-space: nowrap; }
+.queue-rail { position: absolute; left: 12%; right: 12%; bottom: 26%; height: 31%; border: 3px solid rgba(255,250,242,.75); border-top: 0; background: repeating-linear-gradient(90deg, transparent 0 52px, rgba(255,250,242,.75) 52px 55px); transform: perspective(180px) rotateX(12deg); }
+.queue-rail:after { content: ''; position: absolute; left: 4%; right: 4%; top: 33%; border-top: 4px solid rgba(255,250,242,.72); }
+.queue-heads { position: absolute; left: 5%; right: 5%; bottom: -3%; height: 48%; background: radial-gradient(circle at 10% 35%, #222d35 0 13px, transparent 14px), radial-gradient(circle at 25% 50%, #35434a 0 17px, transparent 18px), radial-gradient(circle at 41% 30%, #202a32 0 12px, transparent 13px), radial-gradient(circle at 57% 55%, #3f4b50 0 18px, transparent 19px), radial-gradient(circle at 73% 36%, #202a32 0 14px, transparent 15px), radial-gradient(circle at 90% 55%, #303c43 0 17px, transparent 18px); opacity: .92; }
 .eyebrow { margin: 0 0 22px; color: var(--orange); font: 500 .72rem 'DM Mono', monospace; letter-spacing: .13em; }
 h1, h2, p { margin-top: 0; }
 h1 { margin-bottom: 24px; font-size: clamp(3.5rem, 17vw, 7rem); line-height: .84; letter-spacing: -.08em; font-weight: 900; }
@@ -37,8 +53,20 @@ h1 em { color: var(--orange); font-style: normal; font-size: .72em; letter-spaci
 .draw-status { width: 100%; display: flex; justify-content: space-between; gap: 8px; color: #7c746d; font-size: .8rem; }
 .draw-status strong { color: var(--orange); }
 .actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 30px; }
-.live-screen { background: #253b42; color: var(--cream); }
+.live-screen { background: #101a25; color: var(--cream); }
 .live-screen:before { background: var(--yellow); }
+.live-scene { background: radial-gradient(ellipse at 50% 31%, rgba(245,200,76,.65) 0 2%, transparent 18%), radial-gradient(ellipse at 18% 18%, rgba(228,95,56,.45), transparent 26%), radial-gradient(ellipse at 84% 15%, rgba(92,132,144,.55), transparent 28%), linear-gradient(180deg, #172b3c 0 58%, #0c141b 59%); }
+.stage-curtain { position: absolute; inset: 0 0 auto; height: 24%; background: repeating-linear-gradient(90deg, #3a1d2b 0 28px, #5d2b37 28px 56px); clip-path: polygon(0 0, 100% 0, 91% 100%, 9% 100%); opacity: .9; }
+.stage-platform { position: absolute; left: 13%; right: 13%; bottom: 20%; height: 20%; border: 3px solid rgba(245,200,76,.65); background: linear-gradient(180deg, #384c58, #17232d); box-shadow: 0 15px 0 rgba(0,0,0,.35); transform: perspective(220px) rotateX(8deg); }
+.stage-platform:before { content: ''; position: absolute; left: 8%; right: 8%; top: 28%; border-top: 2px solid rgba(245,200,76,.72); box-shadow: 0 20px 0 rgba(245,200,76,.28), 0 40px 0 rgba(245,200,76,.18); }
+.idol-silhouette { position: absolute; left: 50%; bottom: 34%; width: 48px; height: 120px; transform: translateX(-50%); border-radius: 45% 45% 18% 18%; background: linear-gradient(90deg, #111c25 0 25%, #e45f38 25% 73%, #111c25 73%); box-shadow: 0 0 22px rgba(228,95,56,.7); }
+.idol-silhouette:before { content: ''; position: absolute; left: 8px; top: -34px; width: 32px; height: 34px; border-radius: 50%; background: #e7b28f; box-shadow: 0 -10px 0 #342431; }
+.idol-silhouette:after { content: ''; position: absolute; left: -30px; top: 36px; width: 108px; height: 7px; border-radius: 50%; background: #f5c84c; box-shadow: 0 0 22px 7px rgba(245,200,76,.62); transform: rotate(-4deg); }
+.audience-silhouette { position: absolute; left: 0; right: 0; bottom: -7%; height: 38%; background: radial-gradient(ellipse at 8% 70%, #1e2a32 0 44px, transparent 45px), radial-gradient(ellipse at 23% 42%, #26353c 0 38px, transparent 39px), radial-gradient(ellipse at 39% 78%, #17232b 0 55px, transparent 56px), radial-gradient(ellipse at 58% 44%, #2a3940 0 43px, transparent 44px), radial-gradient(ellipse at 77% 70%, #17232b 0 54px, transparent 55px), radial-gradient(ellipse at 94% 42%, #26343b 0 42px, transparent 43px); }
+.stage-only { background: #101a25; }
+.stage-only .audience-silhouette { display: none; }
+.stage-only .live-scene { background: radial-gradient(ellipse at 50% 32%, rgba(245,200,76,.78) 0 3%, transparent 22%), radial-gradient(ellipse at 21% 20%, rgba(228,95,56,.55), transparent 25%), radial-gradient(ellipse at 80% 20%, rgba(92,132,144,.6), transparent 26%), linear-gradient(180deg, #1c3345 0 70%, #111c25 71%); }
+.stage-only .idol-silhouette { transform: translateX(-50%) scale(1.18); }
 .live-light { width: 160px; height: 160px; margin-bottom: 32px; border-radius: 50%; background: #f5c84c; box-shadow: 0 0 90px 35px rgba(245,200,76,.34); animation: glow 1.6s ease-in-out infinite alternate; }
 .live-screen h2 { font-size: clamp(1.7rem, 7vw, 2.7rem); }
 .live-screen p:not(.eyebrow) { color: #b8c9c7; }
