@@ -12,6 +12,7 @@ let submittingRanking = false;
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
 const delay = (callback, milliseconds) => { clearTimeout(transitionTimer); transitionTimer = setTimeout(callback, milliseconds); };
 const formatNumber = (number) => `${number}番`;
+const scoreDrawsForState = () => state.exitedEarly ? state.actualDraws : state.maxDrawsToday;
 
 function startGame() {
   const venue = chooseVenue();
@@ -144,13 +145,13 @@ function renderTicketChoices() {
 }
 
 function renderResult() {
-  const score = calculateScore(state.maxDrawsToday, state.bestNumber);
+  const score = calculateScore(scoreDrawsForState(), state.bestNumber);
   const expected = expectedBest(state.actualDraws);
   const comment = commentForScore(score, state.bestNumber);
   const registration = state.rankingRegistered
     ? '<p class="ranking-note">全国対戦へ登録しました。</p>'
     : `<div class="ranking-register"><p>このScoreで全国対戦に登録</p><div><input id="ranking-name" maxlength="40" placeholder="対戦名" aria-label="対戦名" ${submittingRanking ? 'disabled' : ''}><button class="utility-button" data-action="register-ranking" ${submittingRanking ? 'disabled' : ''}>${submittingRanking ? '登録中…' : '登録する'}</button></div><p class="form-error">${escapeHtml(rankingError)}</p></div>`;
-  return `<section class="screen result-screen ${state.bestNumber === 1 ? 'jackpot' : ''}"><p class="eyebrow">RESULT</p><h2>リリイベ結果</h2><dl class="result-details"><div><dt>会場</dt><dd>${escapeHtml(state.venue.name)}</dd></div>${state.venue.isReleaseDay ? '<div><dt>特別条件</dt><dd>リリース日当日 / 1回勝負</dd></div>' : ''}<div><dt>本日の最大抽選回数</dt><dd>${state.maxDrawsToday}回</dd></div><div><dt>実際に引いた回数</dt><dd>${state.actualDraws}回</dd></div><div><dt>引いた整理番号</dt><dd>${state.numbers.map(formatNumber).join(' / ')}</dd></div><div><dt>BEST</dt><dd class="best-number">${formatNumber(state.bestNumber)}</dd></div><div><dt>期待BEST</dt><dd>約${expected.toFixed(1)}番</dd></div><div><dt>判定</dt><dd>${scoreJudgment(score)}</dd></div></dl>${state.exitedEarly ? '<p class="exit-note">良番を確保したので撤退</p>' : ''}<div class="score-box"><span>SCORE</span><strong>${score}</strong><p>${escapeHtml(comment)}</p></div>${registration}<div class="actions"><button class="main-button" data-action="restart">もう一度リリイベに行く</button><button class="utility-button" data-action="ranking">全国対戦を見る</button></div></section>`;
+  return `<section class="screen result-screen ${state.bestNumber === 1 ? 'jackpot' : ''}"><p class="eyebrow">RESULT</p><h2>リリイベ結果</h2><dl class="result-details"><div><dt>会場</dt><dd>${escapeHtml(state.venue.name)}</dd></div>${state.venue.isReleaseDay ? '<div><dt>特別条件</dt><dd>リリース日当日 / 1回勝負</dd></div>' : ''}<div><dt>本日の最大抽選回数</dt><dd>${state.maxDrawsToday}回</dd></div><div><dt>実際に引いた回数</dt><dd>${state.actualDraws}回</dd></div><div><dt>引いた整理番号</dt><dd>${state.numbers.map(formatNumber).join(' / ')}</dd></div><div><dt>BEST</dt><dd class="best-number">${formatNumber(state.bestNumber)}</dd></div><div><dt>期待値</dt><dd>約${expected.toFixed(1)}番</dd></div><div><dt>判定</dt><dd>${scoreJudgment(score)}</dd></div></dl>${state.exitedEarly ? '<p class="exit-note">良番を確保したので撤退</p>' : ''}<div class="score-box"><span>SCORE</span><strong>${score}</strong><p>${escapeHtml(comment)}</p></div>${registration}<div class="actions"><button class="main-button" data-action="restart">もう一度リリイベに行く</button><button class="utility-button" data-action="ranking">全国対戦を見る</button></div></section>`;
 }
 
 function renderHistory() {
@@ -174,7 +175,7 @@ function renderRanking() {
 function saveCurrentPlay() {
   if (state.saved) return;
   state.saved = true;
-  saveHistory({ playedAt: new Date().toISOString(), venue: state.venue.name, maxDrawsToday: state.maxDrawsToday, actualDraws: state.actualDraws, bestNumber: state.bestNumber, score: calculateScore(state.maxDrawsToday, state.bestNumber), exitedEarly: state.exitedEarly });
+  saveHistory({ playedAt: new Date().toISOString(), venue: state.venue.name, maxDrawsToday: state.maxDrawsToday, actualDraws: state.actualDraws, bestNumber: state.bestNumber, score: calculateScore(scoreDrawsForState(), state.bestNumber), exitedEarly: state.exitedEarly });
 }
 
 async function openRanking() {
@@ -202,7 +203,7 @@ async function registerRanking() {
   rankingError = '';
   render();
   try {
-    await submitRanking(playerName, calculateScore(state.maxDrawsToday, state.bestNumber));
+    await submitRanking(playerName, calculateScore(scoreDrawsForState(), state.bestNumber));
     state.rankingRegistered = true;
   } catch (submitError) {
     rankingError = submitError.message || '全国対戦への登録に失敗しました。';
