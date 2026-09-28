@@ -15,9 +15,14 @@ const formatNumber = (number) => `${number}番`;
 
 function startGame() {
   const venue = chooseVenue();
-  state = { venue, maxDrawsToday: chooseDrawCount(venue), actualDraws: 0, numbers: [], usedNumbers: new Set(), bestNumber: null, exitedEarly: false, phase: 'venue-intro' };
+  state = { venue, maxDrawsToday: chooseDrawCount(venue), actualDraws: 0, numbers: [], usedNumbers: new Set(), bestNumber: null, exitedEarly: false, releaseStep: 0, phase: 'venue-intro' };
   render();
-  delay(() => { state.phase = 'venue'; render(); }, 850);
+  delay(() => {
+    if (!state.venue.isReleaseDay) { state.phase = 'venue'; render(); return; }
+    state.phase = 'release-intro';
+    render();
+    delay(() => { state.releaseStep = 1; render(); delay(() => { state.phase = 'venue'; render(); }, 900); }, 900);
+  }, 850);
 }
 
 function beginDraw() {
@@ -85,6 +90,7 @@ function renderPhase() {
   if (state.phase === 'history') return renderHistory();
   if (state.phase === 'ranking') return renderRanking();
   if (state.phase === 'venue-intro') return `<section class="screen cinematic-screen venue-intro-screen"><p class="eyebrow">TODAY'S EVENT</p><p class="venue-intro-copy">本日の会場は――</p></section>`;
+  if (state.phase === 'release-intro') return renderReleaseIntro();
   if (state.phase === 'venue') return renderVenue();
   if (state.phase === 'watching') return `<section class="screen story-screen waiting queue-view"><div class="scene queue-scene" aria-hidden="true"><span class="queue-tent"></span><span class="queue-rail"></span><span class="queue-heads"></span></div><p class="eyebrow">OBSERVING</p><div class="pulse-mark">…</div><p class="story-copy">購入列の様子を見ている……</p></section>`;
   if (state.phase === 'draw-count') return `<section class="screen story-screen"><p class="eyebrow">TODAY'S CHANCE</p><p class="story-copy">今日は</p><h2 class="draw-count">${state.maxDrawsToday}回</h2><p class="story-copy">入場券を引けそうだ。</p><button class="main-button" data-action="to-draw">入場券を引きに行く</button></section>`;
@@ -94,6 +100,12 @@ function renderPhase() {
   if (state.phase === 'live') return `<section class="screen live-screen ${state.bestNumber <= 9 ? 'stage-only' : 'audience-view'}"><div class="scene live-scene" aria-hidden="true"><span class="stage-skyline"></span><span class="stage-roof"></span><span class="stage-lights"></span><span class="stage-tent tent-left"></span><span class="stage-tent tent-right"></span><span class="stage-platform"></span><span class="idol-silhouette"></span><span class="audience-silhouette"></span></div><div class="live-light"></div><p class="eyebrow">LIVE EVENT</p><h2>楽しいライブだった……</h2><p>今日の結果を振り返っています。</p></section>`;
   if (state.phase === 'special') return renderSpecialEnding();
   return renderResult();
+}
+
+function renderReleaseIntro() {
+  return state.releaseStep === 0
+    ? '<section class="screen cinematic-screen release-intro-screen"><p class="eyebrow">SPECIAL RELEASE DAY</p><p class="release-copy">今日は――<br><strong>リリース日当日。</strong></p></section>'
+    : '<section class="screen cinematic-screen release-intro-screen"><div class="release-cd" aria-hidden="true"></div><p class="release-copy">購入列が長い。<br><strong>入場券は、たった1回。</strong></p></section>';
 }
 
 function renderSpecialEnding() {
@@ -132,14 +144,13 @@ function renderTicketChoices() {
 }
 
 function renderResult() {
-  const scoreDraws = state.exitedEarly ? state.actualDraws : state.maxDrawsToday;
-  const score = calculateScore(scoreDraws, state.bestNumber);
+  const score = calculateScore(state.maxDrawsToday, state.bestNumber);
   const expected = expectedBest(state.actualDraws);
   const comment = commentForScore(score, state.bestNumber);
   const registration = state.rankingRegistered
     ? '<p class="ranking-note">全国対戦へ登録しました。</p>'
     : `<div class="ranking-register"><p>このScoreで全国対戦に登録</p><div><input id="ranking-name" maxlength="40" placeholder="対戦名" aria-label="対戦名" ${submittingRanking ? 'disabled' : ''}><button class="utility-button" data-action="register-ranking" ${submittingRanking ? 'disabled' : ''}>${submittingRanking ? '登録中…' : '登録する'}</button></div><p class="form-error">${escapeHtml(rankingError)}</p></div>`;
-  return `<section class="screen result-screen ${state.bestNumber === 1 ? 'jackpot' : ''}"><p class="eyebrow">RESULT</p><h2>リリイベ結果</h2><dl class="result-details"><div><dt>会場</dt><dd>${escapeHtml(state.venue.name)}</dd></div><div><dt>本日の最大抽選回数</dt><dd>${state.maxDrawsToday}回</dd></div><div><dt>実際に引いた回数</dt><dd>${state.actualDraws}回</dd></div><div><dt>引いた整理番号</dt><dd>${state.numbers.map(formatNumber).join(' / ')}</dd></div><div><dt>BEST</dt><dd class="best-number">${formatNumber(state.bestNumber)}</dd></div><div><dt>期待BEST</dt><dd>約${expected.toFixed(1)}番</dd></div><div><dt>判定</dt><dd>${scoreJudgment(score)}</dd></div></dl>${state.exitedEarly ? '<p class="exit-note">良番を確保したので撤退</p>' : ''}<div class="score-box"><span>SCORE</span><strong>${score}</strong><p>${escapeHtml(comment)}</p></div>${registration}<div class="actions"><button class="main-button" data-action="restart">もう一度リリイベに行く</button><button class="utility-button" data-action="ranking">全国対戦を見る</button></div></section>`;
+  return `<section class="screen result-screen ${state.bestNumber === 1 ? 'jackpot' : ''}"><p class="eyebrow">RESULT</p><h2>リリイベ結果</h2><dl class="result-details"><div><dt>会場</dt><dd>${escapeHtml(state.venue.name)}</dd></div>${state.venue.isReleaseDay ? '<div><dt>特別条件</dt><dd>リリース日当日 / 1回勝負</dd></div>' : ''}<div><dt>本日の最大抽選回数</dt><dd>${state.maxDrawsToday}回</dd></div><div><dt>実際に引いた回数</dt><dd>${state.actualDraws}回</dd></div><div><dt>引いた整理番号</dt><dd>${state.numbers.map(formatNumber).join(' / ')}</dd></div><div><dt>BEST</dt><dd class="best-number">${formatNumber(state.bestNumber)}</dd></div><div><dt>期待BEST</dt><dd>約${expected.toFixed(1)}番</dd></div><div><dt>判定</dt><dd>${scoreJudgment(score)}</dd></div></dl>${state.exitedEarly ? '<p class="exit-note">良番を確保したので撤退</p>' : ''}<div class="score-box"><span>SCORE</span><strong>${score}</strong><p>${escapeHtml(comment)}</p></div>${registration}<div class="actions"><button class="main-button" data-action="restart">もう一度リリイベに行く</button><button class="utility-button" data-action="ranking">全国対戦を見る</button></div></section>`;
 }
 
 function renderHistory() {
@@ -163,8 +174,7 @@ function renderRanking() {
 function saveCurrentPlay() {
   if (state.saved) return;
   state.saved = true;
-  const scoreDraws = state.exitedEarly ? state.actualDraws : state.maxDrawsToday;
-  saveHistory({ playedAt: new Date().toISOString(), venue: state.venue.name, maxDrawsToday: state.maxDrawsToday, actualDraws: state.actualDraws, bestNumber: state.bestNumber, score: calculateScore(scoreDraws, state.bestNumber), exitedEarly: state.exitedEarly });
+  saveHistory({ playedAt: new Date().toISOString(), venue: state.venue.name, maxDrawsToday: state.maxDrawsToday, actualDraws: state.actualDraws, bestNumber: state.bestNumber, score: calculateScore(state.maxDrawsToday, state.bestNumber), exitedEarly: state.exitedEarly });
 }
 
 async function openRanking() {

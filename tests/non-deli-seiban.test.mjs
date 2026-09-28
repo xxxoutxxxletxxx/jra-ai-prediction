@@ -1,11 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateScore, claimTicket, drawTicket, drawTicketCandidates, expectedBest } from '../docs/non-deli-seiban/src/engine.mjs';
+import { calculateScore, claimTicket, drawTicket, drawTicketCandidates, expectedBest, chooseVenue, releaseDayVenues, venues } from '../docs/non-deli-seiban/src/engine.mjs';
 import { normalizeRanking } from '../docs/non-deli-seiban/src/storage.mjs';
 
 test('期待BESTは最大抽選回数から計算する', () => {
   assert.equal(expectedBest(1), 50.5);
   assert.equal(Number(expectedBest(10).toFixed(1)), 9.2);
+});
+
+test('通常会場は仕様どおり26会場で、発売日限定会場は3会場ある', () => {
+  assert.equal(venues.length, 26);
+  assert.equal(releaseDayVenues.length, 3);
+  assert.ok(venues.every((venue) => venue.minDraws >= 1 && venue.maxDraws <= 10 && venue.works.length > 0));
+});
+
+test('発売日判定は一度だけ行い、限定会場は1回勝負になる', () => {
+  const releaseVenue = chooseVenue(() => 0);
+  assert.equal(releaseVenue.isReleaseDay, true);
+  assert.equal(releaseVenue.minDraws, 1);
+  assert.equal(releaseVenue.maxDraws, 1);
+  const regularVenue = chooseVenue(() => 0.5);
+  assert.equal(regularVenue.isReleaseDay, false);
 });
 
 test('同じ番号は同一プレイで重複しない', () => {
@@ -46,10 +61,10 @@ test('同じ良番は少ないチャンスほど高得点になる', () => {
   assert.ok(calculateScore(1, 3) > calculateScore(10, 3));
 });
 
-test('途中撤退は実際の抽選回数を期待値の基準にする', () => {
-  const earlyExitScore = calculateScore(1, 5);
+test('途中撤退でも最大抽選回数をScoreの基準にする', () => {
+  const earlyExitScore = calculateScore(10, 5);
   const maxDrawScore = calculateScore(10, 5);
-  assert.ok(earlyExitScore > maxDrawScore);
+  assert.equal(earlyExitScore, maxDrawScore);
 });
 
 test('1回チャンスの1番が理論上の最高Scoreになる', () => {

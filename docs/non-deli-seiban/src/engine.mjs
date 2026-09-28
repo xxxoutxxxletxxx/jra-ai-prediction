@@ -1,15 +1,39 @@
 export const venues = [
-  { name: 'タワーレコード渋谷店', minDraws: 1, maxDraws: 3 },
-  { name: 'タワーレコード新宿店', minDraws: 1, maxDraws: 3 },
-  { name: 'HMV&BOOKS SHIBUYA', minDraws: 1, maxDraws: 2 },
-  { name: '汐留シオサイト', minDraws: 1, maxDraws: 3 },
-  { name: 'タワーレコード錦糸町店', minDraws: 2, maxDraws: 4 },
-  { name: 'カメイドクロック', minDraws: 3, maxDraws: 6 },
-  { name: 'ダイバーシティ東京 プラザ', minDraws: 3, maxDraws: 6 },
-  { name: 'ららぽーと豊洲', minDraws: 4, maxDraws: 7 },
-  { name: 'ららぽーと新三郷', minDraws: 10, maxDraws: 10 },
-  { name: 'ららぽーと湘南平塚', minDraws: 10, maxDraws: 10 }
+  { id: 'tower_shibuya', name: 'タワーレコード渋谷店', minDraws: 1, maxDraws: 3, works: ['Opia', 'INVERSIOИ'] },
+  { id: 'tower_kinshicho', name: 'タワーレコード錦糸町パルコ店', minDraws: 2, maxDraws: 4, works: ['Opia', 'ループバック・ロールトラッシュ', 'INVERSIOИ', 'いいおくり', 'アウフヘーベン'] },
+  { id: 'kameido_clock', name: 'カメイドクロック', minDraws: 3, maxDraws: 6, works: ['ループバック・ロールトラッシュ', 'アウフヘーベン'] },
+  { id: 'lalaport_shinmisato', name: 'ららぽーと新三郷', minDraws: 10, maxDraws: 10, works: ['Opia', 'ループバック・ロールトラッシュ', 'INVERSIOИ'] },
+  { id: 'lalaport_hiratsuka', name: 'ららぽーと湘南平塚', minDraws: 10, maxDraws: 10, works: ['INVERSIOИ'] },
+  { id: 'tower_shinjuku', name: 'タワーレコード新宿店', minDraws: 1, maxDraws: 4, works: ['Opia', 'ループバック・ロールトラッシュ', 'INVERSIOИ', 'アウフヘーベン'] },
+  { id: 'vv_shibuya', name: 'ヴィレッジヴァンガード渋谷本店', minDraws: 1, maxDraws: 4, works: ['Opia', 'ループバック・ロールトラッシュ', 'INVERSIOИ', 'アウフヘーベン'] },
+  { id: 'hmv_shibuya', name: 'HMV&BOOKS SHIBUYA', minDraws: 1, maxDraws: 4, works: ['ループバック・ロールトラッシュ', 'INVERSIOИ'] },
+  { id: 'tower_ikebukuro', name: 'タワーレコード池袋店', minDraws: 2, maxDraws: 5, works: ['Opia'] },
+  { id: 'shiodome', name: '汐留シオサイト', minDraws: 3, maxDraws: 7, works: ['Opia', 'ループバック・ロールトラッシュ', 'INVERSIOИ'] },
+  { id: 'yokohama_world_porters', name: '横浜ワールドポーターズ', minDraws: 3, maxDraws: 7, works: ['Opia', 'ループバック・ロールトラッシュ'] },
+  { id: 'terrace_matsudo', name: 'テラスモール松戸', minDraws: 5, maxDraws: 9, works: ['Opia'] },
+  { id: 'tower_umeda_nu', name: 'タワーレコード梅田NU茶屋町店', minDraws: 2, maxDraws: 5, works: ['Opia'] },
+  { id: 'tower_shizuoka', name: 'タワーレコード静岡店', minDraws: 3, maxDraws: 7, works: ['Opia', 'INVERSIOИ'] },
+  { id: 'yokohama_niigo', name: '横浜Niigoひろば', minDraws: 4, maxDraws: 8, works: ['ループバック・ロールトラッシュ'] },
+  { id: 'marui_mizonokuchi', name: 'マルイファミリー溝口', minDraws: 4, maxDraws: 8, works: ['ループバック・ロールトラッシュ'] },
+  { id: 'aeon_suzuka', name: 'イオンモール鈴鹿', minDraws: 6, maxDraws: 10, works: ['ループバック・ロールトラッシュ'] },
+  { id: 'ario_kawaguchi', name: 'アリオ川口', minDraws: 5, maxDraws: 9, works: ['ループバック・ロールトラッシュ'] },
+  { id: 'canal_hakata', name: 'キャナルシティ博多', minDraws: 4, maxDraws: 8, works: ['INVERSIOИ'] },
+  { id: 'vv_shinkyogoku', name: 'ヴィレッジヴァンガード新京極店', minDraws: 2, maxDraws: 5, works: ['INVERSIOИ'] },
+  { id: 'shinjuku_marui_men', name: '新宿マルイメン', minDraws: 2, maxDraws: 5, works: ['INVERSIOИ'] },
+  { id: 'yodobashi_umeda', name: 'ヨドバシカメラマルチメディア梅田', minDraws: 3, maxDraws: 7, works: ['アウフヘーベン'] },
+  { id: 'morinomiya_qs', name: 'もりのみやキューズモールBASE', minDraws: 5, maxDraws: 9, works: ['アウフヘーベン'] },
+  { id: 'magnet_shibuya', name: 'MAGNET by SHIBUYA109', minDraws: 2, maxDraws: 5, works: ['アウフヘーベン'] },
+  { id: 'entaba_akiba', name: 'エンタバアキバ', minDraws: 2, maxDraws: 5, works: ['アウフヘーベン'] },
+  { id: 'tower_sapporo', name: 'タワーレコード札幌パルコ店', minDraws: 3, maxDraws: 7, works: ['アウフヘーベン'] }
 ];
+
+export const releaseDayVenues = [
+  { id: 'special_cutup', name: 'タワーレコード渋谷店 CUTUP STUDIO', minDraws: 1, maxDraws: 1, special: 'releaseDay' },
+  { id: 'special_sunshine', name: 'サンシャインシティ 噴水広場', minDraws: 1, maxDraws: 1, special: 'releaseDay' },
+  { id: 'special_lazona', name: 'ラゾーナ川崎プラザ ルーファ広場', minDraws: 1, maxDraws: 1, special: 'releaseDay' }
+];
+
+export const RELEASE_DAY_RATE = 0.08;
 
 export const SCORE_BALANCE = {
   expectedScore: 50,
@@ -21,7 +45,9 @@ export const SCORE_BALANCE = {
 const randomInt = (random, min, max) => Math.floor(random() * (max - min + 1)) + min;
 
 export function chooseVenue(random = Math.random) {
-  return venues[Math.floor(random() * venues.length)];
+  const isReleaseDay = random() < RELEASE_DAY_RATE;
+  const pool = isReleaseDay ? releaseDayVenues : venues;
+  return { ...pool[Math.floor(random() * pool.length)], isReleaseDay };
 }
 
 export function chooseDrawCount(venue, random = Math.random) {
