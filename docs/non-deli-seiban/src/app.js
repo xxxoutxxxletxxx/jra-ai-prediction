@@ -79,7 +79,7 @@ function renderTicket() {
 
 function renderResult() {
   const score = calculateScore(state.maxDrawsToday, state.bestNumber);
-  const expected = expectedBest(state.maxDrawsToday);
+  const expected = expectedBest(state.actualDraws);
   const comment = commentForScore(score, state.bestNumber);
   return `<section class="screen result-screen ${state.bestNumber === 1 ? 'jackpot' : ''}"><p class="eyebrow">RESULT</p><h2>リリイベ結果</h2><dl class="result-details"><div><dt>会場</dt><dd>${escapeHtml(state.venue.name)}</dd></div><div><dt>本日の最大抽選回数</dt><dd>${state.maxDrawsToday}回</dd></div><div><dt>実際に引いた回数</dt><dd>${state.actualDraws}回</dd></div><div><dt>引いた整理番号</dt><dd>${state.numbers.map(formatNumber).join(' / ')}</dd></div><div><dt>BEST</dt><dd class="best-number">${formatNumber(state.bestNumber)}</dd></div><div><dt>期待BEST</dt><dd>約${expected.toFixed(1)}番</dd></div><div><dt>判定</dt><dd>${scoreJudgment(score)}</dd></div></dl>${state.exitedEarly ? '<p class="exit-note">良番を確保したので撤退</p>' : ''}<div class="score-box"><span>SCORE</span><strong>${score}</strong><p>${escapeHtml(comment)}</p></div><button class="main-button" data-action="restart">もう一度リリイベに行く</button><a class="secondary-link" href="../sweet-race-bet/">スイートレースBETへ</a></section>`;
 }
