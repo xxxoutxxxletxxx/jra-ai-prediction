@@ -102,7 +102,7 @@ export function calculateBetOdds(horses, modeKey, horseNumbers) {
   const selected = horseNumbers.map(Number);
   if (modeKey === 'place') {
     const placeProbability = buildPlaceProbabilities(horses)[selected[0]];
-    const rawPlaceOdds = RETURN_RATES.place * 3 / placeProbability;
+    const rawPlaceOdds = RETURN_RATES.place / placeProbability;
     return Number(clamp(rawPlaceOdds, MIN_PLACE_ODDS, MAX_PLACE_ODDS).toFixed(1));
   }
   const probability = buildFinishOrderProbabilities(horses).reduce((sum, order) => {

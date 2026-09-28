@@ -50,6 +50,10 @@ test('複勝は3着以内確率の合計が3で、確率に応じたオッズに
   assert.ok(Math.abs(values.reduce((sum, probability) => sum + probability, 0) - 3) < 1e-9);
   assert.ok(Math.abs(orders.reduce((sum, order) => sum + order.probability, 0) - 1) < 1e-9);
   assert.equal(placeOdds.length, 8);
+  for (let index = 0; index < horses.length; index += 1) {
+    const expectedOdds = Number(Math.min(99.9, Math.max(1.1, 0.8 / values[index])).toFixed(1));
+    assert.equal(placeOdds[index], expectedOdds);
+  }
   assert.ok(placeOdds.every((odds) => odds >= 1.1 && odds <= 99.9));
   for (let index = 0; index < horses.length; index += 1) {
     for (let nextIndex = index + 1; nextIndex < horses.length; nextIndex += 1) {
