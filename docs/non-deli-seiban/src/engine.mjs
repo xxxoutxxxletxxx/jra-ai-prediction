@@ -149,5 +149,6 @@ export function commentForScore(score, bestNumber, random = Math.random) {
   const zoneStart = scoreBand * 5;
   const zoneEnd = scoreBand === understandableScoreLabels.length - 1 ? '100+' : `${zoneStart + 4}`;
   const phrase = scoreCommentBanks[scoreBand][Math.floor(random() * scoreCommentBanks[scoreBand].length)];
-  return `SCORE ZONE: ${zoneStart}〜${zoneEnd}点\n${label}\n${phrase}`;
+  const zoneLine = scoreBand === 8 ? '' : `SCORE ZONE: ${zoneStart}〜${zoneEnd}点\n`;
+  return `${zoneLine}${label}\n${phrase}`;
 }
