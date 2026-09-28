@@ -1,5 +1,4 @@
 import { acceptRescue, BET_MODES, calculateBetOdds, createGame, generateRace, makeRandom, placeBet, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace, titleForMoney } from './engine.js?v=20260928-place-odds-v4';
-import { acceptRescue, BET_MODES, calculateBetOdds, createGame, placeBet, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace, titleForMoney } from './engine.js?v=20260928-place-odds-v3';
 import { clearHistory, fetchLeaderboard, readHistory, rankingNameError, saveGameResult, submitLeaderboardEntry, summarizeHistory } from './storage.js?v=20260927-race-skip-position';
 
 const app = document.querySelector('#app');
@@ -220,7 +219,7 @@ app.addEventListener('click', (event) => {
   const { action } = actionTarget?.dataset || {};
   const { horse } = horseTarget?.dataset || {};
   const { amount } = amountTarget?.dataset || {};
-  if (horse) { const number = Number(horse); const mode = BET_MODES[game?.betMode || selectedMode]; if (selectedHorses.includes(number)) selectedHorses = selectedHorses.filter((value) => value !== number); else if (selectedHorses.length < mode.maxHorses) selectedHorses = mode.maxHorses === 1 ? [number] : [...selectedHorses, number]; render(); return; }
+  if (horse) { const number = Number(horse); const mode = BET_MODES[game?.betMode || selectedMode]; if (selectedHorses.includes(number)) selectedHorses = selectedHorses.filter((value) => value !== number); else if (mode.maxHorses === 1) selectedHorses = [number]; else if (selectedHorses.length < mode.maxHorses) selectedHorses = [...selectedHorses, number]; render(); return; }
   if (amount) { selectedAmount = amount === 'max' ? game.money : Number(amount); render(); return; }
   if (action === 'start') startGame();
   if (action === 'begin-mode') beginMode();
