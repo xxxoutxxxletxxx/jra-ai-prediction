@@ -52,7 +52,7 @@ function finishLive() {
   state.phase = 'live';
   render();
   delay(() => {
-    if (state.bestNumber === 1) return showSpecialEnding();
+    if (state.bestNumber <= 3) return showSpecialEnding();
     state.phase = 'result';
     render();
   }, 1800);
@@ -65,7 +65,7 @@ function showSpecialEnding() {
   delay(() => {
     state.specialStep = 1;
     render();
-    delay(() => { state.specialStep = 2; render(); delay(() => { state.phase = 'result'; render(); }, 1000); }, 900);
+    delay(() => { state.specialStep = 2; render(); delay(() => { state.phase = 'result'; render(); }, state.bestNumber === 1 ? 1500 : 1100); }, 900);
   }, 850);
 }
 
@@ -92,8 +92,15 @@ function renderPhase() {
   if (state.phase === 'choose-ticket') return renderTicketChoices();
   if (state.phase === 'ticket') return renderTicket();
   if (state.phase === 'live') return `<section class="screen live-screen ${state.bestNumber <= 9 ? 'stage-only' : 'audience-view'}"><div class="scene live-scene" aria-hidden="true"><span class="stage-skyline"></span><span class="stage-roof"></span><span class="stage-lights"></span><span class="stage-tent tent-left"></span><span class="stage-tent tent-right"></span><span class="stage-platform"></span><span class="idol-silhouette"></span><span class="audience-silhouette"></span></div><div class="live-light"></div><p class="eyebrow">LIVE EVENT</p><h2>楽しいライブだった……</h2><p>今日の結果を振り返っています。</p></section>`;
-  if (state.phase === 'special') return `<section class="screen special-screen"><p class="eyebrow">SPECIAL NUMBER</p><strong class="special-number">${state.specialStep === 0 ? '1' : state.specialStep === 1 ? '…………' : '1番？'}</strong>${state.specialStep === 2 ? '<p class="special-burst">最前確定演出</p>' : ''}</section>`;
+  if (state.phase === 'special') return renderSpecialEnding();
   return renderResult();
+}
+
+function renderSpecialEnding() {
+  const isUltimate = state.bestNumber === 1;
+  const numberText = state.specialStep === 0 ? state.bestNumber : state.specialStep === 1 ? '…………' : `${state.bestNumber}番!?`;
+  const message = isUltimate ? '伝説の1番。最前列の景色が待っている。' : '一桁の神引き。今日は勝ち確。';
+  return `<section class="screen special-screen ${isUltimate ? 'ultimate-number' : 'premium-number'}"><div class="special-lights" aria-hidden="true"><i></i><i></i><i></i></div><div class="special-confetti" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div><p class="eyebrow">${isUltimate ? 'ULTIMATE NUMBER' : 'PREMIUM NUMBER'}</p>${isUltimate ? '<span class="special-crown" aria-hidden="true">★</span>' : ''}<strong class="special-number">${numberText}</strong>${state.specialStep === 2 ? `<p class="special-burst">${message}</p>` : ''}</section>`;
 }
 
 function renderVenue() {

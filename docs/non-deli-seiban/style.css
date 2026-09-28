@@ -131,10 +131,19 @@ h1 em { color: var(--orange); font-style: normal; font-size: .72em; letter-spaci
 .stage-only .idol-silhouette { transform: translateX(-50%) scale(1.18); }
 .live-light { width: 160px; height: 160px; margin-bottom: 32px; border-radius: 50%; background: #f5c84c; box-shadow: 0 0 90px 35px rgba(245,200,76,.34); animation: glow 1.6s ease-in-out infinite alternate; }
 .live-screen h2 { font-size: clamp(1.7rem, 7vw, 2.7rem); }
-.special-screen { background: #10171c; color: var(--cream); }
+.special-screen { background: #10171c; color: var(--cream); isolation: isolate; }
 .special-screen:before { background: var(--yellow); }
-.special-number { color: var(--yellow); font: 900 clamp(4rem, 24vw, 10rem) 'DM Mono', monospace; line-height: 1; animation: special-pop .65s ease both; }
+.special-screen:after { content: ''; position: absolute; z-index: 0; inset: 0; background: repeating-linear-gradient(112deg, transparent 0 12%, rgba(245,200,76,.16) 12.4% 13.5%, transparent 14% 28%); animation: spotlight-sweep 2.1s ease-in-out infinite alternate; pointer-events: none; }
+.special-screen > :not(.scene) { z-index: 2; }
+.special-lights { position: absolute; z-index: 1; inset: 0; overflow: hidden; pointer-events: none; }
+.special-lights i { position: absolute; top: -30%; width: 19%; height: 145%; background: rgba(255,250,214,.2); transform-origin: 50% 0; clip-path: polygon(35% 0, 65% 0, 100% 100%, 0 100%); animation: light-dance 1.2s ease-in-out infinite alternate; }
+.special-lights i:nth-child(1) { left: 8%; transform: rotate(-22deg); }.special-lights i:nth-child(2) { left: 41%; animation-delay: -.5s; }.special-lights i:nth-child(3) { right: 8%; transform: rotate(22deg); animation-delay: -.85s; }
+.special-confetti { position: absolute; z-index: 3; inset: 0; pointer-events: none; }
+.special-confetti i { position: absolute; top: -10%; width: 9px; height: 20px; background: #f5c84c; animation: confetti-fall 1.75s linear infinite; }.special-confetti i:nth-child(1) { left: 8%; background: #e45f38; }.special-confetti i:nth-child(2) { left: 25%; top: -28%; animation-delay: -.45s; }.special-confetti i:nth-child(3) { left: 42%; background: #71b5c8; animation-delay: -.9s; }.special-confetti i:nth-child(4) { left: 59%; top: -35%; background: #e45f38; animation-delay: -.2s; }.special-confetti i:nth-child(5) { left: 76%; background: #71b5c8; animation-delay: -.7s; }.special-confetti i:nth-child(6) { left: 91%; top: -24%; animation-delay: -1.2s; }
+.special-number { color: var(--yellow); font: 900 clamp(4rem, 24vw, 10rem) 'DM Mono', monospace; line-height: 1; text-shadow: 0 0 25px rgba(245,200,76,.48); animation: special-pop .65s ease both; }
 .special-burst { margin: 26px 0 0; color: var(--orange); font-size: 1.5rem; font-weight: 900; animation: burst .8s ease both; }
+.premium-number .special-number { font-size: clamp(5rem, 28vw, 11rem); }.premium-number .special-burst { color: #fff2b8; }
+.ultimate-number { background: #24172a; }.ultimate-number:before { width: 116px; height: 6px; background: #fff; box-shadow: 0 0 22px 6px rgba(245,200,76,.86); }.ultimate-number:after { background: repeating-linear-gradient(112deg, transparent 0 9%, rgba(255,255,255,.2) 9.4% 10.5%, transparent 11% 21%); animation-duration: 1.25s; }.ultimate-number .special-lights i { background: rgba(255,246,186,.3); width: 25%; }.ultimate-number .special-number { color: #fff9d5; font-size: clamp(6rem, 33vw, 13rem); text-shadow: 0 0 34px rgba(245,200,76,.9), 0 0 70px rgba(255,255,255,.35); }.ultimate-number .special-burst { color: #fff9d5; font-size: 1.65rem; text-shadow: 0 0 14px rgba(245,200,76,.8); }.special-crown { display: block; margin: -14px 0 8px; color: #f5c84c; font-size: 2.7rem; line-height: 1; text-shadow: 0 0 20px rgba(245,200,76,.74); animation: crown-float .7s ease-in-out infinite alternate; }
 .result-screen { justify-content: flex-start; padding-top: 45px; }
 .result-screen h2 { margin-bottom: 24px; font-size: 2rem; }
 .result-details { width: 100%; margin: 0; text-align: left; }
@@ -177,4 +186,8 @@ dt { color: #82796f; font-size: .8rem; } dd { margin: 0; font-weight: 700; text-
 @keyframes glow { to { transform: scale(1.08); opacity: .8; } }
 @keyframes special-pop { from { transform: scale(.35); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes burst { from { transform: scale(.6) rotate(-5deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
+@keyframes spotlight-sweep { from { transform: translateX(-10%); } to { transform: translateX(10%); } }
+@keyframes light-dance { from { margin-top: -8%; opacity: .42; } to { margin-top: 10%; opacity: .92; } }
+@keyframes confetti-fall { to { transform: translateY(125vh) rotate(520deg); } }
+@keyframes crown-float { to { transform: translateY(-8px) scale(1.12); } }
 @media (max-width: 420px) { .app-shell { width: min(100% - 16px, 580px); } .topbar { font-size: .65rem; } .brand { display: none; } .screen { min-height: calc(100vh - 72px); padding-left: 18px; padding-right: 18px; } .draw-status { font-size: .7rem; } .result-details div { gap: 8px; } .history-list li { grid-template-columns: 63px 42px 1fr; font-size: .7rem; } }
