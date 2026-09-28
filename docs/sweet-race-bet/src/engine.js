@@ -28,6 +28,8 @@ const ODDS_PROFILES = [
 ];
 export const RETURN_RATES = { win: 0.8, place: 0.8, quinella: 0.775, exacta: 0.75, trio: 0.75, trifecta: 0.725 };
 export const ODDS_LIMITS = { min: 1.1, max: 9999.9 };
+export const MIN_PLACE_ODDS = 1.1;
+export const MAX_PLACE_ODDS = 99.9;
 export const BET_MODES = {
   win: { key: 'win', label: '単勝', description: '1着を当てる', minHorses: 1, maxHorses: 1, payoutRate: RETURN_RATES.win },
   place: { key: 'place', label: '複勝', description: '3着以内を当てる', minHorses: 1, maxHorses: 1, payoutRate: RETURN_RATES.place },
@@ -84,19 +86,32 @@ export function buildFinishOrderProbabilities(horses) {
   return probabilities;
 }
 
+export function buildPlaceProbabilities(horses) {
+  return buildFinishOrderProbabilities(horses).reduce((probabilities, order) => {
+    for (const horseNumber of [order.first, order.second, order.third]) {
+      probabilities[horseNumber] = (probabilities[horseNumber] || 0) + order.probability;
+    }
+    return probabilities;
+  }, {});
+}
+
 const sameNumbers = (left, right) => left.slice().sort((a, b) => a - b).join(',') === right.slice().sort((a, b) => a - b).join(',');
 
 export function calculateBetOdds(horses, modeKey, horseNumbers) {
   const mode = BET_MODES[modeKey] || BET_MODES.win;
   const selected = horseNumbers.map(Number);
+  if (modeKey === 'place') {
+    const placeProbability = buildPlaceProbabilities(horses)[selected[0]];
+    const rawPlaceOdds = RETURN_RATES.place * 3 / placeProbability;
+    return Number(clamp(rawPlaceOdds, MIN_PLACE_ODDS, MAX_PLACE_ODDS).toFixed(1));
+  }
   const probability = buildFinishOrderProbabilities(horses).reduce((sum, order) => {
     const topTwo = [order.first, order.second];
     const topThree = [order.first, order.second, order.third];
     const hit = modeKey === 'win' ? order.first === selected[0] : modeKey === 'place' ? topThree.includes(selected[0]) : modeKey === 'quinella' ? sameNumbers(selected, topTwo) : modeKey === 'exacta' ? selected.join(',') === topTwo.join(',') : modeKey === 'trio' ? sameNumbers(selected, topThree) : selected.join(',') === topThree.join(',');
     return sum + (hit ? order.probability : 0);
   }, 0);
-  const effectiveReturnRate = modeKey === 'place' ? mode.payoutRate * 3 : mode.payoutRate;
-  return Number(clamp(effectiveReturnRate / probability, ODDS_LIMITS.min, ODDS_LIMITS.max).toFixed(1));
+  return Number(clamp(mode.payoutRate / probability, ODDS_LIMITS.min, ODDS_LIMITS.max).toFixed(1));
 }
 
 export function generateRace(random = Math.random) {
@@ -156,7 +171,17 @@ export function settleBet(money, bet, resultRace) {
   const mode = BET_MODES[bet.modeKey] || BET_MODES.win;
   const positions = resultRace.horses.slice().sort((a, b) => a.finalPosition - b.finalPosition).map((horse) => horse.number);
   const selected = bet.horseNumbers;
-  const hit = mode.key === 'win' ? selected[0] === positions[0] : mode.key === 'place' ? positions.slice(0, 3).includes(selected[0]) : mode.key === 'quinella' ? sameNumbers(selected, positions.slice(0, 2)) : mode.key === 'exacta' ? selected.join(',') === positions.slice(0, 2).join(',') : mode.key === 'trio' ? sameNumbers(selected, positions.slice(0, 3)) : selected.join(',') === positions.slice(0, 3).join(',');
+  const hit = mode.key === 'win'
+    ? selected[0] === positions[0]
+    : mode.key === 'place'
+      ? positions.slice(0, 3).includes(selected[0])
+      : mode.key === 'quinella'
+        ? selected.slice().sort((a, b) => a - b).join(',') === positions.slice(0, 2).slice().sort((a, b) => a - b).join(',')
+        : mode.key === 'exacta'
+          ? selected.join(',') === positions.slice(0, 2).join(',')
+          : mode.key === 'trio'
+            ? sameNumbers(selected, positions.slice(0, 3))
+            : selected.join(',') === positions.slice(0, 3).join(',');
   const odds = bet.odds || calculateBetOdds(resultRace.horses, bet.modeKey, selected);
   const payout = hit ? Math.round(bet.amount * odds) : 0;
   return { money: money + payout, payout, hit, odds: hit ? payout / bet.amount : 0 };

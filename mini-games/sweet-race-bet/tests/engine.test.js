@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { acceptRescue, buildFinishOrderProbabilities, calculateBetOdds, createGame, generateRace, makeRandom, placeBet, RESCUE_AMOUNT, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace } from '../src/engine.js';
+import { acceptRescue, buildFinishOrderProbabilities, buildPlaceProbabilities, calculateBetOdds, createGame, generateRace, makeRandom, placeBet, RESCUE_AMOUNT, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace } from '../src/engine.js';
 
 const race = () => generateRace(makeRandom(0.42));
 
@@ -35,6 +35,38 @@ test('全券種の確率空間を共通の336通りから生成する', () => {
   assert.equal(quinellaCount, 28);
   assert.equal(trioCount, 56);
   assert.ok(calculateBetOdds(race().horses, 'win', [1]) > 0);
+});
+
+test('複勝は3着以内確率の合計が3で、確率に応じたオッズになる', () => {
+  const { horses } = race();
+  const orders = buildFinishOrderProbabilities(horses);
+  const placeProbabilities = buildPlaceProbabilities(horses);
+  const values = horses.map((horse) => placeProbabilities[horse.number]);
+  const placeOdds = horses.map((horse) => calculateBetOdds(horses, 'place', [horse.number]));
+  const strengthTotal = horses.reduce((sum, horse) => sum + horse.strength, 0);
+
+  assert.equal(values.length, 8);
+  assert.ok(Math.abs(horses.reduce((sum, horse) => sum + horse.strength / strengthTotal, 0) - 1) < 1e-9);
+  assert.ok(Math.abs(values.reduce((sum, probability) => sum + probability, 0) - 3) < 1e-9);
+  assert.ok(Math.abs(orders.reduce((sum, order) => sum + order.probability, 0) - 1) < 1e-9);
+  assert.equal(placeOdds.length, 8);
+  assert.ok(placeOdds.every((odds) => odds >= 1.1 && odds <= 99.9));
+  for (let index = 0; index < horses.length; index += 1) {
+    for (let nextIndex = index + 1; nextIndex < horses.length; nextIndex += 1) {
+      if (values[index] > values[nextIndex]) assert.ok(placeOdds[index] <= placeOdds[nextIndex]);
+    }
+  }
+});
+
+test('複勝は3着以内なら購入馬のオッズで払い戻される', () => {
+  const current = race();
+  const result = simulateRace(current, makeRandom(0.55));
+  const placedHorse = result.horses.find((horse) => horse.finalPosition === 3);
+  const placeOdds = calculateBetOdds(current.horses, 'place', [placedHorse.number]);
+  const settled = settleBet(9000, { horseNumbers: [placedHorse.number], amount: 1000, modeKey: 'place', odds: placeOdds }, result);
+
+  assert.equal(settled.hit, true);
+  assert.equal(settled.payout, Math.round(1000 * placeOdds));
 });
 
 test('BETは所持金を超えられない', () => {

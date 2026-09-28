@@ -1,4 +1,4 @@
-import { acceptRescue, BET_MODES, calculateBetOdds, createGame, placeBet, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace, titleForMoney } from './engine.js?v=20260928-odds-system-v2';
+import { acceptRescue, BET_MODES, calculateBetOdds, createGame, placeBet, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace, titleForMoney } from './engine.js?v=20260928-place-odds-v3';
 import { clearHistory, fetchLeaderboard, readHistory, rankingNameError, saveGameResult, submitLeaderboardEntry, summarizeHistory } from './storage.js?v=20260927-race-skip-position';
 
 const app = document.querySelector('#app');
