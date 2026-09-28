@@ -110,8 +110,38 @@ const scoreCommentBanks = [
   ['異次元の神番！ ＼オレモー！／', '最前の神、ここに降臨。', '声量もScoreも限界突破。', 'これは現場からの表彰状。', '良番すぎて足が震える。', 'コールで全力の感謝を伝える。', '今日の運、全部ここにある。', '最前列の景色、確定演出。', '整理券が伝説になりました。', '推しに見つかるしかない番号。', '開演前から涙腺が負けた。', '神引き、神番、神現場です。', 'この瞬間を額縁に入れたい。', '声帯を置いて帰る覚悟です。', '前方担当として使命を果たす。', '＼超絶かわいい！／ 本番開始。', 'Scoreが高すぎて笑うしかない。', '今日は全力コールで締めます。', '運命に選ばれた整理券です。', '伝説の現場、ここから始まる。']
 ];
 
+const understandableScoreLabels = [
+  '終わり', '終わり', '終わり', '終わり', '終わり',
+  '終わり', '終わり', '終わり', '耐え', '耐え',
+  '耐え', '耐え', '神！', '神！', '神！',
+  '神！', '神！', '神！', '神！', '神！'
+];
+
+const understandableScorePhrases = [
+  'この番号なら、今日はこれで楽しむ。',
+  '推しに会えるので、まだ勝ちです。',
+  '番号は普通、気持ちは前向き。',
+  '次の抽選に期待していこう。',
+  '列の位置を確認して、落ち着こう。',
+  'この結果を友達に報告します。',
+  '声を出して、ライブを楽しむ準備。',
+  '番号よりも、現場を楽しんだ者勝ち。',
+  '今日はこの番号で全力応援。',
+  '推しは番号順に好きになるわけじゃない。',
+  'この運を次回まで大事に取っておく。',
+  '入場したらテンションで巻き返す。',
+  '結果を見た瞬間、少しだけ笑った。',
+  '現場に来られた時点で半分勝ち。',
+  'コールの声だけは前方に届ける。',
+  '整理券をしまって、堂々と並びます。',
+  '今日はこれが私のベスト。',
+  '良くも悪くも、思い出にはなる。',
+  'この番号で見える景色を楽しもう。',
+  '次はもっと良い番号を引きます。'
+];
+
 export function commentForScore(score, bestNumber, random = Math.random) {
-  const scoreBand = Math.min(scoreCommentBanks.length - 1, Math.max(0, Math.floor(Number(score) / 5)));
-  const comments = bestNumber <= 3 ? scoreCommentBanks[19] : scoreCommentBanks[scoreBand];
-  return comments[Math.floor(random() * comments.length)];
+  const scoreBand = Math.min(understandableScoreLabels.length - 1, Math.max(0, Math.floor(Number(score) / 5)));
+  const label = bestNumber <= 3 ? '神！' : understandableScoreLabels[scoreBand];
+  return `${label} ${understandableScorePhrases[Math.floor(random() * understandableScorePhrases.length)]}`;
 }
