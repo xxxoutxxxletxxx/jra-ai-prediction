@@ -73,10 +73,14 @@ function renderPhase() {
 
 function renderVenue() {
   const isTowerRecords = state.venue.name.includes('タワーレコード');
+  const isLaLaport = state.venue.name.includes('ららぽーと');
   const scene = isTowerRecords
     ? '<div class="scene venue-scene tower-records-scene" aria-hidden="true"><span class="tower-building"></span><span class="tower-glass-tower"></span><span class="tower-sign">TOWER<br>RECORDS</span><span class="tower-road"></span></div>'
-    : '<div class="scene venue-scene" aria-hidden="true"><span class="venue-building"></span><span class="venue-sign">RELEASE EVENT</span><span class="venue-sidewalk"></span></div>';
-  return `<section class="screen story-screen venue-view ${isTowerRecords ? 'tower-records-view' : ''}">${scene}<p class="eyebrow">TODAY'S EVENT</p><p class="story-copy">本日のリリイベ会場は――</p><h2 class="venue-name">${escapeHtml(state.venue.name)}</h2><button class="text-button" data-action="watch">購入列の様子を見る</button></section>`;
+    : isLaLaport
+      ? '<div class="scene venue-scene lalaport-scene" aria-hidden="true"><span class="lalaport-building"></span><span class="lalaport-sign">LaLaport</span><span class="lalaport-plaza"></span><span class="lalaport-trees"></span><span class="lalaport-walkway"></span></div>'
+      : '<div class="scene venue-scene" aria-hidden="true"><span class="venue-building"></span><span class="venue-sign">RELEASE EVENT</span><span class="venue-sidewalk"></span></div>';
+  const venueClass = isTowerRecords ? 'tower-records-view' : isLaLaport ? 'lalaport-view' : '';
+  return `<section class="screen story-screen venue-view ${venueClass}">${scene}<p class="eyebrow">TODAY'S EVENT</p><p class="story-copy">本日のリリイベ会場は――</p><h2 class="venue-name">${escapeHtml(state.venue.name)}</h2><button class="text-button" data-action="watch">購入列の様子を見る</button></section>`;
 }
 
 function renderTicket() {
