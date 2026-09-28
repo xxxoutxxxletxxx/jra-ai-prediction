@@ -143,31 +143,11 @@ const understandableScoreLabels = [
   '神！', '神！', '神！', '神！', '神！'
 ];
 
-const understandableScorePhrases = [
-  'この番号なら、今日はこれで楽しむ。',
-  '推しに会えるので、まだ勝ちです。',
-  '番号は普通、気持ちは前向き。',
-  '次の抽選に期待していこう。',
-  '列の位置を確認して、落ち着こう。',
-  'この結果を友達に報告します。',
-  '声を出して、ライブを楽しむ準備。',
-  '番号よりも、現場を楽しんだ者勝ち。',
-  '今日はこの番号で全力応援。',
-  '推しは番号順に好きになるわけじゃない。',
-  'この運を次回まで大事に取っておく。',
-  '入場したらテンションで巻き返す。',
-  '結果を見た瞬間、少しだけ笑った。',
-  '現場に来られた時点で半分勝ち。',
-  'コールの声だけは前方に届ける。',
-  '整理券をしまって、堂々と並びます。',
-  '今日はこれが私のベスト。',
-  '良くも悪くも、思い出にはなる。',
-  'この番号で見える景色を楽しもう。',
-  '次はもっと良い番号を引きます。'
-];
-
 export function commentForScore(score, bestNumber, random = Math.random) {
   const scoreBand = Math.min(understandableScoreLabels.length - 1, Math.max(0, Math.floor(Number(score) / 5)));
   const label = bestNumber <= 3 ? '神！' : understandableScoreLabels[scoreBand];
-  return `${label} ${understandableScorePhrases[Math.floor(random() * understandableScorePhrases.length)]}`;
+  const zoneStart = scoreBand * 5;
+  const zoneEnd = scoreBand === understandableScoreLabels.length - 1 ? '100+' : `${zoneStart + 4}`;
+  const phrase = scoreCommentBanks[scoreBand][Math.floor(random() * scoreCommentBanks[scoreBand].length)];
+  return `SCORE ZONE: ${zoneStart}〜${zoneEnd}点\n${label}\n${phrase}`;
 }
