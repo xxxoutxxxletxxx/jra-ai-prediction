@@ -1,4 +1,4 @@
-import { acceptRescue, BET_MODES, createGame, placeBet, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace, titleForMoney } from './engine.js?v=20260927-bet-modes';
+import { acceptRescue, BET_MODES, calculateBetOdds, createGame, placeBet, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace, titleForMoney } from './engine.js?v=20260928-odds-system-v2';
 import { clearHistory, fetchLeaderboard, readHistory, rankingNameError, saveGameResult, submitLeaderboardEntry, summarizeHistory } from './storage.js?v=20260927-race-skip-position';
 
 const app = document.querySelector('#app');
@@ -32,7 +32,7 @@ function renderStart() {
 }
 
 function renderModeSelect() {
-  const modes = Object.values(BET_MODES).map((mode) => `<button class="mode-card ${selectedMode === mode.key ? 'selected' : ''}" data-mode="${mode.key}"><strong>${mode.label}</strong><span>${mode.description}</span><small>${mode.key === 'win' ? '払戻率 100%' : `払戻率 ${mode.payoutRate * 100}%`}</small></button>`).join('');
+  const modes = Object.values(BET_MODES).map((mode) => `<button class="mode-card ${selectedMode === mode.key ? 'selected' : ''}" data-mode="${mode.key}"><strong>${mode.label}</strong><span>${mode.description}</span><small>払戻率 ${mode.payoutRate * 100}%</small></button>`).join('');
   return `${panel(`<div class="section-title"><div><span class="kicker">BET MODE</span><h2>ゲームモードを選ぼう</h2></div><button class="ghost" data-action="home">戻る</button></div><p class="notice mode-intro">最初は単勝がおすすめ。モードに応じて選べる馬の数が変わります。</p><div class="mode-grid">${modes}</div><div class="actions" style="margin-top:22px"><button class="primary" data-action="begin-mode">このモードで遊ぶ</button></div>`)}`;
 }
 
@@ -56,7 +56,9 @@ function renderBet() {
   const mode = BET_MODES[game.betMode];
   const selected = race.horses.filter((horse) => selectedHorses.includes(horse.number));
   const selectedNames = selected.map((horse) => escapeHtml(horse.name)).join('・');
-  return `${panel(`<div class="section-title"><div><span class="kicker">RACE ${game.raceNumber} / 5</span><h2>出走馬をチェック</h2></div><span class="money-pill">${coins(game.money)}</span></div><div class="bet-mode-banner"><strong>${mode.label}</strong><span>${mode.description} / 払戻率 ${mode.payoutRate * 100}%</span></div>${raceInfo(race)}<div class="horse-grid">${race.horses.map(horseCard).join('')}</div><div class="bet-panel"><h3>${selected.length ? `${selectedNames}を選択中` : `${mode.minHorses}頭${mode.maxHorses > mode.minHorses ? `〜${mode.maxHorses}頭` : ''}を選ぼう`}</h3><div class="bet-controls"><button class="chip ${selectedAmount === 100 ? 'active' : ''}" data-amount="100">100コイン</button><button class="chip ${selectedAmount === 500 ? 'active' : ''}" data-amount="500">500コイン</button><button class="chip ${selectedAmount === 1000 ? 'active' : ''}" data-amount="1000">1,000コイン</button><button class="chip ${selectedAmount === 2000 ? 'active' : ''}" data-amount="2000">2,000コイン</button><button class="chip ${selectedAmount === 5000 ? 'active' : ''}" data-amount="5000">5,000コイン</button><button class="chip ${selectedAmount === 10000 ? 'active' : ''}" data-amount="10000" ${game.money < 10000 ? 'disabled' : ''}>10,000コイン</button><button class="chip ${selectedAmount === game.money ? 'active' : ''}" data-amount="max">MAX</button><input class="amount-input" id="amount" type="number" min="1" max="${game.money}" value="${selectedAmount}" aria-label="BET額"></div><p class="notice ${selected.length && selectedAmount > game.money ? 'error' : ''}">${selected.length ? `${selectedNames}に${coins(selectedAmount)} BET` : 'BETなしでレースを見ることもできます。'}</p><div class="actions"><button class="primary" data-action="confirm-bet">BETしてレースへ</button><button class="ghost" data-action="skip-bet">BETせず見る</button></div></div>`)}`;
+  const selectedOdds = selected.length === mode.minHorses ? calculateBetOdds(race.horses, mode.key, selectedHorses) : null;
+  const amountControls = `<div class="bet-controls"><button class="chip ${selectedAmount === 100 ? 'active' : ''}" data-amount="100">100コイン</button><button class="chip ${selectedAmount === 500 ? 'active' : ''}" data-amount="500">500コイン</button><button class="chip ${selectedAmount === 1000 ? 'active' : ''}" data-amount="1000">1,000コイン</button><button class="chip ${selectedAmount === 2000 ? 'active' : ''}" data-amount="2000">2,000コイン</button><button class="chip ${selectedAmount === 5000 ? 'active' : ''}" data-amount="5000">5,000コイン</button><button class="chip ${selectedAmount === 10000 ? 'active' : ''}" data-amount="10000" ${game.money < 10000 ? 'disabled' : ''}>10,000コイン</button><button class="chip ${selectedAmount === game.money ? 'active' : ''}" data-amount="max">MAX</button><input class="amount-input" id="amount" type="number" min="1" max="${game.money}" value="${selectedAmount}" aria-label="BET額"></div>`;
+  return `${panel(`<div class="section-title"><div><span class="kicker">RACE ${game.raceNumber} / 5</span><h2>出走馬をチェック</h2></div><span class="money-pill">${coins(game.money)}</span></div><div class="bet-mode-banner"><strong>${mode.label}</strong><span>${mode.description} / 払戻率 ${mode.payoutRate * 100}%</span></div>${raceInfo(race)}<div class="horse-grid">${race.horses.map(horseCard).join('')}</div><div class="bet-panel"><h3>${selected.length ? `${selectedNames}を選択中` : `${mode.minHorses}頭${mode.maxHorses > mode.minHorses ? `〜${mode.maxHorses}頭` : ''}を選ぼう`}</h3>${selectedOdds ? `<div class="selected-odds"><span>この馬券のオッズ</span><strong>${selectedOdds.toFixed(1)}倍</strong></div>` : ''}${amountControls}<p class="notice ${selected.length && selectedAmount > game.money ? 'error' : ''}">${selected.length ? `${selectedNames}に${coins(selectedAmount)} BET` : 'BETなしでレースを見ることもできます。'}</p><div class="actions"><button class="primary" data-action="confirm-bet">BETしてレースへ</button><button class="ghost" data-action="skip-bet">BETせず見る</button></div></div>`)}`;
 }
 
 function renderRace() {
@@ -136,7 +138,7 @@ function beginMode() { game.betMode = selectedMode; screen = 'bet'; selectedHors
 function confirmBet(skip = false) {
   const amountInput = document.querySelector('#amount');
   if (!skip) selectedAmount = Number(amountInput?.value || selectedAmount);
-  const result = skip ? { ok: true, money: game.money, bet: null } : placeBet(game.money, selectedHorses, selectedAmount, game.betMode);
+  const result = skip ? { ok: true, money: game.money, bet: null } : placeBet(game.money, selectedHorses, selectedAmount, game.betMode, game.currentRace);
   if (!result.ok) { document.querySelector('.notice').textContent = result.reason; document.querySelector('.notice').classList.add('error'); return; }
   game.money = result.money; game.currentBet = result.bet; game.resolvedRace = simulateRace(game.currentRace, Math.random); screen = 'race'; render(); animateRace();
 }

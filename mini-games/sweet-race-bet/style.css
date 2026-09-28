@@ -105,6 +105,8 @@ h2 { font-size: 2rem; } h3 { font-size: 1.35rem; }
 .horse-main { min-width: 0; } .horse-name { font-weight: 800; font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .horse-meta, .horse-form { color: var(--muted); font-size: .78rem; margin-top: 3px; }
 .odds { text-align: right; color: #e05278; font-weight: 900; font-size: 1.18rem; } .odds small { display: block; color: var(--muted); font-size: .7rem; font-weight: 500; }
 .bet-panel { margin-top: 18px; padding: 16px; background: rgba(255,255,255,.95); border: 2px solid white; border-radius: 20px; box-shadow: 0 12px 30px rgba(90,60,65,.16); }
+.selected-odds { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; padding: 12px 14px; border: 2px solid #ffd265; border-radius: 14px; background: #fff8df; color: #80662c; }
+.selected-odds strong { color: #d94f72; font-size: 1.45rem; }
 .bet-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; } .chip { padding: 10px 14px; background: #f1eafa; color: #66508b; } .chip.active { background: var(--pink); color: #fff; } .amount-input { width: 120px; padding: 10px; border: 2px solid var(--line); border-radius: 12px; }
 .notice { margin: 12px 0 0; color: var(--muted); min-height: 25px; } .notice.error { color: #d94f72; font-weight: 700; }
 .race-track { padding: 18px 18px 10px; background: #dff5e6; border-radius: 22px; border: 3px solid white; overflow: hidden; }

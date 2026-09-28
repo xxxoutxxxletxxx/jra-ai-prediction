@@ -22,15 +22,19 @@ const randomInt = (random, min, max) => Math.floor(randomBetween(random, min, ma
 const pick = (random, values) => values[Math.floor(random() * values.length)];
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const ODDS_PROFILES = [
-  { key: 'balanced', label: '大混戦', slope: 1.05, payoutFactor: 0.8 },
-  { key: 'standard', label: '標準', slope: 2.0, payoutFactor: 0.8 },
-  { key: 'favorite', label: '本命集中', slope: 3.6, payoutFactor: 0.65 }
+  { key: 'balanced', label: '大混戦' },
+  { key: 'standard', label: '標準' },
+  { key: 'favorite', label: '本命集中' }
 ];
+export const RETURN_RATES = { win: 0.8, place: 0.8, quinella: 0.775, exacta: 0.75, trio: 0.75, trifecta: 0.725 };
+export const ODDS_LIMITS = { min: 1.1, max: 9999.9 };
 export const BET_MODES = {
-  win: { key: 'win', label: '単勝', description: '1着を当てる', minHorses: 1, maxHorses: 1, payoutRate: 1 },
-  place: { key: 'place', label: '複勝', description: '3着以内を当てる', minHorses: 1, maxHorses: 1, payoutRate: 0.8 },
-  quinella: { key: 'quinella', label: '馬連', description: '1・2着の2頭を当てる', minHorses: 2, maxHorses: 2, payoutRate: 0.75 },
-  trifecta: { key: 'trifecta', label: '三連単', description: '1・2・3着を順番どおり当てる', minHorses: 3, maxHorses: 3, payoutRate: 0.725 }
+  win: { key: 'win', label: '単勝', description: '1着を当てる', minHorses: 1, maxHorses: 1, payoutRate: RETURN_RATES.win },
+  place: { key: 'place', label: '複勝', description: '3着以内を当てる', minHorses: 1, maxHorses: 1, payoutRate: RETURN_RATES.place },
+  quinella: { key: 'quinella', label: '馬連', description: '1・2着の2頭を当てる', minHorses: 2, maxHorses: 2, payoutRate: RETURN_RATES.quinella },
+  exacta: { key: 'exacta', label: '馬単', description: '1・2着を順番どおり当てる', minHorses: 2, maxHorses: 2, payoutRate: RETURN_RATES.exacta },
+  trio: { key: 'trio', label: '三連複', description: '1・2・3着の3頭を当てる', minHorses: 3, maxHorses: 3, payoutRate: RETURN_RATES.trio },
+  trifecta: { key: 'trifecta', label: '三連単', description: '1・2・3着を順番どおり当てる', minHorses: 3, maxHorses: 3, payoutRate: RETURN_RATES.trifecta }
 };
 export const RESCUE_AMOUNT = 20000;
 
@@ -58,15 +62,41 @@ function makeComment(condition) {
 }
 
 export function calculateOdds(horses, profile = ODDS_PROFILES[1]) {
-  const rawPopularity = horses.map((horse) => horse.strength * 0.7 + (9 - horse.previousFinish) / 8 * 100 * 0.3);
-  const popularity = rawPopularity.map((score) => score ** profile.slope);
-  const total = popularity.reduce((sum, value) => sum + value, 0);
+  const total = horses.reduce((sum, horse) => sum + horse.strength, 0);
   return horses.map((horse, index) => ({
     ...horse,
-    popularityScore: rawPopularity[index],
-    marketProbability: popularity[index] / total,
-    odds: Number(clamp(profile.payoutFactor / (popularity[index] / total), 1.2, 35).toFixed(1))
+    popularityScore: horse.strength,
+    marketProbability: horse.strength / total,
+    odds: Number(clamp(RETURN_RATES.win / (horse.strength / total), ODDS_LIMITS.min, ODDS_LIMITS.max).toFixed(1))
   }));
+}
+
+export function buildFinishOrderProbabilities(horses) {
+  const totalStrength = horses.reduce((sum, horse) => sum + horse.strength, 0);
+  const probabilities = [];
+  horses.forEach((first) => horses.forEach((second) => {
+    if (second.number === first.number) return;
+    horses.forEach((third) => {
+      if (third.number === first.number || third.number === second.number) return;
+      probabilities.push({ first: first.number, second: second.number, third: third.number, probability: first.strength / totalStrength * second.strength / (totalStrength - first.strength) * third.strength / (totalStrength - first.strength - second.strength) });
+    });
+  }));
+  return probabilities;
+}
+
+const sameNumbers = (left, right) => left.slice().sort((a, b) => a - b).join(',') === right.slice().sort((a, b) => a - b).join(',');
+
+export function calculateBetOdds(horses, modeKey, horseNumbers) {
+  const mode = BET_MODES[modeKey] || BET_MODES.win;
+  const selected = horseNumbers.map(Number);
+  const probability = buildFinishOrderProbabilities(horses).reduce((sum, order) => {
+    const topTwo = [order.first, order.second];
+    const topThree = [order.first, order.second, order.third];
+    const hit = modeKey === 'win' ? order.first === selected[0] : modeKey === 'place' ? topThree.includes(selected[0]) : modeKey === 'quinella' ? sameNumbers(selected, topTwo) : modeKey === 'exacta' ? selected.join(',') === topTwo.join(',') : modeKey === 'trio' ? sameNumbers(selected, topThree) : selected.join(',') === topThree.join(',');
+    return sum + (hit ? order.probability : 0);
+  }, 0);
+  const effectiveReturnRate = modeKey === 'place' ? mode.payoutRate * 3 : mode.payoutRate;
+  return Number(clamp(effectiveReturnRate / probability, ODDS_LIMITS.min, ODDS_LIMITS.max).toFixed(1));
 }
 
 export function generateRace(random = Math.random) {
@@ -102,25 +132,23 @@ export function generateRace(random = Math.random) {
 }
 
 export function simulateRace(race, random = Math.random) {
-  const ranked = race.horses.map((horse) => {
-    const factors = {
-      strength: randomBetween(random, 0.82, 1.18),
-      venue: randomBetween(random, 0.82, 1.18),
-      distance: randomBetween(random, 0.82, 1.18),
-      track: randomBetween(random, 0.82, 1.18),
-      condition: randomBetween(random, 0.82, 1.18)
-    };
-    const raceScore = horse.strength * factors.strength + horse.venueAffinity * factors.venue + horse.distanceAffinity * factors.distance + horse.trackAffinity * factors.track + horse.condition * factors.condition;
-    return { ...horse, raceScore, _debugFactors: factors };
-  }).sort((a, b) => b.raceScore - a.raceScore).map((horse, index) => ({ ...horse, finalPosition: index + 1 }));
-  return { ...race, horses: ranked };
+  const remaining = race.horses.slice();
+  const ranked = [];
+  while (remaining.length) {
+    const totalStrength = remaining.reduce((sum, horse) => sum + horse.strength, 0);
+    let cursor = random() * totalStrength;
+    const selectedIndex = remaining.findIndex((horse) => { cursor -= horse.strength; return cursor <= 0; });
+    ranked.push(remaining.splice(Math.max(selectedIndex, 0), 1)[0]);
+  }
+  return { ...race, horses: ranked.map((horse, index) => ({ ...horse, raceScore: horse.strength, _debugFactors: null, finalPosition: index + 1 })) };
 }
 
-export function placeBet(money, selectedHorseNumbers, amount, modeKey = 'win') {
+export function placeBet(money, selectedHorseNumbers, amount, modeKey = 'win', race = null) {
   const mode = BET_MODES[modeKey] || BET_MODES.win;
   const horseNumbers = Array.isArray(selectedHorseNumbers) ? selectedHorseNumbers : [selectedHorseNumbers];
   if (horseNumbers.length < mode.minHorses || horseNumbers.length > mode.maxHorses || new Set(horseNumbers).size !== horseNumbers.length || !Number.isFinite(amount) || amount <= 0 || amount > money) return { ok: false, reason: `${mode.label}の選択頭数とBET額を確認してください` };
-  return { ok: true, money: money - amount, bet: { horseNumbers, amount, modeKey } };
+  const odds = race ? calculateBetOdds(race.horses, modeKey, horseNumbers) : 1;
+  return { ok: true, money: money - amount, bet: { horseNumbers, amount, modeKey, odds } };
 }
 
 export function settleBet(money, bet, resultRace) {
@@ -128,9 +156,9 @@ export function settleBet(money, bet, resultRace) {
   const mode = BET_MODES[bet.modeKey] || BET_MODES.win;
   const positions = resultRace.horses.slice().sort((a, b) => a.finalPosition - b.finalPosition).map((horse) => horse.number);
   const selected = bet.horseNumbers;
-  const hit = mode.key === 'win' ? selected[0] === positions[0] : mode.key === 'place' ? positions.slice(0, 3).includes(selected[0]) : mode.key === 'quinella' ? selected.slice().sort((a, b) => a - b).join(',') === positions.slice(0, 2).slice().sort((a, b) => a - b).join(',') : selected.join(',') === positions.slice(0, 3).join(',');
-  const odds = selected.reduce((value, number) => value * (resultRace.horses.find((horse) => horse.number === number)?.odds || 1), 1);
-  const payout = hit ? Math.round(bet.amount * (mode.key === 'win' ? odds : Math.max(1.2, odds * mode.payoutRate))) : 0;
+  const hit = mode.key === 'win' ? selected[0] === positions[0] : mode.key === 'place' ? positions.slice(0, 3).includes(selected[0]) : mode.key === 'quinella' ? sameNumbers(selected, positions.slice(0, 2)) : mode.key === 'exacta' ? selected.join(',') === positions.slice(0, 2).join(',') : mode.key === 'trio' ? sameNumbers(selected, positions.slice(0, 3)) : selected.join(',') === positions.slice(0, 3).join(',');
+  const odds = bet.odds || calculateBetOdds(resultRace.horses, bet.modeKey, selected);
+  const payout = hit ? Math.round(bet.amount * odds) : 0;
   return { money: money + payout, payout, hit, odds: hit ? payout / bet.amount : 0 };
 }
 

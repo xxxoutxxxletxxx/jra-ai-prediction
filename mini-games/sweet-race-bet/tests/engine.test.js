@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { acceptRescue, calculateOdds, createGame, generateRace, makeRandom, placeBet, RESCUE_AMOUNT, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace } from '../src/engine.js';
+import { acceptRescue, buildFinishOrderProbabilities, calculateBetOdds, createGame, generateRace, makeRandom, placeBet, RESCUE_AMOUNT, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace } from '../src/engine.js';
 
 const race = () => generateRace(makeRandom(0.42));
 
@@ -16,29 +16,26 @@ test('内部パラメータは指定範囲内', () => {
   }
 });
 
-test('randomFactorは独立したキーと値を持つ', () => {
-  const result = simulateRace(race(), makeRandom(0.12));
-  const factors = result.horses[0]._debugFactors;
-  assert.deepEqual(Object.keys(factors).sort(), ['condition', 'distance', 'strength', 'track', 'venue']);
-  assert.equal(new Set(Object.values(factors)).size, 5);
-});
-
-test('raceScore最大の馬が1着', () => {
+test('レース結果はstrengthに基づく着順を持つ', () => {
   const result = simulateRace(race(), makeRandom(0.55));
-  const winner = result.horses.find((horse) => horse.finalPosition === 1);
-  assert.equal(winner.raceScore, Math.max(...result.horses.map((horse) => horse.raceScore)));
+  assert.deepEqual(result.horses.map((horse) => horse.finalPosition).sort((a, b) => a - b), [1, 2, 3, 4, 5, 6, 7, 8]);
 });
 
 test('オッズは正の値', () => assert.ok(race().horses.every((horse) => horse.odds > 0)));
 
-test('オッズ傾向によって倍率の差が変わる', () => {
-  const horses = race().horses.map((horse) => ({ ...horse, odds: 0 }));
-  const balanced = calculateOdds(horses, { slope: 1.05, payoutFactor: 0.8 });
-  const favorite = calculateOdds(horses, { slope: 3.6, payoutFactor: 0.65 });
-  const spread = (values) => Math.max(...values.map((horse) => horse.odds)) - Math.min(...values.map((horse) => horse.odds));
-  assert.ok(spread(favorite) > spread(balanced));
+test('全券種の確率空間を共通の336通りから生成する', () => {
+  const orders = buildFinishOrderProbabilities(race().horses);
+  const epsilon = 1e-9;
+  assert.equal(orders.length, 336);
+  assert.ok(Math.abs(orders.reduce((sum, order) => sum + order.probability, 0) - 1) < epsilon);
+  const placeSum = Array.from({ length: 8 }, (_, index) => index + 1).reduce((sum, number) => sum + orders.filter((order) => [order.first, order.second, order.third].includes(number)).reduce((part, order) => part + order.probability, 0), 0);
+  const quinellaCount = new Set(orders.map((order) => [order.first, order.second].sort((a, b) => a - b).join(','))).size;
+  const trioCount = new Set(orders.map((order) => [order.first, order.second, order.third].sort((a, b) => a - b).join(','))).size;
+  assert.ok(Math.abs(placeSum - 3) < epsilon);
+  assert.equal(quinellaCount, 28);
+  assert.equal(trioCount, 56);
+  assert.ok(calculateBetOdds(race().horses, 'win', [1]) > 0);
 });
-import { acceptRescue, createGame, generateRace, makeRandom, placeBet, RESCUE_AMOUNT, settleBet, settleRescue, shouldGameOverAfterRescue, shouldTriggerRescue, simulateRace } from '../src/engine.js';
 
 test('BETは所持金を超えられない', () => {
   assert.equal(placeBet(1000, 1, 1001).ok, false);
@@ -76,8 +73,8 @@ test('的中時のみ払戻される', () => {
   const current = race();
   const result = simulateRace(current, makeRandom(0.55));
   const winner = result.horses.find((horse) => horse.finalPosition === 1);
-  const hit = settleBet(9000, { horseNumber: winner.number, amount: 1000 }, result);
-  const miss = settleBet(9000, { horseNumber: winner.number === 1 ? 2 : 1, amount: 1000 }, result);
+  const hit = settleBet(9000, { horseNumbers: [winner.number], amount: 1000, modeKey: 'win', odds: 2 }, result);
+  const miss = settleBet(9000, { horseNumbers: [winner.number === 1 ? 2 : 1], amount: 1000, modeKey: 'win', odds: 2 }, result);
   assert.equal(hit.hit, true);
   assert.equal(hit.money, 9000 + hit.payout);
   assert.equal(miss.payout, 0);
