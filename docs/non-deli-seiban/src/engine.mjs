@@ -154,12 +154,9 @@ const scoreMoodOpeners = {
 export function commentForScore(score, bestNumber, random = Math.random) {
   const scoreBand = Math.min(understandableScoreLabels.length - 1, Math.max(0, Math.floor(Number(score) / 5)));
   const label = bestNumber <= 3 ? '神！' : understandableScoreLabels[scoreBand];
-  const zoneStart = scoreBand * 5;
-  const zoneEnd = scoreBand === understandableScoreLabels.length - 1 ? '100+' : `${zoneStart + 4}`;
   const mood = scoreBand <= 4 ? 'low' : scoreBand <= 7 ? 'hmm' : scoreBand <= 11 ? 'endure' : scoreBand <= 13 ? 'okay' : 'high';
   const openerBank = scoreMoodOpeners[bestNumber <= 3 ? 'high' : mood];
   const opener = openerBank[Math.floor(random() * openerBank.length)];
   const phrase = scoreCommentBanks[scoreBand][Math.floor(random() * scoreCommentBanks[scoreBand].length)];
-  const zoneLine = scoreBand === 8 ? '' : `SCORE ZONE: ${zoneStart}〜${zoneEnd}点\n`;
-  return `${zoneLine}${label}\n${opener} ${phrase}`;
+  return `${label}\n${opener} ${phrase}`;
 }
