@@ -16,7 +16,12 @@ a { color: inherit; }
 .screen { min-height: calc(100vh - 90px); padding: clamp(34px, 8vw, 74px) clamp(22px, 7vw, 60px); background: rgba(255,250,242,.9); border: 1px solid rgba(255,255,255,.8); box-shadow: var(--shadow); text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; position: relative; }
 .screen:before { content: ''; width: 70px; height: 4px; background: var(--orange); position: absolute; top: 25px; left: 30px; }
 .screen > :not(.scene) { position: relative; z-index: 1; }
-.scene { position: absolute; z-index: 0; inset: 0; overflow: hidden; pointer-events: none; }
+.scene { position: absolute; z-index: 0; inset: -14px; overflow: hidden; pointer-events: none; filter: blur(6px) brightness(.66) saturate(.72); transform: scale(1.045); }
+.venue-view:after, .queue-view:after, .live-screen:after { content: ''; position: absolute; z-index: 0; inset: 0; background: linear-gradient(180deg, rgba(5,11,15,.24), rgba(5,11,15,.62) 72%, rgba(5,11,15,.82)); pointer-events: none; }
+.cinematic-screen { background: #10171d; color: #fff; }
+.venue-intro-screen { justify-content: center; }
+.venue-intro-screen:after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, rgba(86,112,128,.28), transparent 42%), #10171d; animation: venue-intro-fade .85s ease both; }
+.venue-intro-copy { margin: 0; padding: 16px 20px; color: #fff; border-left: 2px solid rgba(255,255,255,.7); font-size: clamp(1.65rem, 8vw, 2.7rem); font-weight: 700; letter-spacing: .04em; text-shadow: 0 2px 16px rgba(0,0,0,.8); animation: copy-reveal .55s .14s ease both; }
 .venue-view { background: #cbd8d5; }
 .venue-scene { background: linear-gradient(180deg, #9bb9c1 0 48%, #d7cfc1 49% 100%); }
 .venue-building { position: absolute; left: 7%; right: 7%; bottom: 13%; height: 48%; border: 3px solid rgba(24,35,43,.25); background: linear-gradient(90deg, #e8dfd1 0 11%, #f8f1e5 11% 89%, #d7c8b4 89%); box-shadow: 0 18px 0 rgba(24,35,43,.12); }
@@ -65,13 +70,17 @@ h1 em { color: var(--orange); font-style: normal; font-size: .72em; letter-spaci
 .story-copy { font-size: 1.25rem; line-height: 1.8; }
 .venue-name { max-width: 100%; margin: 0 0 38px; font-size: clamp(1.8rem, 8vw, 3rem); font-weight: 900; }
 .story-screen .eyebrow, .live-screen .eyebrow { padding: 7px 11px; background: rgba(12,22,29,.72); color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.22); text-shadow: 0 1px 2px rgba(0,0,0,.8); }
-.story-screen .story-copy, .live-screen h2, .live-screen p:not(.eyebrow) { padding: 7px 12px; background: rgba(12,22,29,.7); color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.22); text-shadow: 0 2px 3px rgba(0,0,0,.9); }
-.story-screen .venue-name, .story-screen .draw-count { padding: 10px 15px; background: rgba(10,18,24,.8); color: #fff; box-shadow: 0 3px 14px rgba(0,0,0,.3); text-shadow: 0 2px 3px rgba(0,0,0,.9); }
+.story-screen .story-copy, .live-screen h2, .live-screen p:not(.eyebrow) { padding: 7px 12px; background: rgba(12,22,29,.6); color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.22); text-shadow: 0 2px 3px rgba(0,0,0,.9); }
+.story-screen .venue-name, .story-screen .draw-count { padding: 14px 18px; background: rgba(7,13,17,.72); color: #fff; box-shadow: 0 3px 20px rgba(0,0,0,.42); text-shadow: 0 2px 4px rgba(0,0,0,.95); animation: venue-name-reveal .7s .1s ease both; }
 .story-screen .text-button { padding: 12px 17px; border-bottom: 0; background: rgba(255,250,242,.94); box-shadow: 0 4px 0 rgba(24,35,43,.28); }
 .waiting { background: #ede6d9; }
 .pulse-mark { font: 900 5rem 'DM Mono', monospace; color: var(--orange); letter-spacing: -.24em; animation: pulse 1s ease-in-out infinite; }
 .draw-count { margin: 0; color: var(--orange); font: 900 clamp(4rem, 20vw, 8rem) 'DM Mono', monospace; line-height: 1; }
-.ticket-screen { justify-content: flex-start; padding-top: 46px; }
+.ticket-screen { justify-content: flex-start; padding-top: 46px; color: #fff; background: radial-gradient(ellipse at 50% -10%, rgba(120,137,142,.25), transparent 42%), #11191f; }
+.ticket-screen:after { content: ''; position: absolute; z-index: 0; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.18), rgba(0,0,0,.65)); pointer-events: none; }
+.ticket-screen .eyebrow, .ticket-screen .tiny { color: rgba(255,255,255,.76); }
+.ticket-screen .draw-status { color: rgba(255,255,255,.78); }
+.ticket-screen .draw-status strong { color: #fff; }
 .draw-box-screen, .choice-screen { justify-content: flex-start; padding-top: 48px; }
 .draw-box-screen h2, .choice-screen h2 { margin: 0; font-size: clamp(1.8rem, 8vw, 2.65rem); }
 .draw-instruction { margin: 10px 0 24px; color: #6d6861; line-height: 1.7; }
@@ -86,6 +95,10 @@ h1 em { color: var(--orange); font-style: normal; font-size: .72em; letter-spaci
 .ticket-choice:hover, .ticket-choice:focus-visible { transform: translateY(-7px) rotate(-2deg); box-shadow: 7px 12px 0 rgba(24,35,43,.16); outline: 3px solid var(--orange); }
 .ticket-choice span, .ticket-choice small { font: 500 .62rem 'DM Mono', monospace; letter-spacing: .03em; }.ticket-choice strong { font: 900 4rem 'DM Mono', monospace; line-height: 1; }
 .ticket-card { width: min(100%, 380px); aspect-ratio: 1.68 / 1; margin: 10px 0 24px; padding: 25px 20px; display: flex; flex-direction: column; justify-content: space-between; text-align: left; background: repeating-linear-gradient(135deg, rgba(255,255,255,.28) 0 2px, transparent 2px 8px), #f5c84c; border: 2px solid #dcae2e; box-shadow: 8px 8px 0 rgba(24,35,43,.1); transform: rotate(-1.5deg); position: relative; }
+.ticket-screen .ticket-card { box-shadow: 0 22px 45px rgba(0,0,0,.48); }
+.single-digit:after { background: rgba(0,0,0,.86); animation: number-blackout .42s ease both; }
+.single-digit .ticket-card { transform: rotate(-1deg) scale(1.08); animation: number-card-reveal .52s cubic-bezier(.16,.85,.2,1) both; }
+.single-digit .ticket-number { color: #172028; text-shadow: 0 3px 0 rgba(255,255,255,.32); }
 .ticket-card:after { content: ''; position: absolute; top: 0; bottom: 0; left: 12px; border-left: 1px dashed rgba(24,35,43,.35); }
 .ticket-label, .ticket-note { font: 500 .7rem 'DM Mono', monospace; letter-spacing: .05em; }
 .ticket-number { align-self: center; font: 900 clamp(4.5rem, 23vw, 8.5rem) 'DM Mono', monospace; line-height: .9; letter-spacing: -.12em; }
@@ -139,6 +152,11 @@ dt { color: #82796f; font-size: .8rem; } dd { margin: 0; font-weight: 700; text-
 .jackpot .score-box span, .jackpot .score-box p { color: white; }
 .jackpot .secondary-link { color: #d6e6e1; }
 @keyframes pulse { 50% { opacity: .35; transform: translateY(4px); } }
+@keyframes venue-intro-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes copy-reveal { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes venue-name-reveal { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes number-blackout { from { opacity: 0; } to { opacity: 1; } }
+@keyframes number-card-reveal { from { opacity: 0; transform: rotate(-4deg) scale(.78); } to { opacity: 1; transform: rotate(-1deg) scale(1.08); } }
 @keyframes glow { to { transform: scale(1.08); opacity: .8; } }
 @keyframes special-pop { from { transform: scale(.35); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes burst { from { transform: scale(.6) rotate(-5deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
