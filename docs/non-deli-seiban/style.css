@@ -64,6 +64,10 @@ h1 em { color: var(--orange); font-style: normal; font-size: .72em; letter-spaci
 .main-button:hover, .secondary-button:hover, .text-button:hover { transform: translateY(-2px); }
 .story-copy { font-size: 1.25rem; line-height: 1.8; }
 .venue-name { max-width: 100%; margin: 0 0 38px; font-size: clamp(1.8rem, 8vw, 3rem); font-weight: 900; }
+.story-screen .eyebrow, .live-screen .eyebrow { padding: 7px 11px; background: rgba(12,22,29,.72); color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.22); text-shadow: 0 1px 2px rgba(0,0,0,.8); }
+.story-screen .story-copy, .live-screen h2, .live-screen p:not(.eyebrow) { padding: 7px 12px; background: rgba(12,22,29,.7); color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.22); text-shadow: 0 2px 3px rgba(0,0,0,.9); }
+.story-screen .venue-name, .story-screen .draw-count { padding: 10px 15px; background: rgba(10,18,24,.8); color: #fff; box-shadow: 0 3px 14px rgba(0,0,0,.3); text-shadow: 0 2px 3px rgba(0,0,0,.9); }
+.story-screen .text-button { padding: 12px 17px; border-bottom: 0; background: rgba(255,250,242,.94); box-shadow: 0 4px 0 rgba(24,35,43,.28); }
 .waiting { background: #ede6d9; }
 .pulse-mark { font: 900 5rem 'DM Mono', monospace; color: var(--orange); letter-spacing: -.24em; animation: pulse 1s ease-in-out infinite; }
 .draw-count { margin: 0; color: var(--orange); font: 900 clamp(4rem, 20vw, 8rem) 'DM Mono', monospace; line-height: 1; }
@@ -97,7 +101,6 @@ h1 em { color: var(--orange); font-style: normal; font-size: .72em; letter-spaci
 .stage-only .idol-silhouette { transform: translateX(-50%) scale(1.18); }
 .live-light { width: 160px; height: 160px; margin-bottom: 32px; border-radius: 50%; background: #f5c84c; box-shadow: 0 0 90px 35px rgba(245,200,76,.34); animation: glow 1.6s ease-in-out infinite alternate; }
 .live-screen h2 { font-size: clamp(1.7rem, 7vw, 2.7rem); }
-.live-screen p:not(.eyebrow) { color: #b8c9c7; }
 .special-screen { background: #10171c; color: var(--cream); }
 .special-screen:before { background: var(--yellow); }
 .special-number { color: var(--yellow); font: 900 clamp(4rem, 24vw, 10rem) 'DM Mono', monospace; line-height: 1; animation: special-pop .65s ease both; }
