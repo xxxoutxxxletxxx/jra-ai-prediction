@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calculateScore, claimTicket, drawTicket, drawTicketCandidates, DRAW_MODES, expectedBest, chooseVenue, numberWeight, releaseDayVenues, venues } from '../docs/non-deli-seiban/src/engine.mjs';
 import { historyForMode, normalizeRanking, rankingNameMaxLength } from '../docs/non-deli-seiban/src/storage.mjs';
+import { buyStoryTickets, chooseStoryTicket, createStory, getFrontProbability, moneySatisfactionModifier, prepareStory, staminaMultiplier, travelToVenue } from '../docs/non-deli-seiban/src/story.mjs';
 
 test('期待BESTは最大抽選回数から計算する', () => {
   assert.equal(expectedBest(1), 50.5);
@@ -59,6 +60,33 @@ test('確変候補は最初の3枚をすべて一桁に固定する', () => {
   assert.equal(candidates.length, 3);
   assert.ok(candidates.every((number) => number <= 9));
   assert.equal(new Set(candidates).size, 3);
+});
+
+test('ストーリーモードは早い会場到着ほど販売列先頭の確率が高い', () => {
+  assert.equal(getFrontProbability(10 * 60), 1);
+  assert.equal(getFrontProbability(11 * 60), 0.01);
+  assert.ok(getFrontProbability(10 * 60 + 15) > getFrontProbability(10 * 60 + 30));
+  assert.ok(getFrontProbability(10 * 60 + 30) > getFrontProbability(10 * 60 + 45));
+});
+
+test('ストーリーモードの販売列先頭ボーナスは片方の部を一桁候補にする', () => {
+  const story = createStory();
+  prepareStory(story, 60);
+  travelToVenue(story, 10 * 60, () => 0);
+  assert.equal(story.frontBonus, true);
+  assert.equal(story.bonusPart, 0);
+  buyStoryTickets(story, () => 0.1);
+  assert.ok(story.ticketCandidates.every((number) => number <= 9));
+  chooseStoryTicket(story, story.ticketCandidates[0], () => 0.1);
+  assert.equal(story.phase, 'ticket-2');
+});
+
+test('ストーリーモードの出費と体力の最終補正は危険域で厳しくなる', () => {
+  assert.ok(moneySatisfactionModifier(5000) > moneySatisfactionModifier(30000));
+  assert.ok(moneySatisfactionModifier(30000) > moneySatisfactionModifier(45000));
+  assert.equal(staminaMultiplier(20), 1);
+  assert.ok(staminaMultiplier(5) < staminaMultiplier(10));
+  assert.equal(staminaMultiplier(0), 0.2);
 });
 
 test('全国対戦は同じ名前の最高Scoreだけを参照する', () => {
