@@ -271,4 +271,5 @@ dt { color: #82796f; font-size: .8rem; } dd { margin: 0; font-weight: 700; text-
 @keyframes result-score-in { from { opacity: 0; transform: scale(.3) rotate(-8deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
 @keyframes result-count { from { filter: brightness(2); transform: scale(.5); } to { filter: brightness(1); transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .story-mode-screen *, .story-mode-screen *:before, .story-mode-screen *:after { animation-duration: .01ms !important; animation-delay: 0ms !important; } }
+@media (max-width: 420px) { .live-result-copy strong { max-width: 100%; font-size: clamp(3.8rem, 22vw, 8rem); letter-spacing: -.04em; white-space: nowrap; } }
 @media (max-width: 420px) { .app-shell { width: min(100% - 16px, 580px); } .topbar { font-size: .65rem; } .brand { display: none; } .screen { min-height: calc(100vh - 72px); padding-left: 18px; padding-right: 18px; } .draw-status { font-size: .7rem; } .result-details div { gap: 8px; } .history-list li { grid-template-columns: 63px 42px 1fr; font-size: .7rem; } }
