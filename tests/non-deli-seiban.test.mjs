@@ -81,9 +81,11 @@ test('2部も引くは追加料金なしで、通常抽選には一桁確定チ�
   const story = createStory();
   buyStoryTickets(story, () => 0.9);
   const moneyAfterPartOne = story.money;
+  assert.equal(story.benefitTickets[0], 0);
   chooseStoryTicket(story, story.ticketCandidates[0]);
   continueTicketDraw(story, () => 0.9);
   assert.equal(story.money, moneyAfterPartOne);
+  assert.equal(story.benefitTickets[0], 1);
 
   const retry = createStory();
   retry.ticketDrawCount = 1;
