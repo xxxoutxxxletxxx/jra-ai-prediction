@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calculateScore, claimTicket, drawTicket, drawTicketCandidates, DRAW_MODES, expectedBest, chooseVenue, numberWeight, releaseDayVenues, venues } from '../docs/non-deli-seiban/src/engine.mjs';
 import { historyForMode, normalizeRanking, rankingNameMaxLength } from '../docs/non-deli-seiban/src/storage.mjs';
-import { buyStoryTickets, buyThirdEventTicket, chooseAfterEvent, chooseArrivalTime, chooseStoryTicket, continueTicketDraw, createStory, finishStory, finishThirdEvent, generateFreeTimeChoices, getChekiSatisfaction, getFrontProbability, moneySatisfactionModifier, prepareStory, redrawStoryTickets, revealStoryResult, skipThirdEventRecovery, STAMINA_CONFIG, STORY_CONFIG, staminaMultiplier, takePartCheki, takeRescueMeal, takeThirdEventRecovery, travelToVenue } from '../docs/non-deli-seiban/src/story.mjs';
+import { buyStoryTickets, buyThirdEventTicket, chooseAfterEvent, chooseArrivalTime, chooseStoryTicket, continueTicketDraw, createStory, finishStory, finishThirdEvent, FREE_TIME_EVENTS, generateFreeTimeChoices, getChekiSatisfaction, getFrontProbability, moneySatisfactionModifier, playStoryPart, prepareStory, redrawStoryTickets, revealStoryResult, SATISFACTION_CONFIG, skipThirdEventRecovery, STAMINA_CONFIG, STORY_CONFIG, staminaMultiplier, takeFreeTimeAction, takePartCheki, takeRescueMeal, takeThirdEventRecovery, travelToVenue } from '../docs/non-deli-seiban/src/story.mjs';
 
 test('期待BESTは最大抽選回数から計算する', () => {
   assert.equal(expectedBest(1), 50.5);
@@ -283,6 +283,20 @@ test('FREE TIMEは食事と無料行動を含む4択になる', () => {
   assert.ok(choices.some((choice) => choice.category === 'food'));
   assert.ok(choices.some((choice) => choice.money === 0));
   assert.equal(new Set(choices.map((choice) => choice.id)).size, 4);
+});
+
+test('1部・2部ライブとFREE TIMEの満足度は5倍になる', () => {
+  const live = createStory();
+  live.phase = 'part-1';
+  live.tickets[0] = 1;
+  playStoryPart(live, 0, () => 0);
+  assert.equal(live.partScores[0], (42 + 20 + 15) * 100 * SATISFACTION_CONFIG.partMultiplier);
+
+  const free = createStory();
+  free.phase = 'free-1';
+  free.freeChoices = [FREE_TIME_EVENTS.find((event) => event.id === 'ramen')];
+  takeFreeTimeAction(free, 'ramen');
+  assert.equal(free.freeTimeSatisfaction, 18 * 100 * SATISFACTION_CONFIG.freeTimeMultiplier);
 });
 
 test('チェキは11枚目以降で満足度が急増する', () => {
