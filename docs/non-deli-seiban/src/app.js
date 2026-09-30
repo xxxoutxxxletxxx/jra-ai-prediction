@@ -37,6 +37,13 @@ function beginGame(mode) {
 
 function beginDraw() {
   if (state.actualDraws >= state.maxDrawsToday) return finishLive();
+  if (state.chanceMode && state.actualDraws === 0 && !state.chanceAnimationPlayed) {
+    state.chanceAnimationPlayed = true;
+    state.phase = 'chance-intro';
+    render();
+    delay(() => { state.phase = 'draw-zone'; render(); }, 2600);
+    return;
+  }
   state.phase = 'draw-zone';
   render();
 }
@@ -105,6 +112,7 @@ function renderPhase() {
   if (state.phase === 'venue') return renderVenue();
   if (state.phase === 'watching') return `<section class="screen story-screen waiting queue-view"><div class="scene queue-scene" aria-hidden="true"><span class="queue-tent"></span><span class="queue-rail"></span><span class="queue-heads"></span></div><p class="eyebrow">OBSERVING</p><div class="pulse-mark">…</div><p class="story-copy">購入列の様子を見ている……</p></section>`;
   if (state.phase === 'draw-count') return `<section class="screen story-screen"><p class="eyebrow">TODAY'S CHANCE</p><p class="story-copy">今日は</p><h2 class="draw-count">${state.maxDrawsToday}回</h2><p class="story-copy">入場券を引けそうだ。</p><button class="main-button" data-action="to-draw">入場券を引きに行く</button></section>`;
+  if (state.phase === 'chance-intro') return renderChanceIntro();
   if (state.phase === 'draw-zone') return renderDrawZone();
   if (state.phase === 'choose-ticket') return renderTicketChoices();
   if (state.phase === 'ticket') return renderTicket();
@@ -116,6 +124,10 @@ function renderPhase() {
 function renderModeSelect() {
   const modes = Object.values(DRAW_MODES).map((mode) => `<button class="mode-choice mode-${mode.id}" data-mode="${mode.id}"><strong>${mode.name}</strong><span>${mode.description}</span></button>`).join('');
   return `<section class="screen mode-screen"><p class="eyebrow">CHOOSE YOUR LUCK</p><h2>抽選モードを選ぶ</h2><p class="draw-instruction">若い番号への追い風を選択できます。</p><div class="mode-choice-grid">${modes}</div><p class="tiny">たまにいいことがあるかも。。。</p></section>`;
+}
+
+function renderChanceIntro() {
+  return `<section class="screen chance-screen"><div class="chance-rays" aria-hidden="true"></div><div class="chance-confetti" aria-hidden="true">${'<i></i>'.repeat(18)}</div><div class="chance-flash" aria-hidden="true"></div><p class="eyebrow">LUCKY BREAK</p><p class="chance-copy">運命が、動き出す。</p><strong class="chance-title">確変突入</strong><p class="chance-subcopy">最初の一枚に、特別な予感。</p></section>`;
 }
 
 function renderReleaseIntro() {
