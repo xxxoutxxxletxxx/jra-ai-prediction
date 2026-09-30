@@ -25,8 +25,14 @@ function startGame() {
 function beginGame(mode) {
   const venue = chooseVenue();
   const fever = Math.random() < 1 / 20;
-  state = { venue, mode, chanceMode: fever, maxDrawsToday: chooseDrawCount(venue), actualDraws: 0, numbers: [], usedNumbers: new Set(), bestNumber: null, exitedEarly: false, releaseStep: 0, phase: 'draw-zone' };
+  state = { venue, mode, chanceMode: fever, maxDrawsToday: chooseDrawCount(venue), actualDraws: 0, numbers: [], usedNumbers: new Set(), bestNumber: null, exitedEarly: false, releaseStep: 0, phase: 'venue-intro' };
   render();
+  delay(() => {
+    if (!state.venue.isReleaseDay) { state.phase = 'venue'; render(); return; }
+    state.phase = 'release-intro';
+    render();
+    delay(() => { state.releaseStep = 1; render(); delay(() => { state.phase = 'venue'; render(); }, 900); }, 900);
+  }, 850);
 }
 
 function beginDraw() {
@@ -109,7 +115,7 @@ function renderPhase() {
 
 function renderModeSelect() {
   const modes = Object.values(DRAW_MODES).map((mode) => `<button class="mode-choice mode-${mode.id}" data-mode="${mode.id}"><strong>${mode.name}</strong><span>${mode.description}</span></button>`).join('');
-  return `<section class="screen mode-screen"><p class="eyebrow">CHOOSE YOUR LUCK</p><h2>抽選モードを選ぶ</h2><p class="draw-instruction">若い番号への追い風を選択できます。</p><div class="mode-choice-grid">${modes}</div><p class="tiny">全モード共通で、20回に1回は最初の候補が一桁になります。</p></section>`;
+  return `<section class="screen mode-screen"><p class="eyebrow">CHOOSE YOUR LUCK</p><h2>抽選モードを選ぶ</h2><p class="draw-instruction">若い番号への追い風を選択できます。</p><div class="mode-choice-grid">${modes}</div><p class="tiny">たまにいいことがあるかも。。。</p></section>`;
 }
 
 function renderReleaseIntro() {

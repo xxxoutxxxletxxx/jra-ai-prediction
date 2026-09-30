@@ -37,8 +37,8 @@ export const RELEASE_DAY_RATE = 0.08;
 
 export const DRAW_MODES = {
   normal: { id: 'normal', name: 'ノーマル', description: 'すべての番号が均等に当たりやすい' },
-  fever: { id: 'fever', name: 'フィーバー', description: '若い番号ほど約2倍当たりやすい' },
-  paradise: { id: 'paradise', name: 'パラダイス', description: '若い番号ほど約5倍当たりやすい' }
+  fever: { id: 'fever', name: 'フィーバー', description: '若い番号に追い風が吹く' },
+  paradise: { id: 'paradise', name: 'パラダイス', description: '若い番号に大きな追い風が吹く' }
 };
 
 export const MODE_KEYS = Object.keys(DRAW_MODES);
