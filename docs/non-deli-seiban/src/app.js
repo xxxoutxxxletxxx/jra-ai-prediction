@@ -1,5 +1,5 @@
-import { calculateScore, chooseDrawCount, chooseVenue, claimTicket, commentForScore, drawTicketCandidates, expectedBest, scoreJudgment } from './engine.mjs';
-import { clearHistory, fetchRanking, rankingNameError, readHistory, saveHistory, submitRanking, summarizeHistory } from './storage.mjs';
+import { calculateScore, chooseDrawCount, chooseVenue, claimTicket, commentForScore, drawTicketCandidates, DRAW_MODES, expectedBest, scoreJudgment } from './engine.mjs';
+import { clearHistory, fetchRanking, historyForMode, rankingNameError, rankingNameMaxLength, readHistory, saveHistory, submitRanking, summarizeHistory } from './storage.mjs';
 
 const app = document.querySelector('#app');
 let state;
@@ -8,6 +8,8 @@ let ranking = [];
 let rankingStatus = 'idle';
 let rankingError = '';
 let submittingRanking = false;
+let rankingMode = 'normal';
+let historyMode = 'normal';
 
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
 const delay = (callback, milliseconds) => { clearTimeout(transitionTimer); transitionTimer = setTimeout(callback, milliseconds); };
@@ -16,15 +18,15 @@ const scoreDrawsForState = () => state.exitedEarly ? state.actualDraws : state.m
 const scoreForState = () => calculateScore(scoreDrawsForState(), state.bestNumber, state.venue?.isReleaseDay === true);
 
 function startGame() {
-  const venue = chooseVenue();
-  state = { venue, maxDrawsToday: chooseDrawCount(venue), actualDraws: 0, numbers: [], usedNumbers: new Set(), bestNumber: null, exitedEarly: false, releaseStep: 0, phase: 'venue-intro' };
+  state = { phase: 'mode-select' };
   render();
-  delay(() => {
-    if (!state.venue.isReleaseDay) { state.phase = 'venue'; render(); return; }
-    state.phase = 'release-intro';
-    render();
-    delay(() => { state.releaseStep = 1; render(); delay(() => { state.phase = 'venue'; render(); }, 900); }, 900);
-  }, 850);
+}
+
+function beginGame(mode) {
+  const venue = chooseVenue();
+  const fever = Math.random() < 1 / 20;
+  state = { venue, mode, chanceMode: fever, maxDrawsToday: chooseDrawCount(venue), actualDraws: 0, numbers: [], usedNumbers: new Set(), bestNumber: null, exitedEarly: false, releaseStep: 0, phase: 'draw-zone' };
+  render();
 }
 
 function beginDraw() {
@@ -35,7 +37,7 @@ function beginDraw() {
 
 function chooseDrawZone(zone) {
   state.selectedZone = zone;
-  state.ticketChoices = drawTicketCandidates(state.usedNumbers);
+  state.ticketChoices = drawTicketCandidates(state.usedNumbers, 3, Math.random, state.mode, state.chanceMode && state.actualDraws === 0);
   state.phase = 'choose-ticket';
   render();
 }
@@ -92,6 +94,7 @@ function renderPhase() {
   if (state.phase === 'history') return renderHistory();
   if (state.phase === 'ranking') return renderRanking();
   if (state.phase === 'venue-intro') return `<section class="screen cinematic-screen venue-intro-screen"><p class="eyebrow">TODAY'S EVENT</p><p class="venue-intro-copy">本日の会場は――</p></section>`;
+  if (state.phase === 'mode-select') return renderModeSelect();
   if (state.phase === 'release-intro') return renderReleaseIntro();
   if (state.phase === 'venue') return renderVenue();
   if (state.phase === 'watching') return `<section class="screen story-screen waiting queue-view"><div class="scene queue-scene" aria-hidden="true"><span class="queue-tent"></span><span class="queue-rail"></span><span class="queue-heads"></span></div><p class="eyebrow">OBSERVING</p><div class="pulse-mark">…</div><p class="story-copy">購入列の様子を見ている……</p></section>`;
@@ -102,6 +105,11 @@ function renderPhase() {
   if (state.phase === 'live') return `<section class="screen live-screen ${state.bestNumber <= 9 ? 'stage-only' : 'audience-view'}"><div class="scene live-scene" aria-hidden="true"><span class="stage-skyline"></span><span class="stage-roof"></span><span class="stage-lights"></span><span class="stage-tent tent-left"></span><span class="stage-tent tent-right"></span><span class="stage-platform"></span><span class="idol-silhouette"></span><span class="audience-silhouette"></span></div><div class="live-light"></div><p class="eyebrow">LIVE EVENT</p><h2>楽しいライブだった……</h2><p>今日の結果を振り返っています。</p></section>`;
   if (state.phase === 'special') return renderSpecialEnding();
   return renderResult();
+}
+
+function renderModeSelect() {
+  const modes = Object.values(DRAW_MODES).map((mode) => `<button class="mode-choice mode-${mode.id}" data-mode="${mode.id}"><strong>${mode.name}</strong><span>${mode.description}</span></button>`).join('');
+  return `<section class="screen mode-screen"><p class="eyebrow">CHOOSE YOUR LUCK</p><h2>抽選モードを選ぶ</h2><p class="draw-instruction">若い番号への追い風を選択できます。</p><div class="mode-choice-grid">${modes}</div><p class="tiny">全モード共通で、20回に1回は最初の候補が一桁になります。</p></section>`;
 }
 
 function renderReleaseIntro() {
@@ -152,18 +160,20 @@ function renderResult() {
   const comment = commentForScore(score, state.bestNumber);
   const registration = state.rankingRegistered
     ? '<p class="ranking-note">全国対戦へ登録しました。</p>'
-    : `<div class="ranking-register"><p>このScoreで全国対戦に登録</p><div><input id="ranking-name" maxlength="40" placeholder="対戦名" aria-label="対戦名" ${submittingRanking ? 'disabled' : ''}><button class="utility-button" data-action="register-ranking" ${submittingRanking ? 'disabled' : ''}>${submittingRanking ? '登録中…' : '登録する'}</button></div><p class="form-error">${escapeHtml(rankingError)}</p></div>`;
-  return `<section class="screen result-screen ${state.bestNumber === 1 ? 'jackpot' : ''}"><p class="eyebrow">RESULT</p><h2>リリイベ結果</h2><dl class="result-details"><div><dt>会場</dt><dd>${escapeHtml(state.venue.name)}</dd></div>${state.venue.isReleaseDay ? '<div><dt>特別条件</dt><dd>リリース日当日 / 1回勝負</dd></div>' : ''}<div><dt>本日の最大抽選回数</dt><dd>${state.maxDrawsToday}回</dd></div><div><dt>実際に引いた回数</dt><dd>${state.actualDraws}回</dd></div><div><dt>引いた整理番号</dt><dd>${state.numbers.map(formatNumber).join(' / ')}</dd></div><div><dt>BEST</dt><dd class="best-number">${formatNumber(state.bestNumber)}</dd></div><div><dt>期待値</dt><dd>約${expected.toFixed(1)}番</dd></div><div><dt>判定</dt><dd>${scoreJudgment(score)}</dd></div></dl>${state.exitedEarly ? '<p class="exit-note">良番を確保したので撤退</p>' : ''}<div class="score-box"><span>SCORE</span><strong>${score}</strong><p>${escapeHtml(comment)}</p></div>${registration}<div class="actions"><button class="main-button" data-action="restart">もう一度リリイベに行く</button><button class="utility-button" data-action="ranking">全国対戦を見る</button></div></section>`;
+    : `<div class="ranking-register"><p>${escapeHtml(DRAW_MODES[state.mode].name)}の全国対戦に登録</p><div><input id="ranking-name" maxlength="${rankingNameMaxLength(state.mode)}" placeholder="対戦名" aria-label="対戦名" ${submittingRanking ? 'disabled' : ''}><button class="utility-button" data-action="register-ranking" ${submittingRanking ? '登録中…' : '登録する'}</button></div><p class="form-error">${escapeHtml(rankingError)}</p></div>`;
+  return `<section class="screen result-screen ${state.bestNumber === 1 ? 'jackpot' : ''}"><p class="eyebrow">RESULT</p><h2>リリイベ結果</h2><dl class="result-details"><div><dt>会場</dt><dd>${escapeHtml(state.venue.name)}</dd></div><div><dt>抽選モード</dt><dd>${escapeHtml(DRAW_MODES[state.mode].name)}${state.chanceMode ? ' / 確変発動' : ''}</dd></div>${state.venue.isReleaseDay ? '<div><dt>特別条件</dt><dd>リリース日当日 / 1回勝負</dd></div>' : ''}<div><dt>本日の最大抽選回数</dt><dd>${state.maxDrawsToday}回</dd></div><div><dt>実際に引いた回数</dt><dd>${state.actualDraws}回</dd></div><div><dt>引いた整理番号</dt><dd>${state.numbers.map(formatNumber).join(' / ')}</dd></div><div><dt>BEST</dt><dd class="best-number">${formatNumber(state.bestNumber)}</dd></div><div><dt>期待値</dt><dd>約${expected.toFixed(1)}番</dd></div><div><dt>判定</dt><dd>${scoreJudgment(score)}</dd></div></dl>${state.exitedEarly ? '<p class="exit-note">良番を確保したので撤退</p>' : ''}<div class="score-box"><span>SCORE</span><strong>${score}</strong><p>${escapeHtml(comment)}</p></div>${registration}<div class="actions"><button class="main-button" data-action="restart">もう一度リリイベに行く</button><button class="utility-button" data-action="ranking">全国対戦を見る</button></div></section>`;
 }
 
 function renderHistory() {
-  const history = readHistory();
+  const history = historyForMode(readHistory(), historyMode);
   const summary = summarizeHistory(history);
   const rows = history.length ? history.map((record) => `<li><span>${new Date(record.playedAt).toLocaleDateString('ja-JP')}</span><strong>${record.score}</strong><span>${escapeHtml(record.venue)} / BEST ${record.bestNumber}番</span></li>`).join('') : '<li class="empty-state">まだリリイベの記録がありません。</li>';
-  return `<section class="screen archive-screen"><p class="eyebrow">PLAY ARCHIVE</p><h2>過去成績</h2><div class="history-summary"><div><span>プレイ</span><b>${summary.plays}</b></div><div><span>最高Score</span><b>${summary.bestScore}</b></div><div><span>最良整番</span><b>${summary.bestNumber === 101 ? '-' : `${summary.bestNumber}番`}</b></div></div><ul class="history-list">${rows}</ul>${history.length ? '<button class="utility-button" data-action="clear-history">履歴を消去</button>' : ''}</section>`;
+  const tabs = Object.values(DRAW_MODES).map((mode) => `<button class="ranking-mode-tab ${historyMode === mode.id ? 'active' : ''}" data-history-mode="${mode.id}">${escapeHtml(mode.name)}</button>`).join('');
+  return `<section class="screen archive-screen"><p class="eyebrow">PLAY ARCHIVE</p><h2>過去成績</h2><div class="ranking-mode-tabs">${tabs}</div><p class="draw-instruction">${escapeHtml(DRAW_MODES[historyMode].name)}のプレイ記録</p><div class="history-summary"><div><span>プレイ</span><b>${summary.plays}</b></div><div><span>最高Score</span><b>${summary.bestScore}</b></div><div><span>最良整番</span><b>${summary.bestNumber === 101 ? '-' : `${summary.bestNumber}番`}</b></div></div><ul class="history-list">${rows}</ul>${history.length ? '<button class="utility-button" data-action="clear-history">このモードの履歴を消去</button>' : ''}</section>`;
 }
 
 function renderRanking() {
+  const tabs = Object.values(DRAW_MODES).map((mode) => `<button class="ranking-mode-tab ${rankingMode === mode.id ? 'active' : ''}" data-ranking-mode="${mode.id}">${escapeHtml(mode.name)}</button>`).join('');
   const content = rankingStatus === 'loading'
     ? '<p class="ranking-state">全国の整番を集計中……</p>'
     : rankingStatus === 'error'
@@ -171,23 +181,24 @@ function renderRanking() {
       : ranking.length
         ? `<ol class="ranking-list">${ranking.map((record) => `<li><span>${escapeHtml(record.player_name)}</span><strong>${record.score}</strong></li>`).join('')}</ol>`
         : '<p class="ranking-state">まだ記録がありません。最初のScoreを刻もう。</p>';
-  return `<section class="screen archive-screen"><p class="eyebrow">NATIONAL SCORE MATCH</p><h2>スコア全国対戦</h2><p class="draw-instruction">同じ対戦名は最高Scoreのみを掲載します。</p>${content}</section>`;
+  return `<section class="screen archive-screen"><p class="eyebrow">NATIONAL SCORE MATCH</p><h2>スコア全国対戦</h2><div class="ranking-mode-tabs">${tabs}</div><p class="draw-instruction">${escapeHtml(DRAW_MODES[rankingMode].name)}部門。同じ対戦名は最高Scoreのみを掲載します。</p>${content}</section>`;
 }
 
 function saveCurrentPlay() {
   if (state.saved) return;
   state.saved = true;
-  saveHistory({ playedAt: new Date().toISOString(), venue: state.venue.name, maxDrawsToday: state.maxDrawsToday, actualDraws: state.actualDraws, bestNumber: state.bestNumber, score: scoreForState(), exitedEarly: state.exitedEarly });
+  saveHistory({ playedAt: new Date().toISOString(), mode: state.mode, venue: state.venue.name, maxDrawsToday: state.maxDrawsToday, actualDraws: state.actualDraws, bestNumber: state.bestNumber, score: scoreForState(), exitedEarly: state.exitedEarly });
 }
 
-async function openRanking() {
+async function openRanking(mode = 'normal') {
   if (!state) state = { phase: 'ranking' };
   else state.phase = 'ranking';
+  rankingMode = mode;
   rankingStatus = 'loading';
   rankingError = '';
   render();
   try {
-    ranking = await fetchRanking();
+    ranking = await fetchRanking(rankingMode);
     rankingStatus = 'ready';
   } catch (error) {
     rankingStatus = 'error';
@@ -199,13 +210,13 @@ async function openRanking() {
 async function registerRanking() {
   if (submittingRanking || !state) return;
   const playerName = String(document.querySelector('#ranking-name')?.value || '').trim();
-  const error = rankingNameError(playerName);
+  const error = rankingNameError(playerName, state.mode);
   if (error) { rankingError = error; render(); return; }
   submittingRanking = true;
   rankingError = '';
   render();
   try {
-    await submitRanking(playerName, scoreForState());
+    await submitRanking(playerName, scoreForState(), state.mode);
     state.rankingRegistered = true;
   } catch (submitError) {
     rankingError = submitError.message || '全国対戦への登録に失敗しました。';
@@ -218,18 +229,24 @@ app.addEventListener('click', (event) => {
   const { action } = event.target.closest('[data-action]')?.dataset || {};
   const { zone } = event.target.closest('[data-zone]')?.dataset || {};
   const { ticket } = event.target.closest('[data-ticket]')?.dataset || {};
+  const { mode } = event.target.closest('[data-mode]')?.dataset || {};
+  const { rankingMode: selectedRankingMode } = event.target.closest('[data-ranking-mode]')?.dataset || {};
+  const { historyMode: selectedHistoryMode } = event.target.closest('[data-history-mode]')?.dataset || {};
   if (zone) { chooseDrawZone(zone); return; }
   if (ticket) { chooseTicket(Number(ticket)); return; }
+  if (mode) { beginGame(mode); return; }
+  if (selectedRankingMode) { openRanking(selectedRankingMode); return; }
+  if (selectedHistoryMode) { historyMode = selectedHistoryMode; render(); return; }
   if (!action) return;
   if (action === 'home') { clearTimeout(transitionTimer); state = undefined; rankingError = ''; render(); return; }
   if (action === 'start' || action === 'restart') startGame();
   if (action === 'watch') { state.phase = 'watching'; render(); delay(() => { state.phase = 'draw-count'; render(); }, 1200); }
   if (action === 'to-draw' || action === 'draw') beginDraw();
   if (action === 'stop') stopDrawing();
-  if (action === 'history') { state = { phase: 'history' }; render(); }
-  if (action === 'ranking') openRanking();
+  if (action === 'history') { historyMode = state?.mode || 'normal'; state = { phase: 'history' }; render(); }
+  if (action === 'ranking') openRanking(state?.mode || 'normal');
   if (action === 'register-ranking') registerRanking();
-  if (action === 'clear-history' && window.confirm('過去成績をすべて削除しますか？')) { clearHistory(); render(); }
+  if (action === 'clear-history' && window.confirm(`${DRAW_MODES[historyMode].name}の過去成績をすべて削除しますか？`)) { clearHistory(historyMode); render(); }
 });
 
 render();

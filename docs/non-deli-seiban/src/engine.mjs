@@ -35,6 +35,14 @@ export const releaseDayVenues = [
 
 export const RELEASE_DAY_RATE = 0.08;
 
+export const DRAW_MODES = {
+  normal: { id: 'normal', name: 'ノーマル', description: 'すべての番号が均等に当たりやすい' },
+  fever: { id: 'fever', name: 'フィーバー', description: '若い番号ほど約2倍当たりやすい' },
+  paradise: { id: 'paradise', name: 'パラダイス', description: '若い番号ほど約5倍当たりやすい' }
+};
+
+export const MODE_KEYS = Object.keys(DRAW_MODES);
+
 export const SCORE_BALANCE = {
   expectedScore: 50,
   expectedCurve: 50,
@@ -54,6 +62,23 @@ export function chooseDrawCount(venue, random = Math.random) {
   return randomInt(random, venue.minDraws, venue.maxDraws);
 }
 
+export function numberWeight(number, mode = 'normal') {
+  if (!MODE_KEYS.includes(mode)) throw new Error('不明な抽選モードです');
+  if (mode === 'normal') return 1;
+  const slope = mode === 'paradise' ? 4 : 1;
+  return 1 + slope * (100 - number) / 99;
+}
+
+function weightedPick(numbers, random, mode) {
+  const totalWeight = numbers.reduce((sum, number) => sum + numberWeight(number, mode), 0);
+  let target = random() * totalWeight;
+  for (const number of numbers) {
+    target -= numberWeight(number, mode);
+    if (target < 0) return number;
+  }
+  return numbers[numbers.length - 1];
+}
+
 export function drawTicket(usedNumbers, random = Math.random) {
   if (usedNumbers.size >= 100) throw new Error('整理番号を引けません');
   let number;
@@ -62,14 +87,17 @@ export function drawTicket(usedNumbers, random = Math.random) {
   return number;
 }
 
-export function drawTicketCandidates(usedNumbers, count = 3, random = Math.random) {
-  if (usedNumbers.size + count > 100) throw new Error('整理番号の候補を出せません');
-  const candidates = new Set();
-  while (candidates.size < count) {
-    const number = randomInt(random, 1, 100);
-    if (!usedNumbers.has(number)) candidates.add(number);
+export function drawTicketCandidates(usedNumbers, count = 3, random = Math.random, mode = 'normal', singleDigitOnly = false) {
+  if (!MODE_KEYS.includes(mode)) throw new Error('不明な抽選モードです');
+  const available = Array.from({ length: 100 }, (_, index) => index + 1)
+    .filter((number) => !usedNumbers.has(number) && (!singleDigitOnly || number <= 9));
+  if (available.length < count) throw new Error('整理番号の候補を出せません');
+  const candidates = [];
+  while (candidates.length < count) {
+    const number = weightedPick(available.filter((candidate) => !candidates.includes(candidate)), random, mode);
+    candidates.push(number);
   }
-  return [...candidates];
+  return candidates;
 }
 
 export function claimTicket(usedNumbers, number) {

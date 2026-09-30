@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateScore, claimTicket, drawTicket, drawTicketCandidates, expectedBest, chooseVenue, releaseDayVenues, venues } from '../docs/non-deli-seiban/src/engine.mjs';
-import { normalizeRanking } from '../docs/non-deli-seiban/src/storage.mjs';
+import { calculateScore, claimTicket, drawTicket, drawTicketCandidates, DRAW_MODES, expectedBest, chooseVenue, numberWeight, releaseDayVenues, venues } from '../docs/non-deli-seiban/src/engine.mjs';
+import { historyForMode, normalizeRanking, rankingNameMaxLength } from '../docs/non-deli-seiban/src/storage.mjs';
 
 test('期待BESTは最大抽選回数から計算する', () => {
   assert.equal(expectedBest(1), 50.5);
@@ -45,6 +45,22 @@ test('候補3枚は未使用かつ重複せず、選んだ1枚だけが確定す
   assert.deepEqual([...used].sort((left, right) => left - right), [1, 2, 4]);
 });
 
+test('抽選モードはノーマル均等、フィーバー2倍、パラダイス5倍の傾斜を持つ', () => {
+  assert.deepEqual(Object.keys(DRAW_MODES), ['normal', 'fever', 'paradise']);
+  assert.equal(numberWeight(1, 'normal'), 1);
+  assert.equal(numberWeight(1, 'fever'), 2);
+  assert.equal(numberWeight(100, 'fever'), 1);
+  assert.equal(numberWeight(1, 'paradise'), 5);
+  assert.equal(numberWeight(100, 'paradise'), 1);
+});
+
+test('確変候補は最初の3枚をすべて一桁に固定する', () => {
+  const candidates = drawTicketCandidates(new Set(), 3, () => 0.1, 'paradise', true);
+  assert.equal(candidates.length, 3);
+  assert.ok(candidates.every((number) => number <= 9));
+  assert.equal(new Set(candidates).size, 3);
+});
+
 test('全国対戦は同じ名前の最高Scoreだけを参照する', () => {
   const ranking = normalizeRanking([
     { player_name: '[RIRIEVENT-GO] すず', score: 95 },
@@ -53,6 +69,31 @@ test('全国対戦は同じ名前の最高Scoreだけを参照する', () => {
     { player_name: '別ゲームの記録', score: 9999 }
   ]);
   assert.deepEqual(ranking.map((record) => [record.player_name, record.score]), [['すず', 210], ['あお', 180]]);
+});
+
+test('全国対戦は抽選モードごとに記録を分離する', () => {
+  const records = [
+    { player_name: '[RIRIEVENT-GO] すず', score: 210 },
+    { player_name: '[RIRIEVENT-GO:FEVER] すず', score: 320 },
+    { player_name: '[RIRIEVENT-GO:PARADISE] あお', score: 410 }
+  ];
+  assert.deepEqual(normalizeRanking(records, 'normal').map((record) => record.player_name), ['すず']);
+  assert.deepEqual(normalizeRanking(records, 'fever').map((record) => record.player_name), ['すず']);
+  assert.deepEqual(normalizeRanking(records, 'paradise').map((record) => record.player_name), ['あお']);
+  assert.equal(rankingNameMaxLength('normal'), 25);
+  assert.equal(rankingNameMaxLength('fever'), 19);
+  assert.equal(rankingNameMaxLength('paradise'), 16);
+});
+
+test('過去成績はモードごとに表示を分離し、旧記録はノーマル扱いになる', () => {
+  const history = [
+    { score: 90 },
+    { mode: 'fever', score: 110 },
+    { mode: 'paradise', score: 140 }
+  ];
+  assert.deepEqual(historyForMode(history, 'normal').map((record) => record.score), [90]);
+  assert.deepEqual(historyForMode(history, 'fever').map((record) => record.score), [110]);
+  assert.deepEqual(historyForMode(history, 'paradise').map((record) => record.score), [140]);
 });
 
 test('同じ良番は少ないチャンスほど高得点になる', () => {
