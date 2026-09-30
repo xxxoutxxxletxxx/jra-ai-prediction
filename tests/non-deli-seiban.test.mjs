@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calculateScore, claimTicket, drawTicket, drawTicketCandidates, DRAW_MODES, expectedBest, chooseVenue, numberWeight, releaseDayVenues, venues } from '../docs/non-deli-seiban/src/engine.mjs';
 import { historyForMode, normalizeRanking, rankingNameMaxLength } from '../docs/non-deli-seiban/src/storage.mjs';
-import { buyStoryTickets, buyThirdEventTicket, chooseArrivalTime, chooseStoryTicket, continueTicketDraw, createStory, finishStory, finishThirdEvent, generateFreeTimeChoices, getChekiSatisfaction, getFrontProbability, moneySatisfactionModifier, prepareStory, redrawStoryTickets, revealStoryResult, skipThirdEventRecovery, STAMINA_CONFIG, staminaMultiplier, takePartCheki, takeRescueMeal, takeThirdEventRecovery, travelToVenue } from '../docs/non-deli-seiban/src/story.mjs';
+import { buyStoryTickets, buyThirdEventTicket, chooseAfterEvent, chooseArrivalTime, chooseStoryTicket, continueTicketDraw, createStory, finishStory, finishThirdEvent, generateFreeTimeChoices, getChekiSatisfaction, getFrontProbability, moneySatisfactionModifier, prepareStory, redrawStoryTickets, revealStoryResult, skipThirdEventRecovery, STAMINA_CONFIG, STORY_CONFIG, staminaMultiplier, takePartCheki, takeRescueMeal, takeThirdEventRecovery, travelToVenue } from '../docs/non-deli-seiban/src/story.mjs';
 
 test('期待BESTは最大抽選回数から計算する', () => {
   assert.equal(expectedBest(1), 50.5);
@@ -189,6 +189,36 @@ test('3現場目の前は休憩するか、そのまま向かえる', () => {
   skipThirdEventRecovery(skipped);
   assert.equal(skipped.stamina, 40);
   assert.equal(skipped.phase, 'third-live');
+});
+
+test('3現場目で体力が尽きそうなら薬膳鍋の前に休憩を挟む', () => {
+  const story = createStory();
+  story.phase = 'after-event-intro';
+  story.stamina = 30;
+  chooseAfterEvent(story, 'round', () => 0);
+  assert.equal(story.stamina, 0);
+  assert.equal(story.phase, 'recovery');
+  takeThirdEventRecovery(story);
+  assert.equal(story.stamina, 35);
+  assert.equal(story.phase, 'third-live');
+});
+
+test('体力上限は150、薬膳鍋の回復量は100', () => {
+  const rested = createStory();
+  rested.phase = 'recovery';
+  rested.stamina = 140;
+  takeThirdEventRecovery(rested);
+  assert.equal(rested.stamina, STORY_CONFIG.maxStamina);
+
+  const rescued = createStory();
+  rescued.money = 8000;
+  rescued.phase = 'part-cheki';
+  rescued.stamina = 1;
+  rescued.chekiPart = 0;
+  rescued.benefitTickets[0] = 1;
+  takePartCheki(rescued);
+  takeRescueMeal(rescued);
+  assert.equal(rescued.stamina, 100);
 });
 
 test('3現場目のライブ終了は派手な満足度加算になり、特典券を購入できる', () => {
