@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calculateScore, claimTicket, drawTicket, drawTicketCandidates, DRAW_MODES, expectedBest, chooseVenue, numberWeight, releaseDayVenues, venues } from '../docs/non-deli-seiban/src/engine.mjs';
 import { historyForMode, normalizeRanking, rankingNameMaxLength } from '../docs/non-deli-seiban/src/storage.mjs';
-import { buyStoryTickets, chooseStoryTicket, createStory, getFrontProbability, moneySatisfactionModifier, prepareStory, staminaMultiplier, travelToVenue } from '../docs/non-deli-seiban/src/story.mjs';
+import { buyStoryTickets, buyThirdEventTicket, chooseArrivalTime, chooseStoryTicket, continueTicketDraw, createStory, finishStory, finishThirdEvent, generateFreeTimeChoices, getChekiSatisfaction, getFrontProbability, moneySatisfactionModifier, prepareStory, redrawStoryTickets, revealStoryResult, skipThirdEventRecovery, STAMINA_CONFIG, staminaMultiplier, takePartCheki, takeRescueMeal, takeThirdEventRecovery, travelToVenue } from '../docs/non-deli-seiban/src/story.mjs';
 
 test('期待BESTは最大抽選回数から計算する', () => {
   assert.equal(expectedBest(1), 50.5);
@@ -35,6 +35,15 @@ test('同じ番号は同一プレイで重複しない', () => {
   assert.equal(used.size, 2);
 });
 
+test('ストーリーモードの全国対戦は専用部門として集計する', () => {
+  const ranking = normalizeRanking([
+    { player_name: '[RIRIEVENT-GO:STORY] あお', score: 12000 },
+    { player_name: '[RIRIEVENT-GO:STORY] あお', score: 15000 },
+    { player_name: '[RIRIEVENT-GO] あお', score: 99999 }
+  ], 'story');
+  assert.deepEqual(ranking.map((record) => [record.player_name, record.score]), [['あお', 15000]]);
+});
+
 test('候補3枚は未使用かつ重複せず、選んだ1枚だけが確定する', () => {
   const used = new Set([1, 2]);
   const randomValues = [0, 0.01, 0.02, 0.03];
@@ -62,6 +71,26 @@ test('確変候補は最初の3枚をすべて一桁に固定する', () => {
   assert.equal(new Set(candidates).size, 3);
 });
 
+test('ストーリーの最初の整番抽選は無条件で一桁になる', () => {
+  const story = createStory();
+  buyStoryTickets(story, () => 0.9);
+  assert.ok(story.ticketCandidates.every((number) => number <= 9));
+});
+
+test('2部も引くは追加料金なしで、通常抽選には一桁確定チャンスがある', () => {
+  const story = createStory();
+  buyStoryTickets(story, () => 0.9);
+  const moneyAfterPartOne = story.money;
+  chooseStoryTicket(story, story.ticketCandidates[0]);
+  continueTicketDraw(story, () => 0.9);
+  assert.equal(story.money, moneyAfterPartOne);
+
+  const retry = createStory();
+  retry.ticketDrawCount = 1;
+  buyStoryTickets(retry, () => 0.09);
+  assert.ok(retry.ticketCandidates.every((number) => number <= 9));
+});
+
 test('ストーリーモードは早い会場到着ほど販売列先頭の確率が高い', () => {
   assert.equal(getFrontProbability(10 * 60), 1);
   assert.equal(getFrontProbability(11 * 60), 0.01);
@@ -71,14 +100,165 @@ test('ストーリーモードは早い会場到着ほど販売列先頭の確�
 
 test('ストーリーモードの販売列先頭ボーナスは片方の部を一桁候補にする', () => {
   const story = createStory();
+  chooseArrivalTime(story, 10 * 60);
   prepareStory(story, 60);
-  travelToVenue(story, 10 * 60, () => 0);
+  travelToVenue(story, undefined, () => 0);
   assert.equal(story.frontBonus, true);
   assert.equal(story.bonusPart, 0);
   buyStoryTickets(story, () => 0.1);
   assert.ok(story.ticketCandidates.every((number) => number <= 9));
   chooseStoryTicket(story, story.ticketCandidates[0], () => 0.1);
+  assert.equal(story.phase, 'ticket-review');
+});
+
+test('ストーリーモードは引いた整番の最小値で入場する', () => {
+  const story = createStory();
+  story.phase = 'ticket-1';
+  story.ticketCandidates = [62];
+  chooseStoryTicket(story, 62);
+  story.phase = 'ticket-1';
+  story.ticketCandidates = [8];
+  chooseStoryTicket(story, 8);
+  assert.equal(story.tickets[0], 8);
+  assert.deepEqual(story.ticketHistory[0], [62, 8]);
+});
+
+test('整番の引き直しは1部の後に2部も必ず抽選する', () => {
+  const story = createStory();
+  buyStoryTickets(story, () => 0.5);
+  chooseStoryTicket(story, story.ticketCandidates[0]);
+  continueTicketDraw(story, () => 0.5);
+  chooseStoryTicket(story, story.ticketCandidates[0]);
+  redrawStoryTickets(story, () => 0.5);
+  assert.equal(story.phase, 'ticket-1');
+  chooseStoryTicket(story, story.ticketCandidates[0]);
+  continueTicketDraw(story, () => 0.5);
   assert.equal(story.phase, 'ticket-2');
+});
+
+test('特典券チェキは券を1枚消費し、満足度と疲労を発生させる', () => {
+  const story = createStory();
+  story.phase = 'part-cheki';
+  story.chekiPart = 0;
+  story.benefitTickets[0] = 1;
+  takePartCheki(story);
+  assert.equal(story.benefitTickets[0], 0);
+  assert.equal(story.chekiCounts[0], 1);
+  assert.equal(story.stamina, 99);
+  assert.equal(story.satisfaction, 800);
+});
+
+test('1部と2部は共通の特典券を消費する', () => {
+  const story = createStory();
+  story.phase = 'part-cheki';
+  story.chekiPart = 1;
+  story.benefitTickets[0] = 1;
+  takePartCheki(story);
+  assert.equal(story.benefitTickets[0], 0);
+  assert.equal(story.chekiCounts[1], 1);
+});
+
+test('体力0では薬膳鍋で全回復して中断地点へ戻れる', () => {
+  const story = createStory();
+  story.money = 8000;
+  story.stamina = 1;
+  story.phase = 'part-cheki';
+  story.chekiPart = 0;
+  story.benefitTickets[0] = 1;
+  takePartCheki(story);
+  assert.equal(story.phase, 'rescue');
+  takeRescueMeal(story);
+  assert.equal(story.money, 3000);
+  assert.equal(story.stamina, 100);
+  assert.equal(story.phase, 'part-cheki-result');
+});
+
+test('3現場目の前は休憩するか、そのまま向かえる', () => {
+  const story = createStory();
+  story.phase = 'recovery';
+  story.stamina = 40;
+  takeThirdEventRecovery(story);
+  assert.equal(story.stamina, 75);
+  assert.equal(story.money, 50000 - STAMINA_CONFIG.thirdEventRecoveryCost);
+  assert.equal(story.satisfaction, STAMINA_CONFIG.thirdEventRecoverySatisfaction * 100);
+  assert.equal(story.phase, 'third-live');
+
+  const skipped = createStory();
+  skipped.phase = 'recovery';
+  skipped.stamina = 40;
+  skipThirdEventRecovery(skipped);
+  assert.equal(skipped.stamina, 40);
+  assert.equal(skipped.phase, 'third-live');
+});
+
+test('3現場目のライブ終了は派手な満足度加算になり、特典券を購入できる', () => {
+  const story = createStory();
+  story.phase = 'third-live';
+  story.stamina = 50;
+  finishThirdEvent(story);
+  assert.equal(story.phase, 'third-live-result');
+  assert.equal(story.thirdEventScore, 9000);
+  assert.equal(story.satisfaction, 9000);
+
+  story.phase = 'cheki-intro';
+  buyThirdEventTicket(story);
+  assert.equal(story.money, 48000);
+  assert.equal(story.benefitTickets[2], 0);
+  assert.equal(story.phase, 'part-cheki-result');
+  assert.equal(story.benefitTickets[2], 0);
+  assert.equal(story.chekiCounts[2], 1);
+  assert.equal(story.satisfaction, 800);
+  story.phase = 'part-cheki';
+  buyThirdEventTicket(story);
+  assert.equal(story.chekiCounts[2], 2);
+  assert.equal(story.chekiCount, 2);
+});
+
+test('満足度ブーストは部をまたいだチェキ合計11枚目から発動する', () => {
+  const story = createStory();
+  story.phase = 'part-cheki';
+  story.chekiPart = 1;
+  story.chekiCounts[0] = 10;
+  story.chekiCount = 10;
+  story.benefitTickets[0] = 1;
+  takePartCheki(story);
+  assert.equal(story.chekiCount, 11);
+  assert.equal(story.satisfaction, getChekiSatisfaction(11) * 100);
+  assert.ok(story.satisfaction > getChekiSatisfaction(10) * 100);
+});
+
+test('力尽きた場合は満足度の20%でリザルトへ進む', () => {
+  const story = createStory();
+  story.stamina = 0;
+  story.satisfaction = 12345;
+  finishStory(story);
+  assert.equal(story.phase, 'game-over');
+  assert.equal(story.finalScore, 2469);
+  revealStoryResult(story);
+  assert.equal(story.phase, 'result');
+});
+
+test('最速ルートは整番を引く頃には体力が危険域まで削られる', () => {
+  const story = createStory();
+  chooseArrivalTime(story, 9 * 60);
+  prepareStory(story, 120);
+  travelToVenue(story, undefined, () => 0.9);
+  buyStoryTickets(story, () => 0.5);
+  assert.ok(story.stamina >= 8 && story.stamina <= 15);
+});
+
+test('FREE TIMEは食事と無料行動を含む4択になる', () => {
+  const choices = generateFreeTimeChoices(undefined, () => 0.2);
+  assert.equal(choices.length, 4);
+  assert.ok(choices.some((choice) => choice.category === 'food'));
+  assert.ok(choices.some((choice) => choice.money === 0));
+  assert.equal(new Set(choices.map((choice) => choice.id)).size, 4);
+});
+
+test('チェキは11枚目以降で満足度が急増する', () => {
+  assert.equal(getChekiSatisfaction(10), 8);
+  assert.ok(getChekiSatisfaction(11) > 8);
+  assert.ok(getChekiSatisfaction(15) > getChekiSatisfaction(12));
 });
 
 test('ストーリーモードの出費と体力の最終補正は危険域で厳しくなる', () => {

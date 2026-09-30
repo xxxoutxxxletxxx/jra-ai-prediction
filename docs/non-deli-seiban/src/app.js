@@ -1,6 +1,6 @@
 import { calculateScore, chooseDrawCount, chooseVenue, claimTicket, commentForScore, drawTicketCandidates, DRAW_MODES, expectedBest, scoreJudgment } from './engine.mjs';
-import { clearHistory, fetchRanking, historyForMode, rankingNameError, rankingNameMaxLength, readHistory, saveHistory, submitRanking, summarizeHistory } from './storage.mjs';
-import { ARRIVAL_OPTIONS, chooseAfterEvent, chooseStoryTicket, createStory, finishStory, FREE_TIME_EVENTS, playStoryPart, PREPARATION_OPTIONS, prepareStory, STORY_CONFIG, storyTitle, takeCheki, takeFreeTimeAction, travelToVenue, buyStoryTickets } from './story.mjs';
+import { clearHistory, fetchRanking, historyForMode, rankingNameError, rankingNameMaxLength, readHistory, saveHistory, submitRanking, summarizeHistory } from './storage.mjs?v=20261001-story-mode-v4';
+import { ARRIVAL_OPTIONS, buyThirdEventTicket, chooseAfterEvent, chooseArrivalTime, chooseStoryTicket, continueCheki, continueFromFreeTime, continueFromLive, continueTicketDraw, continueToCheki, createStory, finishStory, finishThirdEvent, leavePartCheki, playStoryPart, PREPARATION_OPTIONS, prepareStory, redrawStoryTickets, revealStoryResult, skipThirdEventRecovery, STAMINA_CONFIG, STORY_CONFIG, storyTitle, takeCheki, takeFreeTimeAction, takeRescueMeal, takeThirdEventRecovery, travelToVenue, buyStoryTickets } from './story.mjs';
 
 const app = document.querySelector('#app');
 let state;
@@ -13,6 +13,7 @@ let rankingMode = 'normal';
 let historyMode = 'normal';
 
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
+const RANKING_MODES = [...Object.values(DRAW_MODES), { id: 'story', name: 'ストーリー' }];
 const delay = (callback, milliseconds) => { clearTimeout(transitionTimer); transitionTimer = setTimeout(callback, milliseconds); };
 const formatNumber = (number) => `${number}番`;
 const scoreDrawsForState = () => state.exitedEarly ? state.actualDraws : state.maxDrawsToday;
@@ -24,7 +25,7 @@ function startGame() {
 }
 
 function startStory() {
-  state = { phase: 'story', story: createStory() };
+  state = { phase: 'story', mode: 'story', story: createStory() };
   render();
 }
 
@@ -146,48 +147,69 @@ function renderStoryHud(story) {
 
 function renderStory() {
   const { story } = state;
-  const content = renderStoryContent(story);
-  return `<section class="screen story-mode-screen"><div class="story-cityscape" aria-hidden="true"><i></i><i></i><i></i><i></i></div>${renderStoryHud(story)}<div class="story-content">${content}</div></section>`;
+  const scene = story.selectedFreeEvent?.scene || (story.phase.includes('cheki') ? 'cheki' : story.phase.includes('round') ? 'night' : story.phase.includes('part') || story.phase === 'live-result' ? 'live' : story.phase.includes('ticket') ? 'queue' : story.phase.includes('result') ? 'home-night' : story.phase === 'wake-up' ? 'bedroom' : story.phase === 'preparation' ? 'mirror' : story.phase === 'travel-intro' ? 'train' : story.phase.includes('after') ? 'dusk' : 'city');
+  const hideHud = ['wake-up', 'result-intro', 'result', 'game-over'].includes(story.phase);
+  return `<section class="screen story-mode-screen story-scene-${scene} phase-${story.phase}"><div class="story-scape" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>${hideHud ? '' : renderStoryHud(story)}<div class="story-content">${renderStoryContent(story)}</div></section>`;
 }
 
 function renderStoryContent(story) {
-  const event = story.latestEvent ? `<p class="story-event">${escapeHtml(story.latestEvent)}</p>` : '';
-  if (story.phase === 'preparation') return `<p class="eyebrow">06:00 / AT HOME</p><h2>今日は、どこまで仕上げる？</h2><p class="story-lead">準備の長さは満足度に、会場への到着時刻は体力と整番に影響する。</p><div class="story-choice-grid">${PREPARATION_OPTIONS.map((option) => `<button class="story-choice" data-story-action="prepare" data-story-value="${option.minutes}"><strong>${option.minutes}分</strong><span>${option.label}</span><small>身支度をする</small></button>`).join('')}</div>`;
-  if (story.phase === 'departure') {
-    const available = ARRIVAL_OPTIONS.filter((option) => option.time >= story.time + STORY_CONFIG.travelMinutes);
-    return `<p class="eyebrow">${formatStoryTime(story.time)} / DEPARTURE</p><h2>いつ会場へ着く？</h2>${event}<p class="story-lead">早く着くほど先頭に近づく。でも、体力は削られる。</p><div class="story-action-list">${available.map((option) => `<button class="story-action" data-story-action="travel" data-story-value="${option.time}"><strong>${option.label}</strong><span>${escapeHtml(option.note)}</span></button>`).join('')}</div>`;
-  }
-  if (story.phase === 'ticket-purchase') return `<p class="eyebrow">${formatStoryTime(story.time)} / SALES LINE</p><h2>${story.frontBonus ? '販売列の、いちばん前。' : '販売列に到着した。'}</h2>${event}<div class="story-ticket-purchase"><span>1部・2部セット</span><strong>3,000 COIN</strong><button class="main-button" data-story-action="buy-tickets">整理番号を引く</button></div>`;
-  if (story.phase === 'ticket-1' || story.phase === 'ticket-2') {
-    const part = story.phase === 'ticket-1' ? '1部' : '2部';
-    return `<p class="eyebrow">TICKET DRAW / ${part}</p><h2>${part}の整理番号を選ぶ</h2><p class="story-lead">手に当たった3枚。今日の景色を選ぼう。</p><div class="story-ticket-grid">${story.ticketCandidates.map((number, index) => `<button class="story-ticket" data-story-action="ticket" data-story-value="${number}"><span>整理券 ${index + 1}</span><strong>${number}</strong><small>これを引く</small></button>`).join('')}</div>`;
-  }
-  if (story.phase === 'free-1' || story.phase === 'free-2') {
-    const label = story.phase === 'free-1' ? '1部まで' : '2部まで';
-    return `<p class="eyebrow">${formatStoryTime(story.time)} / FREE TIME</p><h2>${label}、何をする？</h2>${event}<p class="story-lead">時間・お金・体力を見ながら、次の行動を選ぶ。</p><div class="story-action-list">${FREE_TIME_EVENTS.map((entry) => `<button class="story-action story-event-choice" data-story-action="free" data-story-value="${entry.id}"><b>${entry.icon} ${escapeHtml(entry.name)}</b><span>${entry.duration}分 / ${entry.money ? `${Math.abs(entry.money).toLocaleString()}コイン` : '無料'}</span></button>`).join('')}</div>`;
-  }
-  if (story.phase === 'part-1' || story.phase === 'part-2') {
-    const part = story.phase === 'part-1' ? 0 : 1;
-    const label = part === 0 ? '1部' : '2部';
-    return `<p class="eyebrow">${formatStoryTime(part === 0 ? STORY_CONFIG.firstAdmission : STORY_CONFIG.secondAdmission)} / PRIORITY ENTRY</p><h2>${label}、入場の時間。</h2>${event}<div class="story-part-card"><span>整理番号</span><strong>${story.tickets[part]}番</strong><p>${storyPosition(story.tickets[part])}。ステージが近づいてくる。</p></div><button class="main-button" data-story-action="play-part" data-story-value="${part}">${label}へ入場する</button>`;
-  }
-  if (story.phase === 'after-event') return `<p class="eyebrow">${formatStoryTime(story.time)} / AFTER THE SHOW</p><h2>今日、まだ帰れる？</h2>${event}<p class="story-lead">楽しかった。体力と財布は、まだ少しだけ残っている。</p><div class="story-after-actions"><button class="secondary-button" data-story-action="after" data-story-value="home">今日は帰る</button><button class="main-button" data-story-action="after" data-story-value="round">もう一つ現場を回す<br><small>3,000コイン</small></button></div>`;
-  if (story.phase === 'cheki') return `<p class="eyebrow">EXTRA EVENT</p><h2>せっかくだから、チェキを撮る？</h2>${event}<div class="story-after-actions"><button class="secondary-button" data-story-action="finish-story">今日はここまで</button><button class="main-button" data-story-action="cheki">チェキを撮る<br><small>2,000コイン</small></button></div>`;
-  const spent = STORY_CONFIG.initialMoney - story.money;
+  const lines = (value) => escapeHtml(value).replaceAll('\n', '<br>');
+  if (story.phase === 'wake-up') return `<div class="wake-clock">06:00</div><div class="wake-copy"><p>......朝か。</p><p>今日はリリイベだ。</p><p>何時に会場に行こうかな？</p></div><div class="arrival-list">${ARRIVAL_OPTIONS.map((option, index) => `<button class="arrival-choice" style="--reveal:${index}" data-story-action="arrival" data-story-value="${option.time}"><span>${option.label}</span><strong>${option.clock}</strong><small>${escapeHtml(option.note)}</small></button>`).join('')}</div>`;
+  if (story.phase === 'preparation') return `<p class="eyebrow">MORNING ROUTINE</p><h2>どれくらい<br>準備しようか？</h2><p class="story-lead">${escapeHtml(story.latestEvent)}</p><div class="story-choice-grid">${PREPARATION_OPTIONS.map((option, index) => `<button class="story-choice" style="--reveal:${index}" data-story-action="prepare" data-story-value="${option.minutes}"><strong>${option.minutes}分</strong><span>${option.label}</span><small>満足度 +${option.satisfaction}<br>${option.detail}</small></button>`).join('')}</div>`;
+  if (story.phase === 'travel-intro') return `<div class="cinema-copy"><p>電車に乗った。</p><p>まだ朝の街が、窓の外を流れている。</p><p>今日は長くなる。</p></div><button class="story-continue" data-story-action="travel">会場へ向かう</button>`;
+  if (story.phase === 'ticket-purchase') return `<p class="eyebrow">SALES LINE</p><h2>${story.frontBonus ? '販売列の、いちばん前。' : '販売列に着いた。'}</h2><p class="story-lead">${escapeHtml(story.latestEvent)}</p><div class="story-ticket-purchase"><span>整理番号抽選</span><strong>3,000 COIN</strong><small>所持金がある限り、何度でも引ける。</small><button class="main-button" data-story-action="buy-tickets">引く</button></div>`;
+  if (story.phase === 'ticket-1' || story.phase === 'ticket-2') { const label = story.phase === 'ticket-1' ? '1部' : '2部'; const bonus = story.bonusPart === (story.phase === 'ticket-1' ? 0 : 1); return `<p class="eyebrow">TICKET DRAW / ${label}</p><h2 class="${bonus ? 'ticket-jackpot-title' : ''}">${bonus ? '──確定。' : `${label}の整理番号`}</h2><p class="story-lead">${escapeHtml(story.latestEvent)}</p><div class="story-ticket-grid ${bonus ? 'single-digit-draw' : ''}">${story.ticketCandidates.map((number, index) => `<button class="story-ticket" style="--reveal:${index}" data-story-action="ticket" data-story-value="${number}"><span>整理券 ${index + 1}</span><strong aria-hidden="true">?</strong><small>これを引く</small></button>`).join('')}</div>`; }
+  if (story.phase === 'ticket-review') { const hasFinishedBothParts = story.drawPart === 1; const canRedraw = hasFinishedBothParts && story.money >= 3000; const nextLabel = hasFinishedBothParts ? 'これで行く' : '2部も引く'; return `<p class="eyebrow">TICKET CHECK</p><h2>手の中の、今日。</h2><div class="ticket-summary"><span>1部 <b>${story.tickets[0] ?? '---'}番</b></span><span>2部 <b>${story.tickets[1] ?? '---'}番</b></span></div><p class="story-lead">${escapeHtml(story.latestEvent)}</p><div class="story-after-actions">${hasFinishedBothParts ? `<button class="secondary-button" data-story-action="redraw" ${canRedraw ? '' : 'disabled'}>もう一回引く<br><small>1部・2部 / 3,000 COIN</small></button>` : ''}<button class="main-button" data-story-action="ticket-next">${nextLabel}</button></div>`; }
+  if (story.phase === 'free-1' || story.phase === 'free-2') { const label = story.phase === 'free-1' ? '1部まで' : '2部まで'; return `<p class="eyebrow">FREE TIME</p><h2>${label}<br>何をする？</h2><p class="story-lead">選べるのは、一つだけ。</p><div class="free-choice-grid">${story.freeChoices.map((entry, index) => `<button class="free-choice" style="--reveal:${index}" data-story-action="free" data-story-value="${entry.id}"><b>${escapeHtml(entry.name)}</b><span>${entry.money ? `${entry.money.toLocaleString()} COIN` : '無料'}</span></button>`).join('')}</div>`; }
+  if (story.phase === 'free-result') { const entry = story.selectedFreeEvent; return `<div class="free-result"><p class="eyebrow">FREE TIME</p><h2>${escapeHtml(entry.name)}</h2><p class="scene-story-copy">${lines(story.latestEvent)}</p><div class="delta-row"><span>COIN <b>${entry.money >= 0 ? '+' : ''}${entry.money.toLocaleString()}</b></span><span>STAMINA <b>${entry.stamina >= 0 ? '+' : ''}${entry.stamina}</b></span><span>SATISFACTION <b>+${entry.satisfaction}</b></span></div></div><button class="story-continue" data-story-action="free-next">リリイベへ</button>`; }
+  if (story.phase === 'part-1' || story.phase === 'part-2') { const part = story.phase === 'part-1' ? 0 : 1; const label = part === 0 ? '1部' : '2部'; return `<div class="admission-copy"><p>${label}、入場の時間。</p><div class="story-part-card"><span>最良整理番号</span><strong>${story.tickets[part]}番</strong><p>${storyPosition(story.tickets[part])}。今まで引いた中で、いちばん早い番号で入場する。</p></div></div><button class="main-button" data-story-action="play-part" data-story-value="${part}">${label}へ入場する</button>`; }
+  if (story.phase === 'live-result') { const score = story.partScores[story.lastPart]; const copy = score >= 7500 ? '──これを見るために来た。' : score >= 5500 ? '今日来てよかった。' : score >= 3000 ? 'めちゃくちゃ良かった。' : '楽しかった。'; return `<div class="live-result-copy score-tier-${score >= 7500 ? 'ultimate' : score >= 5500 ? 'great' : score >= 3000 ? 'good' : 'small'}"><p>${escapeHtml(story.latestEvent)}</p><strong>+${score.toLocaleString()}</strong><span>${copy}</span></div><button class="story-continue" data-story-action="live-next">チェキ会へ</button>`; }
+  if (story.phase === 'part-cheki') { const part = story.chekiPart; const label = part === 2 ? '3現場目' : `${part + 1}部`; const available = story.benefitTickets[part === 2 ? 2 : 0]; const count = story.chekiCounts[part]; const buyButton = part === 2 && available === 0 ? `<button class="main-button" data-story-action="buy-third-ticket" ${story.money < STORY_CONFIG.chekiCost ? 'disabled' : ''}>特典券を買う<br><small>${STORY_CONFIG.chekiCost.toLocaleString()} COIN</small></button>` : ''; return `<p class="eyebrow">${label.toUpperCase()} CHEKI</p><h2>何枚、撮る？</h2><div class="cheki-current"><span>現在</span><strong>${count}</strong><span>枚</span></div><p class="story-lead">${part < 2 ? '1部・2部共通の' : '3現場目専用の'}特典券 ${available}枚。</p><div class="story-after-actions"><button class="secondary-button" data-story-action="leave-part-cheki">この部はやめる</button>${buyButton || `<button class="main-button" data-story-action="part-cheki" ${available === 0 ? 'disabled' : ''}>特典券を使って<br>チェキを撮る</button>`}</div>`; }
+  if (story.phase === 'part-cheki-result') return `<div class="cheki-result ${story.chekiCount > 10 ? 'over-ten' : ''}"><span>${story.chekiPart + 1}部チェキ ${story.chekiCounts[story.chekiPart]}枚目 / 合計${story.chekiCount}枚</span><strong>+${story.latestEvent.match(/\+([\d,]+)/)?.[1] || 0}</strong><p>特典券を1枚使った。</p></div><div class="story-after-actions"><button class="secondary-button" data-story-action="leave-part-cheki">この部はやめる</button><button class="main-button" data-story-action="continue-part-cheki">続ける</button></div>`;
+  if (story.phase === 'after-event-intro') return `<div class="cinema-copy after-copy"><p>......終わった。</p><p>楽しかった。</p><p>でも、まだ帰るには早い気がする。</p><p>このあと、別の現場もある。</p><p>どうしよう。</p></div><div class="story-after-actions after-delayed"><button class="secondary-button" data-story-action="after" data-story-value="home">今日は帰る</button><button class="main-button" data-story-action="after" data-story-value="round">現場を回す<br><small>3,000 COIN</small></button></div>`;
+  if (story.phase === 'recovery') { const recoveryCost = STAMINA_CONFIG.thirdEventRecoveryCost; const canRecover = story.money >= recoveryCost; return `<p class="eyebrow">BETWEEN EVENTS</p><h2>次の現場の前に、<br>カフェで休もう。</h2><p class="story-lead">${escapeHtml(story.latestEvent)}</p><div class="story-ticket-purchase"><span>カフェ休憩</span><strong>${recoveryCost.toLocaleString()} COIN / 体力 +${STAMINA_CONFIG.thirdEventRecovery}</strong><small>座って呼吸を整える。満足度 +${STAMINA_CONFIG.thirdEventRecoverySatisfaction}</small><div class="story-after-actions"><button class="secondary-button" data-story-action="skip-third-recovery">休憩せず向かう</button><button class="main-button" data-story-action="third-recovery" ${canRecover ? '' : 'disabled'}>カフェで休んで向かう<br><small>${canRecover ? `${recoveryCost.toLocaleString()} COIN` : 'コインが足りない'}</small></button></div></div>`; }
+  if (story.phase === 'third-live') return `<div class="third-live-copy"><p class="eyebrow">THIRD EVENT / LIVE</p><strong>最後の現場。</strong><span>ここまで来た。</span><p>${escapeHtml(story.latestEvent)}</p></div><button class="story-continue" data-story-action="third-live-finish">最後の曲まで浴びる</button>`;
+  if (story.phase === 'third-live-result') return `<div class="third-live-result-copy"><span>THIRD EVENT COMPLETE</span><strong>+${story.thirdEventScore.toLocaleString()}</strong><p>光が弾けて、歓声が夜を揺らした。</p><b>今日の最後に、最高の景色。</b></div><button class="story-continue" data-story-action="cheki-intro">物販へ向かう</button>`;
+  if (story.phase === 'cheki-intro') return `<div class="cinema-copy"><p>ライブが終わった。</p><p>物販列ができている。</p><p>3現場目専用の特典券を、買えるだけ買える。</p><p>......1枚くらいなら。</p></div><div class="story-after-actions after-delayed"><button class="secondary-button" data-story-action="finish-story">帰る</button><button class="main-button" data-story-action="buy-third-ticket" ${story.money < STORY_CONFIG.chekiCost ? 'disabled' : ''}>特典券を買う<br><small>${STORY_CONFIG.chekiCost.toLocaleString()} COIN / そのまま撮影</small></button></div>`;
+  if (story.phase === 'cheki') return `<p class="eyebrow">CHEKI BOOTH</p><h2>何枚、撮る？</h2><div class="cheki-count">${story.chekiCount}<small>枚</small></div><p class="story-lead">財布は軽い。記憶は重い。</p><div class="story-after-actions"><button class="secondary-button" data-story-action="finish-story">帰る</button><button class="main-button" data-story-action="cheki">もう1枚撮る<br><small>2,000 COIN</small></button></div>`;
+  if (story.phase === 'cheki-ten') return `<div class="cheki-ten-copy"><p>......10枚撮った。</p><strong>まだ撮る？</strong></div><div class="story-after-actions"><button class="secondary-button" data-story-action="finish-story">帰る</button><button class="main-button" data-story-action="cheki-next">撮る。</button></div>`;
+  if (story.phase === 'cheki-result') return `<div class="cheki-result ${story.chekiCount > 10 ? 'over-ten' : ''}"><span>${story.chekiCount}枚目</span><strong>+${story.latestEvent.match(/\+(\d+)/)?.[1] || 0}</strong><p>${story.chekiCount > 10 ? '止まらない。' : 'もう一枚だけ。'}</p></div><div class="story-after-actions"><button class="secondary-button" data-story-action="finish-story">帰る</button><button class="main-button" data-story-action="cheki-next">もう1枚撮る</button></div>`;
+  if (story.phase === 'result-intro') return `<div class="cinema-copy result-intro-copy"><p>長い1日が終わった。</p><p>財布は軽い。</p><p>身体も重い。</p><p>でも──</p></div><button class="story-continue" data-story-action="reveal-result">振り返る</button>`;
+  if (story.phase === 'rescue') return `<div class="game-over-copy rescue-copy"><p>......無理だ。</p><p>身体が動かない。</p><strong>薬膳鍋なら、まだ。</strong><small>5,000コインで体力を全回復する。</small></div><button class="story-continue" data-story-action="rescue-meal">薬膳鍋を食べる</button>`;
   const gameOver = story.phase === 'game-over';
-  return `<p class="eyebrow">${gameOver ? 'GAME OVER' : 'DAY RESULT'}</p><h2>${gameOver ? '限界だった。' : storyTitle(story)}</h2><p class="story-result-copy">${escapeHtml(story.latestEvent)}</p><div class="story-result-score"><span>最終満足度</span><strong>${story.finalScore}</strong></div><dl class="story-result-details"><div><dt>残金</dt><dd>${story.money.toLocaleString()}コイン</dd></div><div><dt>総出費</dt><dd>${spent.toLocaleString()}コイン</dd></div><div><dt>残り体力</dt><dd>${story.stamina}</dd></div><div><dt>1部整理番号</dt><dd>${story.tickets[0]}番</dd></div><div><dt>2部整理番号</dt><dd>${story.tickets[1]}番</dd></div><div><dt>1部満足度</dt><dd>${story.partScores[0]}</dd></div><div><dt>2部満足度</dt><dd>${story.partScores[1]}</dd></div><div><dt>自由時間満足度</dt><dd>${story.freeTimeSatisfaction}</dd></div></dl><button class="main-button" data-action="start-story">もう一度ストーリーモードで遊ぶ</button>`;
+  if (gameOver) return `<div class="game-over-copy"><p>......無理だ。</p><p>身体が動かない。</p><strong>力尽きた。</strong><small>最終満足度は、ここまでの20%になる。</small></div><button class="story-continue" data-story-action="reveal-game-over-result">力尽きた結果を見る</button>`;
+  const storyRegistration = state.rankingRegistered ? '<p class="ranking-note">ストーリースコアを全国対戦へ登録しました。</p>' : `<div class="ranking-register"><p>ストーリーモードの全体スコアを全国対戦へ登録</p><div><input id="story-ranking-name" maxlength="${rankingNameMaxLength('story')}" placeholder="対戦名" aria-label="ストーリー対戦名" ${submittingRanking ? 'disabled' : ''}><button class="utility-button" data-story-action="register-story-ranking" ${submittingRanking ? 'disabled' : ''}>${submittingRanking ? '登録中…' : '登録する'}</button></div><p class="form-error">${escapeHtml(rankingError)}</p></div>`;
+  return `<p class="eyebrow">TODAY'S SATISFACTION</p><h2>${storyTitle(story)}</h2><div class="story-result-score"><span>今日の満足度</span><strong>${story.finalScore.toLocaleString()}</strong></div><p class="story-result-copy">${escapeHtml(story.biggestMoment)}</p><dl class="story-result-details"><div><dt>残金</dt><dd>${story.money.toLocaleString()}コイン</dd></div><div><dt>総出費</dt><dd>${story.totalSpent.toLocaleString()}コイン</dd></div><div><dt>残り体力</dt><dd>${story.stamina}</dd></div><div><dt>1部 / 2部整理番号</dt><dd>${story.tickets[0]}番 / ${story.tickets[1]}番</dd></div><div><dt>整番を引いた回数</dt><dd>${story.ticketDrawCount}回</dd></div><div><dt>1部 / 2部満足度</dt><dd>${story.partScores[0].toLocaleString()} / ${story.partScores[1].toLocaleString()}</dd></div><div><dt>FREE TIME満足度</dt><dd>${story.freeTimeSatisfaction.toLocaleString()}</dd></div><div><dt>現場回し</dt><dd>${story.afterEvent ? 'した' : 'しなかった'}</dd></div><div><dt>1部チェキ</dt><dd>${story.chekiCounts[0]}枚</dd></div><div><dt>2部チェキ</dt><dd>${story.chekiCounts[1]}枚</dd></div><div><dt>3現場目チェキ</dt><dd>${story.chekiCounts[2]}枚</dd></div></dl>${storyRegistration}<div class="actions"><button class="main-button" data-action="start-story">もう一度ストーリーモードで遊ぶ</button><button class="utility-button" data-action="ranking">全国対戦を見る</button></div>`;
 }
 
 function handleStoryAction(action, value) {
   const { story } = state;
+  if (action === 'arrival') chooseArrivalTime(story, Number(value));
   if (action === 'prepare') prepareStory(story, Number(value));
-  if (action === 'travel') travelToVenue(story, Number(value));
+  if (action === 'travel') travelToVenue(story);
   if (action === 'buy-tickets') buyStoryTickets(story);
   if (action === 'ticket') chooseStoryTicket(story, Number(value));
+  if (action === 'ticket-next') continueTicketDraw(story);
+  if (action === 'redraw') redrawStoryTickets(story);
   if (action === 'free') takeFreeTimeAction(story, value);
+  if (action === 'free-next') continueFromFreeTime(story);
   if (action === 'play-part') playStoryPart(story, Number(value));
+  if (action === 'live-next') continueFromLive(story);
   if (action === 'after') chooseAfterEvent(story, value);
+  if (action === 'third-recovery') takeThirdEventRecovery(story);
+  if (action === 'skip-third-recovery') skipThirdEventRecovery(story);
+  if (action === 'third-live-finish') finishThirdEvent(story);
+  if (action === 'cheki-intro') continueToCheki(story);
+  if (action === 'cheki-next') continueCheki(story);
   if (action === 'cheki') takeCheki(story);
+  if (action === 'part-cheki') takeCheki(story);
+  if (action === 'continue-part-cheki') continueCheki(story);
+  if (action === 'leave-part-cheki') leavePartCheki(story);
+  if (action === 'reveal-result') revealStoryResult(story);
+  if (action === 'reveal-game-over-result') revealStoryResult(story);
+  if (action === 'rescue-meal') takeRescueMeal(story);
+  if (action === 'buy-third-ticket') buyThirdEventTicket(story);
+  if (action === 'register-story-ranking') registerStoryRanking();
   if (action === 'finish-story') finishStory(story);
   render();
 }
@@ -262,7 +284,7 @@ function renderHistory() {
 }
 
 function renderRanking() {
-  const tabs = Object.values(DRAW_MODES).map((mode) => `<button class="ranking-mode-tab ${rankingMode === mode.id ? 'active' : ''}" data-ranking-mode="${mode.id}">${escapeHtml(mode.name)}</button>`).join('');
+  const tabs = RANKING_MODES.map((mode) => `<button class="ranking-mode-tab ${rankingMode === mode.id ? 'active' : ''}" data-ranking-mode="${mode.id}">${escapeHtml(mode.name)}</button>`).join('');
   const content = rankingStatus === 'loading'
     ? '<p class="ranking-state">全国の整番を集計中……</p>'
     : rankingStatus === 'error'
@@ -270,7 +292,8 @@ function renderRanking() {
       : ranking.length
         ? `<ol class="ranking-list">${ranking.map((record) => `<li><span>${escapeHtml(record.player_name)}</span><strong>${record.score}</strong></li>`).join('')}</ol>`
         : '<p class="ranking-state">まだ記録がありません。最初のScoreを刻もう。</p>';
-  return `<section class="screen archive-screen"><p class="eyebrow">NATIONAL SCORE MATCH</p><h2>スコア全国対戦</h2><div class="ranking-mode-tabs">${tabs}</div><p class="draw-instruction">${escapeHtml(DRAW_MODES[rankingMode].name)}部門。同じ対戦名は最高Scoreのみを掲載します。</p>${content}</section>`;
+  const rankingLabel = RANKING_MODES.find((mode) => mode.id === rankingMode)?.name || rankingMode;
+  return `<section class="screen archive-screen"><p class="eyebrow">NATIONAL SCORE MATCH</p><h2>スコア全国対戦</h2><div class="ranking-mode-tabs">${tabs}</div><p class="draw-instruction">${escapeHtml(rankingLabel)}部門。同じ対戦名は最高Scoreのみを掲載します。</p>${content}</section>`;
 }
 
 function saveCurrentPlay() {
@@ -306,6 +329,24 @@ async function registerRanking() {
   render();
   try {
     await submitRanking(playerName, scoreForState(), state.mode);
+    state.rankingRegistered = true;
+  } catch (submitError) {
+    rankingError = submitError.message || '全国対戦への登録に失敗しました。';
+  }
+  submittingRanking = false;
+  render();
+}
+
+async function registerStoryRanking() {
+  if (submittingRanking || state?.story?.finalScore == null) return;
+  const playerName = String(document.querySelector('#story-ranking-name')?.value || '').trim();
+  const error = rankingNameError(playerName, 'story');
+  if (error) { rankingError = error; render(); return; }
+  submittingRanking = true;
+  rankingError = '';
+  render();
+  try {
+    await submitRanking(playerName, state.story.finalScore, 'story');
     state.rankingRegistered = true;
   } catch (submitError) {
     rankingError = submitError.message || '全国対戦への登録に失敗しました。';

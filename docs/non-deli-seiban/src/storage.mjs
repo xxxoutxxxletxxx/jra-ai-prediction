@@ -3,7 +3,8 @@ const RANKING_PREFIX = '[RIRIEVENT-GO] ';
 const RANKING_MODE_PREFIXES = {
   normal: RANKING_PREFIX,
   fever: '[RIRIEVENT-GO:FEVER] ',
-  paradise: '[RIRIEVENT-GO:PARADISE] '
+  paradise: '[RIRIEVENT-GO:PARADISE] ',
+  story: '[RIRIEVENT-GO:STORY] '
 };
 const SUPABASE_URL = 'https://knfznjurrjoozdwhkffm.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_lKNG7O9cPnR_9dV_9BDUxg__j6c5vEX';
