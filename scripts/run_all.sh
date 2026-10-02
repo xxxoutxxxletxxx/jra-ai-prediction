@@ -3,6 +3,10 @@ set -Eeuo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_ROOT"
+PYTHON="$PROJECT_ROOT/.venv/bin/python"
+if [[ ! -x "$PYTHON" ]]; then
+  PYTHON="python3"
+fi
 
 LOG_DIR="$PROJECT_ROOT/logs"
 mkdir -p "$LOG_DIR"
@@ -112,7 +116,7 @@ fi
 ok
 
 print_header "[3/7] AI予測"
-python3 -m src.ranker_production_predict || fail "src.ranker_production_predict が失敗しました。"
+"$PYTHON" -m src.ranker_production_predict || fail "src.ranker_production_predict が失敗しました。"
 ok
 
 PREDICTIONS_FILE="$PROJECT_ROOT/output/predictions.csv"
@@ -124,7 +128,7 @@ echo "predictions.csv: $(wc -l < "$PREDICTIONS_FILE") lines"
 ok
 
 print_header "[4/7] Webデータ生成"
-python3 scripts/build_site_data.py || fail "scripts/build_site_data.py が失敗しました。"
+"$PYTHON" scripts/build_site_data.py || fail "scripts/build_site_data.py が失敗しました。"
 for required in "docs/data/latest.json" "docs/data/archive/index.json"; do
   if [[ ! -s "$PROJECT_ROOT/$required" ]]; then
     fail "Webデータ生成に失敗しました: $required"
@@ -168,7 +172,7 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
 fi
 
 print_header "[6/7] GitHub push"
-if ! bash scripts/publish_predictions.sh; then
+if ! bash scripts/publish_predictions.sh --skip-predict; then
   fail "公開処理が失敗しました。"
 fi
 ok
@@ -180,7 +184,7 @@ echo "SUCCESS"
 echo "競馬AI予測サイトを更新しました"
 echo "===================================="
 
-echo "対象開催日: $(python3 - <<'PY'
+echo "対象開催日: $("$PYTHON" - <<'PY'
 import csv
 from pathlib import Path
 p = Path('output/predictions.csv')
@@ -196,7 +200,7 @@ else:
     print(dates[-1] if dates else '不明')
 PY
 )"
-echo "予測レース数: $(python3 - <<'PY'
+echo "予測レース数: $("$PYTHON" - <<'PY'
 import csv
 from pathlib import Path
 p = Path('output/predictions.csv')
@@ -208,7 +212,7 @@ with p.open(newline='', encoding='utf-8') as f:
 print(len(rows))
 PY
 )"
-echo "予測馬数: $(python3 - <<'PY'
+echo "予測馬数: $("$PYTHON" - <<'PY'
 import csv
 from pathlib import Path
 p = Path('output/predictions.csv')

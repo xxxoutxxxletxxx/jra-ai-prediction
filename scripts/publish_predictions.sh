@@ -13,6 +13,15 @@ set -eu
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_ROOT"
+PYTHON="$PROJECT_ROOT/.venv/bin/python"
+if [ ! -x "$PYTHON" ]; then
+  PYTHON="python3"
+fi
+
+SKIP_PREDICT=0
+if [ "${1:-}" = "--skip-predict" ]; then
+  SKIP_PREDICT=1
+fi
 
 if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
   echo "エラー: このディレクトリは Git リポジトリではありません。" >&2
@@ -31,13 +40,17 @@ fi
 echo "================================================================"
 echo "[1/6] 検証済みRanker本番予測を実行します"
 echo "================================================================"
-python3 -m src.ranker_production_predict
+if [ "$SKIP_PREDICT" -eq 1 ]; then
+  echo "既存の output/predictions.csv を使用します。"
+else
+  "$PYTHON" -m src.ranker_production_predict
+fi
 
 echo ""
 echo "================================================================"
 echo "[2/6] build_site_data.py を実行します"
 echo "================================================================"
-python3 scripts/build_site_data.py
+"$PYTHON" scripts/build_site_data.py
 
 echo ""
 echo "================================================================"

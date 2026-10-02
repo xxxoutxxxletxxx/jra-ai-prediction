@@ -57,6 +57,8 @@ python3 -m src.ranker_production_predict --start-date 2026-09-12 --days 1
 bash scripts/publish_predictions.sh
 ```
 
+Macで予測生成からサイト更新・GitHub Pagesへのpushまで一括実行する場合は、プロジェクトフォルダの `競馬AI更新.command`（または `run_all.command`）をダブルクリックします。Mac側の `data/raw/race.db` を使って、直近2日分を予測します。JRA-VANのデータを更新した場合は、更新済みの `race.db` をMac側へコピーしてから実行してください。
+
 このスクリプトは、予測生成 → Web 用 JSON 生成 → `docs/` 更新 → Git への安全なコミットを行う構成です。
 
 > `race.db`、JRA-VAN 元データ、学習用データ、巨大な履歴ファイルは commit 対象に含めません。
