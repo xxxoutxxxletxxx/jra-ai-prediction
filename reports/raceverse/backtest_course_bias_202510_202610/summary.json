@@ -1,0 +1,519 @@
+{
+  "common_races": 1545,
+  "probability_metrics": [
+    {
+      "model": "existing_ranker",
+      "calibrated": true,
+      "races": 1545,
+      "horses": 20733,
+      "logloss_binary": 0.2332485736164639,
+      "brier_binary": 0.06356607404088475,
+      "winner_logloss": 2.21017623405309,
+      "top1_hit_rate": 0.2621359223300971,
+      "top3_recall": 0.45325290822921155,
+      "rank_spearman": 0.42715951752286385,
+      "top_prob_sum_check": 1.2212453270876722e-15
+    },
+    {
+      "model": "raceverse_formation",
+      "calibrated": false,
+      "races": 1545,
+      "horses": 20733,
+      "logloss_binary": 0.23608324582979545,
+      "brier_binary": 0.06411907221434428,
+      "winner_logloss": 2.2433676419927537,
+      "top1_hit_rate": 0.26019417475728157,
+      "top3_recall": 0.45217578629900906,
+      "rank_spearman": 0.4257398045789353,
+      "top_prob_sum_check": 1.1102230246251565e-16
+    },
+    {
+      "model": "raceverse_formation",
+      "calibrated": true,
+      "races": 1545,
+      "horses": 20733,
+      "logloss_binary": 0.23448050725638825,
+      "brier_binary": 0.06376399380242347,
+      "winner_logloss": 2.2251191467243188,
+      "top1_hit_rate": 0.26019417475728157,
+      "top3_recall": 0.45217578629900906,
+      "rank_spearman": 0.4257398045789353,
+      "top_prob_sum_check": 2.220446049250313e-16
+    },
+    {
+      "model": "raceverse_pace",
+      "calibrated": false,
+      "races": 1545,
+      "horses": 20733,
+      "logloss_binary": 0.23662276069415697,
+      "brier_binary": 0.06423284345439638,
+      "winner_logloss": 2.2494504069357912,
+      "top1_hit_rate": 0.2543689320388349,
+      "top3_recall": 0.44808272296423957,
+      "rank_spearman": 0.4278859630459506,
+      "top_prob_sum_check": 1.1102230246251565e-16
+    },
+    {
+      "model": "raceverse_pace",
+      "calibrated": true,
+      "races": 1545,
+      "horses": 20733,
+      "logloss_binary": 0.23494600955098063,
+      "brier_binary": 0.06385855451467037,
+      "winner_logloss": 2.229965420063485,
+      "top1_hit_rate": 0.2543689320388349,
+      "top3_recall": 0.44808272296423957,
+      "rank_spearman": 0.4278859630459506,
+      "top_prob_sum_check": 2.220446049250313e-16
+    },
+    {
+      "model": "raceverse_formation_bias",
+      "calibrated": false,
+      "races": 1545,
+      "horses": 20733,
+      "logloss_binary": 0.23621036112697577,
+      "brier_binary": 0.06413621588578594,
+      "winner_logloss": 2.2449532658611013,
+      "top1_hit_rate": 0.256957928802589,
+      "top3_recall": 0.45217578629900906,
+      "rank_spearman": 0.42707544951877646,
+      "top_prob_sum_check": 1.1102230246251565e-16
+    },
+    {
+      "model": "raceverse_formation_bias",
+      "calibrated": true,
+      "races": 1545,
+      "horses": 20733,
+      "logloss_binary": 0.23489051713987108,
+      "brier_binary": 0.06384603635192551,
+      "winner_logloss": 2.2299409378399577,
+      "top1_hit_rate": 0.256957928802589,
+      "top3_recall": 0.45217578629900906,
+      "rank_spearman": 0.42707544951877646,
+      "top_prob_sum_check": 2.220446049250313e-16
+    },
+    {
+      "model": "raceverse_pace_bias",
+      "calibrated": false,
+      "races": 1545,
+      "horses": 20733,
+      "logloss_binary": 0.23669108367178787,
+      "brier_binary": 0.06424165056190614,
+      "winner_logloss": 2.2503205746723576,
+      "top1_hit_rate": 0.24660194174757283,
+      "top3_recall": 0.44915984489444205,
+      "rank_spearman": 0.42792793356845304,
+      "top_prob_sum_check": 1.1102230246251565e-16
+    },
+    {
+      "model": "raceverse_pace_bias",
+      "calibrated": true,
+      "races": 1545,
+      "horses": 20733,
+      "logloss_binary": 0.23513983281233145,
+      "brier_binary": 0.06389860928113264,
+      "winner_logloss": 2.2322691549092286,
+      "top1_hit_rate": 0.24660194174757283,
+      "top3_recall": 0.44915984489444205,
+      "rank_spearman": 0.42792793356845304,
+      "top_prob_sum_check": 2.220446049250313e-16
+    }
+  ],
+  "roi_reference": [
+    {
+      "model": "existing_ranker",
+      "buy_rule": "top1",
+      "bets": 1545,
+      "investment": 154500.0,
+      "returned": 124180.0,
+      "roi_pct": 80.37540453074433,
+      "max_drawdown": 32020.0,
+      "hit_rate": 0.2621359223300971
+    },
+    {
+      "model": "existing_ranker",
+      "buy_rule": "rule",
+      "bets": 478,
+      "investment": 47800.0,
+      "returned": 43810.0,
+      "roi_pct": 91.65271966527196,
+      "max_drawdown": 6600.0,
+      "hit_rate": 0.19665271966527198
+    },
+    {
+      "model": "existing_ranker",
+      "buy_rule": "ev>=1.0",
+      "bets": 516,
+      "investment": 51600.0,
+      "returned": 40870.0,
+      "roi_pct": 79.20542635658914,
+      "max_drawdown": 12830.0,
+      "hit_rate": 0.13178294573643412
+    },
+    {
+      "model": "existing_ranker",
+      "buy_rule": "ev>=1.2",
+      "bets": 334,
+      "investment": 33400.0,
+      "returned": 27790.0,
+      "roi_pct": 83.20359281437125,
+      "max_drawdown": 7710.0,
+      "hit_rate": 0.10179640718562874
+    },
+    {
+      "model": "raceverse_formation_calibrated",
+      "buy_rule": "top1",
+      "bets": 1545,
+      "investment": 154500.0,
+      "returned": 128180.0,
+      "roi_pct": 82.96440129449837,
+      "max_drawdown": 26540.0,
+      "hit_rate": 0.26019417475728157
+    },
+    {
+      "model": "raceverse_formation_calibrated",
+      "buy_rule": "rule",
+      "bets": 478,
+      "investment": 47800.0,
+      "returned": 48070.0,
+      "roi_pct": 100.56485355648535,
+      "max_drawdown": 5680.0,
+      "hit_rate": 0.18410041841004185
+    },
+    {
+      "model": "raceverse_formation_calibrated",
+      "buy_rule": "ev>=1.0",
+      "bets": 561,
+      "investment": 56100.0,
+      "returned": 48520.0,
+      "roi_pct": 86.48841354723707,
+      "max_drawdown": 7900.0,
+      "hit_rate": 0.13725490196078433
+    },
+    {
+      "model": "raceverse_formation_calibrated",
+      "buy_rule": "ev>=1.2",
+      "bets": 399,
+      "investment": 39900.0,
+      "returned": 33770.0,
+      "roi_pct": 84.63659147869674,
+      "max_drawdown": 6030.0,
+      "hit_rate": 0.10526315789473684
+    },
+    {
+      "model": "raceverse_pace_calibrated",
+      "buy_rule": "top1",
+      "bets": 1545,
+      "investment": 154500.0,
+      "returned": 124760.0,
+      "roi_pct": 80.75080906148867,
+      "max_drawdown": 29640.0,
+      "hit_rate": 0.2543689320388349
+    },
+    {
+      "model": "raceverse_pace_calibrated",
+      "buy_rule": "rule",
+      "bets": 455,
+      "investment": 45500.0,
+      "returned": 44590.0,
+      "roi_pct": 98.0,
+      "max_drawdown": 4170.0,
+      "hit_rate": 0.17362637362637362
+    },
+    {
+      "model": "raceverse_pace_calibrated",
+      "buy_rule": "ev>=1.0",
+      "bets": 528,
+      "investment": 52800.0,
+      "returned": 42200.0,
+      "roi_pct": 79.92424242424242,
+      "max_drawdown": 10550.0,
+      "hit_rate": 0.11931818181818182
+    },
+    {
+      "model": "raceverse_pace_calibrated",
+      "buy_rule": "ev>=1.2",
+      "bets": 368,
+      "investment": 36800.0,
+      "returned": 31090.0,
+      "roi_pct": 84.48369565217392,
+      "max_drawdown": 5850.0,
+      "hit_rate": 0.09782608695652174
+    },
+    {
+      "model": "raceverse_formation_bias_calibrated",
+      "buy_rule": "top1",
+      "bets": 1545,
+      "investment": 154500.0,
+      "returned": 124380.0,
+      "roi_pct": 80.50485436893204,
+      "max_drawdown": 30410.0,
+      "hit_rate": 0.256957928802589
+    },
+    {
+      "model": "raceverse_formation_bias_calibrated",
+      "buy_rule": "rule",
+      "bets": 473,
+      "investment": 47300.0,
+      "returned": 45560.0,
+      "roi_pct": 96.32135306553911,
+      "max_drawdown": 5150.0,
+      "hit_rate": 0.18604651162790697
+    },
+    {
+      "model": "raceverse_formation_bias_calibrated",
+      "buy_rule": "ev>=1.0",
+      "bets": 546,
+      "investment": 54600.0,
+      "returned": 44370.0,
+      "roi_pct": 81.26373626373626,
+      "max_drawdown": 10550.0,
+      "hit_rate": 0.1282051282051282
+    },
+    {
+      "model": "raceverse_formation_bias_calibrated",
+      "buy_rule": "ev>=1.2",
+      "bets": 372,
+      "investment": 37200.0,
+      "returned": 29790.0,
+      "roi_pct": 80.08064516129032,
+      "max_drawdown": 7730.0,
+      "hit_rate": 0.0967741935483871
+    },
+    {
+      "model": "raceverse_pace_bias_calibrated",
+      "buy_rule": "top1",
+      "bets": 1545,
+      "investment": 154500.0,
+      "returned": 120200.0,
+      "roi_pct": 77.79935275080906,
+      "max_drawdown": 34200.0,
+      "hit_rate": 0.24660194174757283
+    },
+    {
+      "model": "raceverse_pace_bias_calibrated",
+      "buy_rule": "rule",
+      "bets": 470,
+      "investment": 47000.0,
+      "returned": 43680.0,
+      "roi_pct": 92.93617021276596,
+      "max_drawdown": 4420.0,
+      "hit_rate": 0.1723404255319149
+    },
+    {
+      "model": "raceverse_pace_bias_calibrated",
+      "buy_rule": "ev>=1.0",
+      "bets": 549,
+      "investment": 54900.0,
+      "returned": 43130.0,
+      "roi_pct": 78.56102003642988,
+      "max_drawdown": 11670.0,
+      "hit_rate": 0.12021857923497267
+    },
+    {
+      "model": "raceverse_pace_bias_calibrated",
+      "buy_rule": "ev>=1.2",
+      "bets": 378,
+      "investment": 37800.0,
+      "returned": 30860.0,
+      "roi_pct": 81.64021164021163,
+      "max_drawdown": 6860.0,
+      "hit_rate": 0.10052910052910052
+    }
+  ],
+  "relative_time": [
+    {
+      "model": "raceverse_formation",
+      "n": 20733,
+      "mae": 0.5848807914194898,
+      "rmse": 0.9628342825613543,
+      "corr": 0.34691781740360084,
+      "mae_zero_pred": 0.6439630309422287,
+      "rmse_zero_pred": 1.0261575196568287
+    },
+    {
+      "model": "raceverse_pace",
+      "n": 20733,
+      "mae": 0.5838066904037037,
+      "rmse": 0.9621741208096739,
+      "corr": 0.34863703163876997,
+      "mae_zero_pred": 0.6439630309422287,
+      "rmse_zero_pred": 1.0261575196568287
+    },
+    {
+      "model": "raceverse_formation_bias",
+      "n": 20733,
+      "mae": 0.5845682487823362,
+      "rmse": 0.9627281087185181,
+      "corr": 0.3471022281867235,
+      "mae_zero_pred": 0.6439630309422287,
+      "rmse_zero_pred": 1.0261575196568287
+    },
+    {
+      "model": "raceverse_pace_bias",
+      "n": 20733,
+      "mae": 0.5834092590294436,
+      "rmse": 0.9620292921204641,
+      "corr": 0.3489260980736867,
+      "mae_zero_pred": 0.6439630309422287,
+      "rmse_zero_pred": 1.0261575196568287
+    }
+  ],
+  "course_bias_overview": {
+    "formation->formation_bias": {
+      "distance_band": {
+        "groups": 4,
+        "logloss_improved": 0,
+        "mae_time_improved": 4
+      },
+      "style": {
+        "groups": 4,
+        "logloss_improved": 1,
+        "mae_time_improved": 2
+      },
+      "surface": {
+        "groups": 2,
+        "logloss_improved": 0,
+        "mae_time_improved": 1
+      },
+      "track": {
+        "groups": 10,
+        "logloss_improved": 4,
+        "mae_time_improved": 5
+      },
+      "wakuban_k": {
+        "groups": 8,
+        "logloss_improved": 2,
+        "mae_time_improved": 6
+      }
+    },
+    "pace->pace_bias": {
+      "distance_band": {
+        "groups": 4,
+        "logloss_improved": 1,
+        "mae_time_improved": 4
+      },
+      "style": {
+        "groups": 4,
+        "logloss_improved": 1,
+        "mae_time_improved": 3
+      },
+      "surface": {
+        "groups": 2,
+        "logloss_improved": 1,
+        "mae_time_improved": 1
+      },
+      "track": {
+        "groups": 10,
+        "logloss_improved": 4,
+        "mae_time_improved": 7
+      },
+      "wakuban_k": {
+        "groups": 8,
+        "logloss_improved": 2,
+        "mae_time_improved": 7
+      }
+    }
+  },
+  "races_evaluated": 1545,
+  "pace": {
+    "early_split": {
+      "model_sim_mean": {
+        "n": 1545,
+        "mae": 0.5568052048145508,
+        "rmse": 0.7134063671230445,
+        "bias": 0.019128510632214695
+      },
+      "reference_baseline_only": {
+        "n": 1545,
+        "mae": 0.5977643324249882,
+        "rmse": 0.7593617021650126,
+        "bias": 0.13240246693020943
+      },
+      "regression_mean_only": {
+        "n": 1545,
+        "mae": 0.5568052048145511,
+        "rmse": 0.7134063671230446,
+        "bias": 0.01912851063221464
+      }
+    },
+    "p10_p90_coverage": 0.1650485436893204,
+    "display_bucket_calibration": [
+      {
+        "bucket": "VERY_FAST",
+        "predicted_rate": 0.0021421359223300976,
+        "actual_rate": 0.12362459546925567
+      },
+      {
+        "bucket": "FAST",
+        "predicted_rate": 0.10006724919093851,
+        "actual_rate": 0.2174757281553398
+      },
+      {
+        "bucket": "MIDDLE",
+        "predicted_rate": 0.8332435598705502,
+        "actual_rate": 0.3935275080906149
+      },
+      {
+        "bucket": "SLOW",
+        "predicted_rate": 0.06433443365695793,
+        "actual_rate": 0.18964401294498381
+      },
+      {
+        "bucket": "VERY_SLOW",
+        "predicted_rate": 0.00021262135922330098,
+        "actual_rate": 0.07572815533980583
+      }
+    ]
+  },
+  "timing": {
+    "winning_time": {
+      "baseline": {
+        "n": 1545,
+        "mae": 0.8572748917790616,
+        "rmse": 1.1318240750176531,
+        "bias": 0.30880383499338726
+      },
+      "track_bias": {
+        "n": 1545,
+        "mae": 0.787312277543077,
+        "rmse": 1.0378757597771253,
+        "bias": 0.2139984477595734
+      },
+      "field_ability": {
+        "n": 1545,
+        "mae": 0.7931902998771366,
+        "rmse": 1.0403732965506938,
+        "bias": 0.28644596949878687
+      },
+      "full": {
+        "n": 1545,
+        "mae": 0.7614724211883707,
+        "rmse": 1.0081074122460352,
+        "bias": 0.260391863062992
+      }
+    },
+    "p10_p90_coverage": 0.7611650485436893
+  },
+  "formation": {
+    "early_position_mae_relative": 0.2094806185366383,
+    "naive_constant_mae": 0.2675684009565148,
+    "leader_in_top3_lead_prob_rate": 0.6378519973804846,
+    "n_runners": 20469
+  },
+  "config": {
+    "n_simulations": 10000,
+    "seed": 42,
+    "levels": [
+      "formation",
+      "formation_bias",
+      "pace",
+      "pace_bias"
+    ],
+    "test_start": "2025-10-01",
+    "test_end": "2026-10-01",
+    "burn_in_start": "2025-04-01",
+    "odds_note": "DB odds are FINAL odds, not pre-bet snapshots; ROI is reference only"
+  },
+  "runtime_sec": 575.1651337146759
+}

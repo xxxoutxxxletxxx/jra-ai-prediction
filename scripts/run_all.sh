@@ -16,33 +16,57 @@ exec > >(tee -a "$LOG_FILE") 2>&1
 
 DRY_RUN=0
 SKIP_JV=0
+PREDICTION_START_DATE=""
+PREDICTION_DAYS=2
 
 usage() {
   cat <<'EOF'
 Usage:
-  bash scripts/run_all.sh [--dry-run] [--skip-jv]
+  bash scripts/run_all.sh [--dry-run] [--skip-jv] [--start-date YYYY-MM-DD] [--days N]
 
 Options:
   --dry-run    予測とWeb生成まで実行し、git commit / git push は行いません
   --skip-jv    Windows側JV-Link更新をスキップし、既存の race.db を使用します
+  --start-date 予測開始日を指定します（YYYY-MM-DD）
+  --days       予測日数を指定します（デフォルト: 2）
   -h, --help   このヘルプを表示します
 EOF
 }
 
-for arg in "$@"; do
-  case "$arg" in
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     --dry-run)
       DRY_RUN=1
+      shift
       ;;
     --skip-jv)
       SKIP_JV=1
+      shift
+      ;;
+    --start-date)
+      if [[ $# -lt 2 ]]; then
+        echo "--start-date には YYYY-MM-DD が必要です。" >&2
+        exit 2
+      fi
+      shift
+      PREDICTION_START_DATE="$1"
+      shift
+      ;;
+    --days)
+      if [[ $# -lt 2 ]]; then
+        echo "--days には数値が必要です。" >&2
+        exit 2
+      fi
+      shift
+      PREDICTION_DAYS="$1"
+      shift
       ;;
     -h|--help)
       usage
       exit 0
       ;;
     *)
-      echo "Unknown argument: $arg" >&2
+      echo "Unknown argument: $1" >&2
       usage >&2
       exit 2
       ;;
@@ -116,7 +140,11 @@ fi
 ok
 
 print_header "[3/7] AI予測"
-"$PYTHON" -m src.ranker_production_predict || fail "src.ranker_production_predict が失敗しました。"
+PREDICT_ARGS=(--days "$PREDICTION_DAYS")
+if [[ -n "$PREDICTION_START_DATE" ]]; then
+  PREDICT_ARGS+=(--start-date "$PREDICTION_START_DATE")
+fi
+"$PYTHON" -m src.ranker_production_predict "${PREDICT_ARGS[@]}" || fail "src.ranker_production_predict が失敗しました。"
 ok
 
 PREDICTIONS_FILE="$PROJECT_ROOT/output/predictions.csv"
