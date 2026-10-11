@@ -1,0 +1,116 @@
+.rv-notice {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  font-size: 0.84rem;
+  line-height: 1.6;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+}
+
+.rv-notice p {
+  margin: 0;
+}
+
+.rv-notice p + p {
+  margin-top: 5px;
+}
+
+.rv-race-list {
+  display: grid;
+  gap: 14px;
+}
+
+.rv-race-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.rv-race-heading {
+  align-items: center;
+  background: var(--bg-card-2);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.95rem;
+  font-weight: 700;
+  gap: 4px 10px;
+  justify-content: space-between;
+  padding: 10px 14px;
+}
+
+.rv-race-conditions,
+.rv-race-forecast {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  font-weight: 400;
+}
+
+.rv-race-forecast {
+  line-height: 1.55;
+  padding: 8px 14px 0;
+}
+
+.rv-horses {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 10px 12px 8px;
+}
+
+.rv-horse {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 26px 34px minmax(0, 1fr) auto;
+  min-width: 0;
+}
+
+.rv-mark {
+  color: var(--rank1);
+  font-weight: 800;
+  text-align: center;
+}
+
+.rv-horse:nth-child(2) .rv-mark { color: var(--rank2); }
+.rv-horse:nth-child(3) .rv-mark { color: var(--rank3); }
+
+.rv-number {
+  background: var(--bg-card-2);
+  border-radius: 6px;
+  font-weight: 800;
+  padding: 3px 7px;
+  text-align: center;
+}
+
+.rv-horse-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.rv-probability {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.rv-all-horses {
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  padding: 10px 14px;
+}
+
+.rv-all-horses summary {
+  color: var(--accent-2);
+  cursor: pointer;
+}
+
+.rv-all-horses .rv-horses {
+  padding-left: 0;
+  padding-right: 0;
+}

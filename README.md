@@ -63,6 +63,12 @@ Macで予測生成からサイト更新・GitHub Pagesへのpushまで一括実�
 
 > `race.db`、JRA-VAN 元データ、学習用データ、巨大な履歴ファイルは commit 対象に含めません。
 
+RACEVERSEの予測は既存Rankerとは分けて公開します。`raceverse` のレース別JSONを生成した後、次のコマンドでサイト用データを作成します。
+```bash
+python3 scripts/build_raceverse_site_data.py
+```
+出力先は `docs/data/raceverse/latest.json` で、掲載ページは `docs/raceverse.html` です。公開時はこれらとページ本体・トップページのリンクだけを個別に追加してください。
+
 ## バックテスト
 本番予測や Web サイト生成とは独立して、月次 walk-forward 評価を実行できます。
 ```bash
@@ -115,4 +121,3 @@ pip install -r requirements.txt
 ## 免責事項
 
 本サイトの予測は参考情報であり、的中や利益を保証するものではありません。予測の精度や表示内容は今後の改善対象ですが、公開用の静的サイト設定と更新フローは安全に維持します。
-
