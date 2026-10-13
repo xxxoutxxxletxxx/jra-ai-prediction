@@ -22,6 +22,8 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from statistics import mean, pstdev
 
+import numpy as np
+
 try:
     from sklearn.metrics import log_loss, roc_auc_score
 except ImportError:  # pragma: no cover - requirements.txt installs scikit-learn
@@ -523,6 +525,27 @@ def historical_value(history: list[dict], key: str, value: object,
     if len(values) < min_match:
         return shrink_mean(values, global_mean) - global_mean, len(values)
     return shrink_mean(values, global_mean) - global_mean, len(values)
+
+
+def trend_summary(values: list[float], prior: float = 5.0) -> tuple[float, float, float, float]:
+    """Return a shrunk chronological slope, recent-minus-past delta, volatility and confidence."""
+    if not values:
+        return 0.0, 0.0, 0.0, 0.0
+    chronological = np.asarray(list(reversed(values)), dtype=float)
+    count = len(chronological)
+    if count < 2:
+        return 0.0, 0.0, 0.0, count / (count + prior)
+    x = np.arange(count, dtype=float)
+    slope = float(np.polyfit(x, chronological, 1)[0])
+    split = max(1, count // 2)
+    recent_mean = float(np.mean(chronological[-split:]))
+    earlier_mean = float(np.mean(chronological[:-split])) if count > split else recent_mean
+    return (
+        slope * count / (count + prior),
+        (recent_mean - earlier_mean) * count / (count + prior),
+        float(np.std(chronological)),
+        count / (count + prior),
+    )
 
 
 def normalized_interval(days: int | float) -> float:
@@ -1031,6 +1054,7 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                                  "adjusted_sum": 0.0, "adjusted_count": 0,
                                  "finish_sum": 0.0, "normalized_finish_sum": 0.0})
     jockey_state = defaultdict(lambda: {"rides": 0, "wins": 0, "top2": 0, "places": 0, "added_sum": 0.0, "recent": deque(maxlen=30)})
+    jockey_history = defaultdict(lambda: deque(maxlen=30))
     features = []
     # Aggregation maps for course x Wakuban and bloodline stats (updated after race results are applied)
     course_gate_stats = defaultdict(lambda: {"races": 0, "wins": 0, "places": 0})
@@ -1099,6 +1123,14 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                 cutoff = current_date - timedelta(days=365)
                 while race_dates[horse] and race_dates[horse][0] < cutoff:
                     race_dates[horse].popleft()
+                jockey = result.get("jockey", "")
+                jockey_history[jockey].append(result)
+                jockey_state[jockey]["rides"] += 1
+                jockey_state[jockey]["wins"] += int(result.get("win", 0))
+                jockey_state[jockey]["top2"] += int(result.get("finish", 0) == 2 or result.get("win", 0))
+                jockey_state[jockey]["places"] += int(result.get("place", 0))
+                jockey_state[jockey]["added_sum"] += result.get("jockey_added_value", 0.0)
+                jockey_state[jockey]["recent"].append(result.get("jockey_added_value", 0.0))
             pending_updates = []
         current_date = date_value
         if race_index % 5000 == 0:
@@ -1210,10 +1242,63 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
             current_surface = surface(row)
             current_gate_band = gate_band(integer(row.get("Wakuban")), field_count)
             current_rest_band = rest_band((date_value - recent3[0]["date"]).days if recent3 else None)
+            racecourse_name = JYO_NAMES.get(text(row.get("idJyoCD")).zfill(2), text(row.get("idJyoCD")))
             horse_distance_aptitude, distance_aptitude_sample_count = historical_value(past, "distance_band", current_distance_band, global_adjusted)
             horse_surface_aptitude, surface_aptitude_sample_count = historical_value(past, "surface", current_surface, global_adjusted)
             horse_rest_aptitude, rest_aptitude_sample_count = historical_value(past, "rest_band", current_rest_band, global_adjusted)
             horse_gate_aptitude, gate_aptitude_sample_count = historical_value(past, "gate_band", current_gate_band, global_adjusted)
+            course_aptitude, course_aptitude_sample_count = historical_value(
+                past, "racecourse", racecourse_name, global_adjusted
+            )
+            course_distance_history = [
+                item for item in past
+                if item.get("racecourse") == racecourse_name
+                and item.get("distance_band") == current_distance_band
+            ]
+            course_distance_aptitude = (
+                shrink_mean(
+                    [float(item["adjusted_performance"]) for item in course_distance_history],
+                    global_adjusted,
+                ) - global_adjusted
+            )
+            distance_differences = [
+                (float(item.get("distance", current_distance)) - current_distance) / 1000.0
+                for item in past
+            ]
+            distance_delta_values = [
+                float(item["adjusted_performance"]) for item in past
+                if abs(float(item.get("distance", current_distance)) - current_distance) <= 200
+            ]
+            distance_delta_aptitude = (
+                shrink_mean(distance_delta_values, global_adjusted) - global_adjusted
+                if distance_delta_values else 0.0
+            )
+            jockey = text(row.get("KisyuCode"))
+            jockey_pair_history = [
+                item for item in jockey_history[jockey]
+                if item.get("horse_id") == horse
+            ]
+            jockey_pair_values = [float(item["adjusted_performance"]) for item in jockey_pair_history]
+            jockey_pair_aptitude = (
+                shrink_mean(jockey_pair_values, global_adjusted) - global_adjusted
+                if jockey_pair_values else 0.0
+            )
+            jockey_condition_history = [
+                item for item in jockey_history[jockey]
+                if item.get("surface") == current_surface
+                and item.get("distance_band") == current_distance_band
+            ]
+            jockey_condition_values = [float(item["adjusted_performance"]) for item in jockey_condition_history]
+            jockey_condition_aptitude = (
+                shrink_mean(jockey_condition_values, global_adjusted) - global_adjusted
+                if jockey_condition_values else 0.0
+            )
+            adjusted_history = [float(item.get("adjusted_performance", 0.0)) for item in past]
+            adjusted_slope, recent_change, performance_volatility, trend_confidence = trend_summary(adjusted_history)
+            previous_peak_delta = (
+                adjusted_recent[0] - max(float(item.get("adjusted_performance", 0.0)) for item in past)
+                if past else 0.0
+            )
             weight = number(row.get("Futan"))
             weight_values = [(abs(weight - number(item.get("weight"))) / 10.0, float(item["adjusted_performance"])) for item in past if number(item.get("weight")) > 0 and weight > 0]
             carried_weight_fit, weight_sample_count = fit_from_history(weight_values, 0.0, global_adjusted)
@@ -1389,8 +1474,33 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                 "best_position_closing_power_last3": max(recent_position_closing_power) if recent_position_closing_power else 0.25,
                 "horse_distance_aptitude": horse_distance_aptitude, "distance_aptitude_sample_count": distance_aptitude_sample_count,
                 "horse_surface_aptitude": horse_surface_aptitude, "surface_aptitude_sample_count": surface_aptitude_sample_count,
+                "horse_course_aptitude": course_aptitude,
+                "horse_course_aptitude_sample_count": course_aptitude_sample_count,
+                "horse_course_distance_aptitude": course_distance_aptitude,
+                "horse_course_distance_sample_count": len(course_distance_history),
+                "horse_distance_delta_aptitude": distance_delta_aptitude,
+                "horse_distance_delta_sample_count": len(distance_delta_values),
+                "horse_distance_change": distance_change,
+                "horse_same_course_distance_experience": len(course_distance_history),
+                "horse_surface_change": int(bool(past) and past[0].get("surface") != current_surface),
+                "horse_condition_aptitude": track_fit,
+                "horse_condition_sample_count": track_sample_count,
                 "horse_rest_aptitude": horse_rest_aptitude, "rest_aptitude_sample_count": rest_aptitude_sample_count,
                 "horse_gate_aptitude": horse_gate_aptitude, "gate_aptitude_sample_count": gate_aptitude_sample_count,
+                "jockey_pair_aptitude": jockey_pair_aptitude,
+                "jockey_pair_sample_count": len(jockey_pair_history),
+                "jockey_condition_aptitude": jockey_condition_aptitude,
+                "jockey_condition_sample_count": len(jockey_condition_history),
+                "jockey_recent_added_value": mean(jockey_state[jockey]["recent"]) if jockey_state[jockey]["recent"] else 0.0,
+                "jockey_condition_match": jockey_condition_aptitude - jockey_state[jockey]["added_sum"] / max(1, jockey_state[jockey]["rides"]),
+                "performance_slope_last3": adjusted_slope,
+                "performance_change_last3": recent_change,
+                "performance_volatility_last5": performance_volatility,
+                "performance_peak_delta": previous_peak_delta,
+                "performance_trend_confidence": trend_confidence,
+                "age_x_performance_trend": integer(row.get("Barei")) * adjusted_slope,
+                "layoff_days": (date_value - recent3[0]["date"]).days if recent3 else 0,
+                "layoff_x_performance_change": ((date_value - recent3[0]["date"]).days * recent_change) if recent3 else 0.0,
                 "recent3_win_rate": mean(item["win"] for item in recent3) if recent3 else 0.0,
                 "recent3_place_rate": mean(item["place"] for item in recent3) if recent3 else 0.0,
                 "recent5_win_rate": mean(item["win"] for item in recent5) if recent5 else 0.0,
@@ -1584,6 +1694,10 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
             })
             previous_date = horse_history[-1]["date"] if horse_history else None
             is_winner = winner is not None and horse == text(winner.get("KettoNum"))
+            jockey_added_value = (
+                (expected_order.get(horse, field_count) - integer(row.get("KakuteiJyuni")))
+                / max(1, field_count)
+            )
             pending_updates.append((horse, {"date": date_value, "finish": integer(row.get("KakuteiJyuni")), "margin": effective_margin_for_performance(row),
                                      "source_race_id": race_id(row),
                                      "winning_margin": winning_margin_value if is_winner else None,
@@ -1612,20 +1726,13 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
                                      "late_frontness": observed_late_frontness[horses.index(row)],
                                      "closing_speed": observed_closing_speed[horses.index(row)],
                                      "expected_rank": expected_order.get(horse, field_count), "jockey": text(row.get("KisyuCode")),
+                                     "jockey_added_value": jockey_added_value,
+                                     "horse_id": horse,
                                      "strong_against_bias_v2": -residual_bias * (observed_frontness[horses.index(row)] - mean(observed_frontness)),
                                      "setup_benefit": position_bias * (observed_frontness[horses.index(row)] - mean(observed_frontness))}))
             # attach sire/damsire identifiers for later aggregation if available
             pending_updates[-1][1]["sire"] = text(row.get("Sire") or row.get("race_Sire") or row.get("SIRE_ID") or row.get("sire") or "")
             pending_updates[-1][1]["damsire"] = text(row.get("Damsire") or row.get("DamSire") or row.get("DAM_SIRE_ID") or row.get("damsire") or "")
-            jockey = text(row.get("KisyuCode"))
-            actual_finish = integer(row.get("KakuteiJyuni"))
-            added = (expected_order.get(horse, field_count) - actual_finish) / max(1, field_count)
-            jockey_state[jockey]["rides"] += 1
-            jockey_state[jockey]["wins"] += int(actual_finish == 1)
-            jockey_state[jockey]["top2"] += int(actual_finish <= 2)
-            jockey_state[jockey]["places"] += int(actual_finish <= 3)
-            jockey_state[jockey]["added_sum"] += added
-            jockey_state[jockey]["recent"].append(added)
     for horse, result in pending_updates:
         if history_trace is not None and horse == history_trace.get("horse_id"):
             history_trace.setdefault("source", []).append({"source_race_id": result["source_race_id"],
@@ -1650,6 +1757,14 @@ def build_v1_features(data: list[dict], history_policy: str = "baseline", featur
         if history_trace is not None and horse == history_trace.get("horse_id"):
             history_trace.setdefault("appended", []).append(result["source_race_id"])
         race_dates[horse].append(current_date)
+        jockey = result.get("jockey", "")
+        jockey_history[jockey].append(result)
+        jockey_state[jockey]["rides"] += 1
+        jockey_state[jockey]["wins"] += int(result.get("win", 0))
+        jockey_state[jockey]["top2"] += int(result.get("finish", 0) == 2 or result.get("win", 0))
+        jockey_state[jockey]["places"] += int(result.get("place", 0))
+        jockey_state[jockey]["added_sum"] += result.get("jockey_added_value", 0.0)
+        jockey_state[jockey]["recent"].append(result.get("jockey_added_value", 0.0))
     phase5_profile(f"history built: {time.perf_counter() - started:.2f}s, feature_rows={len(features)}, races={len(sorted_races)}, memory={memory_mb():.1f}MB")
     return features
 
