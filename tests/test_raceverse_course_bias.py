@@ -119,8 +119,8 @@ class AsOfEngineTest(unittest.TestCase):
 
 
 class BiasFeatureTest(unittest.TestCase):
-    def test_new_levels_use_new_columns_and_full_is_unchanged(self):
-        self.assertEqual(PERF_LEVELS["full"], PERF_FEATURES[:9])
+    def test_supported_levels_exclude_full_and_bias_levels_use_new_columns(self):
+        self.assertNotIn("full", PERF_LEVELS)
         self.assertEqual(len(level_indices("formation_bias")), 8)
         self.assertEqual(len(level_indices("pace_bias")), 13)
         self.assertEqual(PERF_LEVELS["formation"], PERF_LEVELS["formation_bias"][:3])
@@ -131,16 +131,16 @@ class BiasFeatureTest(unittest.TestCase):
         q = rng.random((50, 12))
         pace = rng.normal(0, 0.6, 50)
         slot = np.zeros((50, 12))
-        plain = perf_features(ctx, q, slot, pace, RaceverseConfig().performance)
-        for name in PERF_FEATURES[9:]:
+        plain = perf_features(ctx, q, slot, pace)
+        for name in PERF_FEATURES[5:]:
             self.assertTrue((plain[:, :, PERF_FEATURES.index(name)] == 0).all())
         ctx.bias = make_bias()
-        f = perf_features(ctx, q, slot, pace, RaceverseConfig().performance)
-        for name in PERF_FEATURES[9:]:
+        f = perf_features(ctx, q, slot, pace)
+        for name in PERF_FEATURES[5:]:
             col = f[:, :, PERF_FEATURES.index(name)]
             np.testing.assert_allclose(col.mean(axis=1), 0.0, atol=1e-12)
             self.assertGreater(col.std(), 0.0, name)
-        np.testing.assert_array_equal(f[:, :, :9], plain[:, :, :9])  # 既存特徴量は変わらない
+        np.testing.assert_array_equal(f[:, :, :5], plain[:, :, :5])  # 既存特徴量は変わらない
 
     def test_style_feature_follows_the_sampled_early_position_and_pace_follows_the_sampled_pace(self):
         ctx = make_ctx(n=8, seed=2)

@@ -89,7 +89,7 @@ class PerformanceConfig:
     min_oof_races: int = 150
     young_age_max: int = 3
     layoff_days: int = 90
-    level: str = "formation"  # production prediction level; full is backtest-only (formation_bias / pace_bias: コースバイアス追加版)
+    level: str = "formation"  # production prediction level (formation_bias / pace_bias: コースバイアス追加版)
 
 
 @dataclass

@@ -25,7 +25,7 @@ from raceverse.simulator import simulate_race
 from raceverse.winning_time_model import time_features
 
 LOGGER = logging.getLogger(__name__)
-LEVELS = ["base", "formation", "pace", "full"]
+LEVELS = ["base", "formation", "pace"]
 BIAS_LEVELS = ["formation_bias", "pace_bias"]
 ALL_LEVELS = LEVELS + BIAS_LEVELS
 BIAS_PAIRS = [("formation", "formation_bias"), ("pace", "pace_bias")]
@@ -34,7 +34,16 @@ EXISTING_WF_CSV = Path(__file__).resolve().parents[1] / "reports" / "ranker_walk
 
 def reference_level(levels: List[str]) -> str:
     """レース単位のペース・時計評価に使うレベル(時計・ペースはどのレベルでも同じ値)。"""
-    return "full" if "full" in levels else levels[-1]
+    return levels[-1]
+
+
+def validate_levels(levels: List[str]) -> List[str]:
+    if not levels:
+        raise ValueError("at least one RACEVERSE performance level is required")
+    invalid = sorted(set(levels) - set(ALL_LEVELS))
+    if invalid:
+        raise ValueError(f"unsupported RACEVERSE performance level(s): {', '.join(invalid)}")
+    return levels
 
 
 def _month_list(start: pd.Timestamp, end: pd.Timestamp) -> List[pd.Timestamp]:
@@ -60,7 +69,7 @@ def simulate_period(P: Prepared, start: pd.Timestamp, end: pd.Timestamp, n_sims:
             ctx = store.ability_ctx[int(pos)]
             outcome = store.outcomes[int(pos)]
             snap = ds.snapshot(ctx.month_idx)
-            full_result = None
+            reference_result = None
             for level in levels:
                 if level not in bundle.perf_models:
                     continue
@@ -76,10 +85,10 @@ def simulate_period(P: Prepared, start: pd.Timestamp, end: pd.Timestamp, n_sims:
                 h["q_early_actual"] = outcome["q_early"].to_numpy()
                 h["early_rank_actual"] = outcome["early_rank"].to_numpy()
                 if level == ref_level:
-                    full_result = result
+                    reference_result = result
                 horse_frames.append(h)
-            if full_result is not None:
-                race_rows.append(_race_record(ctx, full_result, bundle, ds, int(pos)))
+            if reference_result is not None:
+                race_rows.append(_race_record(ctx, reference_result, bundle, ds, int(pos)))
         LOGGER.info("backtest month %s: %d races, bundle %s (%.0fs)", month.strftime("%Y-%m"), len(sel),
                     bundle.warnings or "ok", time.time() - t0)
     horses = pd.concat(horse_frames, ignore_index=True)
@@ -116,7 +125,7 @@ def _race_record(ctx, result, bundle, ds, pos) -> dict:
     }
     for name in PACE_BUCKETS:
         rec[f"pace_prob_{name}"] = race["pace_display_probabilities"][name]
-    # 時計アブレーション(解析的な点予測。ペースを使うのは full のみ)
+    # 決着時計のアブレーション(走破性能levelとは独立。paceを使うのは時計fullモデルのみ)
     if bundle.time_models and np.isfinite(ctx.win_time_base):
         xt = time_features(ctx, track, np.array([race["pace_delta_mean_sec"]]), np.zeros((1, 4)))
         for level in ("baseline", "track_bias", "field_ability"):
@@ -160,10 +169,10 @@ def evaluate_all(horses: pd.DataFrame, races: pd.DataFrame, test_start: pd.Times
     present = [lv for lv in ALL_LEVELS if lv in set(test["level"])]
     ref_level = reference_level(present)
     # 既存Rankerと同一の(レース, 馬)集合だけに揃える
-    full = test[test["level"] == ref_level]
-    have = full.dropna(subset=["ranker_win_probability", "p_cal"])
+    reference_rows = test[test["level"] == ref_level]
+    have = reference_rows.dropna(subset=["ranker_win_probability", "p_cal"])
     sizes = have.groupby("race_id").size()
-    base_sizes = full.groupby("race_id").size()
+    base_sizes = reference_rows.groupby("race_id").size()
     common_races = sizes[sizes == base_sizes.reindex(sizes.index)].index
     summary: Dict = {"common_races": int(len(common_races))}
     rows, calib_tables, roi_rows = [], [], []
@@ -208,14 +217,14 @@ def evaluate_all(horses: pd.DataFrame, races: pd.DataFrame, test_start: pd.Times
     return summary
 
 
-def _evaluate_formation(test: pd.DataFrame, out_dir: Path, ref_level: str = "full") -> Dict:
-    full = test[(test["level"] == ref_level)].dropna(subset=["q_early_actual"])
-    if full.empty:
+def _evaluate_formation(test: pd.DataFrame, out_dir: Path, ref_level: str = "pace") -> Dict:
+    reference_rows = test[(test["level"] == ref_level)].dropna(subset=["q_early_actual"])
+    if reference_rows.empty:
         return {}
-    mae_q = float((full["mean_early_position"] - full["q_early_actual"]).abs().mean())
-    naive = float((full["q_early_actual"] - full["q_early_actual"].mean()).abs().mean())
+    mae_q = float((reference_rows["mean_early_position"] - reference_rows["q_early_actual"]).abs().mean())
+    naive = float((reference_rows["q_early_actual"] - reference_rows["q_early_actual"].mean()).abs().mean())
     hits = []
-    for _, g in full.groupby("race_id"):
+    for _, g in reference_rows.groupby("race_id"):
         leader = g[g["early_rank_actual"] == 1]
         if leader.empty:
             continue
@@ -223,7 +232,7 @@ def _evaluate_formation(test: pd.DataFrame, out_dir: Path, ref_level: str = "ful
         hits.append(float(leader["horse_id"].iloc[0] in set(top3)))
     result = {"formation": {"early_position_mae_relative": mae_q, "naive_constant_mae": naive,
                             "leader_in_top3_lead_prob_rate": float(np.mean(hits)) if hits else None,
-                            "n_runners": int(len(full))}}
+                            "n_runners": int(len(reference_rows))}}
     (out_dir / "formation_eval.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     return result
 
@@ -283,7 +292,7 @@ def run_backtest(P: Prepared, out_dir: Optional[Path] = None, n_sims: Optional[i
                  test_start: Optional[str] = None, test_end: Optional[str] = None) -> Dict:
     cfg = P.cfg
     n_sims = n_sims or cfg.backtest.n_simulations
-    levels = levels or LEVELS
+    levels = validate_levels(levels or LEVELS)
     test_start_ts = pd.Timestamp(test_start or cfg.backtest.test_start)
     test_end_ts = pd.Timestamp(test_end or cfg.backtest.test_end)
     burn_start = test_start_ts - pd.DateOffset(months=cfg.calibration.burn_in_months)

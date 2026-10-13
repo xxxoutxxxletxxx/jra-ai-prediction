@@ -63,7 +63,7 @@ def make_bundle(seed: int = 0) -> ModelBundle:
     time_sampler = PaceResidualSampler.fit(np.array(["turf_mile"] * 400), rng.normal(0, 0.8, 400), np.full(400, 0.01),
                                            yt, [0.002, 0.998], 100)
     perf = {}
-    n_cols = {"base": 1, "formation": 3, "pace": 5, "full": 9, "formation_bias": 8, "pace_bias": 13}
+    n_cols = {"base": 1, "formation": 3, "pace": 5, "formation_bias": 8, "pace_bias": 13}
     for lv, c in n_cols.items():
         coef = np.zeros(c)
         coef[0] = -0.45

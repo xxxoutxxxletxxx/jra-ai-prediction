@@ -101,7 +101,7 @@ def simulate_race(
     if perf_level not in bundle.perf_models:
         raise ValueError(f"performance model '{perf_level}' is not available in the bundle")
     pm = bundle.perf_models[perf_level]
-    feats = perf_features(ctx, form.q_adj, form.lateral_slot, pace_delta, cfg.performance)
+    feats = perf_features(ctx, form.q_adj, form.lateral_slot, pace_delta)
     mu = pm.mean_dev(feats)
     q_c = feats[:, :, PERF_FEATURES.index("q_c")]
     slot_c = feats[:, :, PERF_FEATURES.index("slot_c")]

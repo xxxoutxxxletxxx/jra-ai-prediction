@@ -41,6 +41,15 @@ def _calibrate(result, gamma: Optional[float]) -> Optional[pd.Series]:
     return power_normalize(frame, "win_probability", gamma).reset_index(drop=True)
 
 
+def _parse_backtest_levels(value: str) -> list[str]:
+    from raceverse.backtest import validate_levels
+
+    try:
+        return validate_levels([level.strip() for level in value.split(",")])
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+
+
 def _production_maps() -> Dict[tuple, dict]:
     path = ROOT / "output" / "predictions.csv"
     if not path.exists():
@@ -64,7 +73,7 @@ def cmd_backtest(args) -> None:
     cfg = load_config(args.config)
     cfg.random_seed = args.seed if args.seed is not None else cfg.random_seed
     P = prepare(cfg, use_cache=not args.rebuild)
-    levels = args.levels.split(",") if args.levels else LEVELS
+    levels = args.levels if args.levels is not None else LEVELS
     summary = run_backtest(P, out_dir=args.out, n_sims=args.sims, levels=levels,
                            max_races_per_month=args.max_races_per_month, test_start=args.start, test_end=args.end)
     print(f"done in {summary['runtime_sec']:.0f}s -> {args.out or REPORT_DIR}")
@@ -131,8 +140,8 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--sims", type=int, default=None)
     b.add_argument("--start", default=None)
     b.add_argument("--end", default=None)
-    b.add_argument("--levels", default=None,
-                   help="base,formation,pace,full,formation_bias,pace_bias (既定: base,formation,pace,full)")
+    b.add_argument("--levels", type=_parse_backtest_levels, default=None,
+                   help="base,formation,pace,formation_bias,pace_bias (既定: base,formation,pace)")
     b.add_argument("--max-races-per-month", type=int, default=None)
     b.add_argument("--seed", type=int, default=None)
     b.add_argument("--out", type=Path, default=None)

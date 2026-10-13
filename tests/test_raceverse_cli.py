@@ -30,3 +30,14 @@ class ProductionLevelPolicyTest(unittest.TestCase):
             with contextlib.redirect_stderr(io.StringIO()):
                 with self.assertRaises(SystemExit):
                     parser.parse_args(command)
+
+    def test_full_is_not_available_for_backtest(self):
+        parser = build_parser()
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                parser.parse_args(["backtest", "--levels", "base,full"])
+
+    def test_backtest_accepts_remaining_performance_levels(self):
+        parser = build_parser()
+        args = parser.parse_args(["backtest", "--levels", "base,pace"])
+        self.assertEqual(args.levels, ["base", "pace"])

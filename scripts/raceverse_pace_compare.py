@@ -21,7 +21,7 @@ from raceverse.pace_features import CATEGORICAL_FEATURES, FEATURE_NAMES, LEGACY_
 from raceverse.pipeline import prepare
 
 LABEL = {"VERY_FAST": "超ハイ", "FAST": "ハイ", "MIDDLE": "ミドル", "SLOW": "スロー", "VERY_SLOW": "超スロー"}
-LEVELS = ["base", "formation", "pace"]  # full は比較対象外(ユーザー方針)
+LEVELS = ["base", "formation", "pace"]
 PROB_COLS = [f"pace_prob_{b}" for b in PACE_BUCKETS]
 
 
@@ -148,7 +148,7 @@ def main() -> None:
     w("- 旧: 隊列からの回帰平均に、OOF残差プールからのペース乱択を上乗せ。新: 乱択を廃止し、確定した全頭隊列と馬・騎手の"
       "Pace Impactから回帰した値をそのままペースとする(分布は隊列の抽選だけから生まれる)。")
     w("- 5分類の境界値は各月の学習期データの分位点(10/30/70/90%)で固定。評価期間に合わせた調整はしていない。")
-    w("- 回収率は確定オッズによる参考値(発走前スナップショットではない)。`full`は比較対象外(コード上は維持)。\n")
+    w("- 回収率は確定オッズによる参考値(発走前スナップショットではない)。\n")
 
     w("## 1. 結論\n")
     new_mode, old_mode, new_mean = metrics[("new", "mode")], metrics[("old", "mode")], metrics[("new", "mean")]

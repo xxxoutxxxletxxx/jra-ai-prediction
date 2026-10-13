@@ -17,53 +17,45 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
-from raceverse.config import PerformanceConfig
 from raceverse.course_bias import bias_feature_block
 from raceverse.schemas import RaceContext
 
-BASE_FEATURES = ["ability_c", "q_c", "slot_c", "q_x_pace", "closing_x_pace", "closing_c", "young_c",
-                 "layoff_c", "weight_c"]
+PERF_FEATURES = ["ability_c", "q_c", "slot_c", "q_x_pace", "closing_x_pace"]
 STYLE_DRAW_FEATURES = ["style_win_bias_c", "style_place_bias_c", "draw_win_bias_c", "draw_place_bias_c",
                        "style_draw_interaction_c"]
 PACE_BIAS_FEATURES = ["pace_style_win_bias_c", "pace_style_place_bias_c", "pace_draw_interaction_c"]
-PERF_FEATURES = BASE_FEATURES + STYLE_DRAW_FEATURES + PACE_BIAS_FEATURES
+PERF_FEATURES += STYLE_DRAW_FEATURES + PACE_BIAS_FEATURES
 _I = {n: i for i, n in enumerate(PERF_FEATURES)}
 PERF_LEVELS: Dict[str, List[str]] = {
     "base": ["ability_c"],
     "formation": ["ability_c", "q_c", "slot_c"],
     "pace": ["ability_c", "q_c", "slot_c", "q_x_pace", "closing_x_pace"],
-    "full": BASE_FEATURES,
     # コース別の脚質・枠順バイアスを加えた版(目的変数・既存特徴量は同じ)
     "formation_bias": ["ability_c", "q_c", "slot_c"] + STYLE_DRAW_FEATURES,
     "pace_bias": ["ability_c", "q_c", "slot_c", "q_x_pace", "closing_x_pace"] + STYLE_DRAW_FEATURES + PACE_BIAS_FEATURES,
 }
-PACE_DEPENDENT_LEVELS = ("pace", "full", "pace_bias")
-PACELESS_FALLBACK = {"pace": "formation", "full": "formation", "pace_bias": "formation_bias"}
+PACE_DEPENDENT_LEVELS = ("pace", "pace_bias")
+PACELESS_FALLBACK = {"pace": "formation", "pace_bias": "formation_bias"}
 
 
 def _center(values: np.ndarray) -> np.ndarray:
     return values - values.mean(axis=-1, keepdims=True)
 
 
-def static_runner_features(ctx: RaceContext, cfg: PerformanceConfig) -> Dict[str, np.ndarray]:
+def static_runner_features(ctx: RaceContext) -> Dict[str, np.ndarray]:
     """隊列・ペースに依らない馬ごとの特徴([N])。"""
     closing = ctx.closing_skill.astype(float)
     closing = np.where(np.isfinite(closing), closing, np.nanmean(closing) if np.isfinite(closing).any() else 0.0)
-    rest = np.nan_to_num(ctx.rest_days.astype(float), nan=0.0)
     return {
         "ability_c": _center(ctx.ability.astype(float)),
         "closing_c": _center(closing),
-        "young_c": _center((ctx.age <= cfg.young_age_max).astype(float)),
-        "layoff_c": _center((rest >= cfg.layoff_days).astype(float)),
-        "weight_c": _center(ctx.weight_carried.astype(float)),
     }
 
 
-def perf_features(ctx: RaceContext, q_adj: np.ndarray, slot: np.ndarray, pace: np.ndarray,
-                  cfg: PerformanceConfig) -> np.ndarray:
+def perf_features(ctx: RaceContext, q_adj: np.ndarray, slot: np.ndarray, pace: np.ndarray) -> np.ndarray:
     """[S,N,F]。q_adj/slot [S,N], pace [S]。"""
     s, n = q_adj.shape
-    static = static_runner_features(ctx, cfg)
+    static = static_runner_features(ctx)
     q_c = _center(q_adj)
     out = np.zeros((s, n, len(PERF_FEATURES)))
     out[:, :, _I["ability_c"]] = static["ability_c"][None, :]
@@ -71,8 +63,6 @@ def perf_features(ctx: RaceContext, q_adj: np.ndarray, slot: np.ndarray, pace: n
     out[:, :, _I["slot_c"]] = _center(slot.astype(float))
     out[:, :, _I["q_x_pace"]] = q_c * pace[:, None]
     out[:, :, _I["closing_x_pace"]] = static["closing_c"][None, :] * pace[:, None]
-    for name in ("closing_c", "young_c", "layoff_c", "weight_c"):
-        out[:, :, _I[name]] = static[name][None, :]
     if ctx.bias is not None:
         wakuban = ctx.wakuban if ctx.wakuban is not None else derive_wakuban(ctx.umaban)
         for name, value in bias_feature_block(ctx.bias, wakuban, q_adj, pace).items():

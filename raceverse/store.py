@@ -169,7 +169,7 @@ def perf_training_table(store: Store, cfg: RaceverseConfig) -> Optional[Dict[str
         z = np.where(ok, t - np.nanmean(np.where(ok, t, np.nan)), 0.0)
         pd_ = store.perf_draws[pos]
         pace = oof[index_by_pos[pos], :n_perf]
-        f = perf_features(ctx, pd_["q_adj"], pd_["slot"], pace, cfg.performance)
+        f = perf_features(ctx, pd_["q_adj"], pd_["slot"], pace)
         for k in range(f.shape[0]):
             feats.append(_pad(f[k]))
             targets.append(_pad(z))

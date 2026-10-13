@@ -18,12 +18,12 @@ class SimulationInvariantsTest(unittest.TestCase):
         self.snap = make_snapshot()
         self.ctx = make_ctx(n=12, seed=4)
 
-    def _run(self, level="full", seed=11, n=2000, ctx=None):
+    def _run(self, level="pace", seed=11, n=2000, ctx=None):
         return simulate_race(ctx or self.ctx, self.bundle, self.snap, self.cfg, n_sims=n,
                              perf_level=level, seed=seed, keep_samples=True)
 
     def test_invariants_for_all_levels(self):
-        for level in ("base", "formation", "pace", "full"):
+        for level in ("base", "formation", "pace"):
             result = self._run(level)
             checks = check_invariants(result)
             self.assertTrue(all(checks.values()), (level, checks))

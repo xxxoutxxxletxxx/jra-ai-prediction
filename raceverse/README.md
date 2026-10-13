@@ -53,12 +53,12 @@ raceverse/
 
 # 3. 確定済みレースを当時の情報だけで再現(検証用)
 .venv/bin/python -m raceverse.cli simulate --race-id 2025-0906-01-02-05-09
-#   再現レベルは formation (既定) または pace。full は本番予測では使わない。
+#   再現レベルは formation (既定) または pace。full は利用できない。
 
 # 4. 独立Walk-Forwardバックテスト(既存Rankerと同一期間・同一レース・同一馬)
 .venv/bin/python -m raceverse.cli backtest --sims 10000
 #   高速確認: --sims 1000 --max-races-per-month 40 --out /tmp/bt
-#   レベル指定: --levels base,formation,pace,full (full は比較用バックテストのみ)
+#   レベル指定: --levels base,formation,pace
 #   コースバイアス追加版との比較: --levels formation,formation_bias,pace,pace_bias
 ```
 
