@@ -6,6 +6,7 @@
   var data;
   var selectedDate;
   var selectedTrack;
+  var selectedGoing = "good";
   var paceLabels = ["超ハイ", "ハイ", "ミドル", "スロー", "超スロー"];
   var goingColumns = [
     { key: "good", label: "良", code: 1 },
@@ -59,6 +60,25 @@
     });
   }
 
+  function renderGoings(track) {
+    var container = document.getElementById("rvGoingTabs");
+    clear(container);
+    var hasScenarios = track.races.some(function (race) { return Boolean(race.going_scenarios); });
+    container.hidden = !hasScenarios;
+    if (!hasScenarios) return;
+
+    goingColumns.forEach(function (column) {
+      var button = element("button", "tab-btn" + (column.key === selectedGoing ? " active" : ""), column.label);
+      button.type = "button";
+      button.setAttribute("aria-pressed", String(column.key === selectedGoing));
+      button.addEventListener("click", function () {
+        selectedGoing = column.key;
+        render();
+      });
+      container.appendChild(button);
+    });
+  }
+
   function addHorseRow(list, horse, rank) {
     var row = element("li", "rv-horse");
     var marks = ["◎", "○", "▲"];
@@ -79,6 +99,7 @@
     card.appendChild(heading);
 
     if (race.going_scenarios) {
+      var selectedColumn = goingColumns.find(function (column) { return column.key === selectedGoing; });
       var favoriteNumbers = goingColumns.map(function (column) {
         return race.going_scenarios[column.key].top_umaban;
       });
@@ -89,7 +110,7 @@
           ? "公表馬場状態: " + (race.going_label || goingColumns.find(function (column) {
               return column.code === race.published_going;
             }).label)
-          : "公表馬場状態: 未発表（4条件を独立表示）"
+        : "公表馬場状態: 未発表"
       ));
       if (race.missing_ability_count > 0) {
         card.appendChild(element(
@@ -104,8 +125,8 @@
       var table = element("table", "rv-going-table");
       var head = element("thead");
       var headerRow = element("tr");
-      ["馬番", "馬名"].concat(goingColumns.map(function (column) { return column.label; })).forEach(function (label, index) {
-        var header = element("th", index > 1 && race.published_going === goingColumns[index - 2].code
+      ["馬番", "馬名", selectedColumn.label].forEach(function (label, index) {
+        var header = element("th", index === 2 && race.published_going === selectedColumn.code
           ? "rv-going-published" : "", label);
         header.scope = "col";
         headerRow.appendChild(header);
@@ -118,15 +139,13 @@
         row.appendChild(element("th", "rv-number", String(horse.umaban)));
         row.lastChild.scope = "row";
         row.appendChild(element("td", "rv-horse-name", horse.name));
-        goingColumns.forEach(function (column) {
-          var cell = element("td", "rv-going-probability");
-          if (race.going_scenarios[column.key].top_umaban === horse.umaban) {
-            cell.classList.add("rv-going-top");
-          }
-          if (race.published_going === column.code) cell.classList.add("rv-going-published");
-          cell.textContent = percent(horse.going_probabilities[column.key]);
-          row.appendChild(cell);
-        });
+        var cell = element("td", "rv-going-probability");
+        if (race.going_scenarios[selectedGoing].top_umaban === horse.umaban) {
+          cell.classList.add("rv-going-top");
+        }
+        if (race.published_going === selectedColumn.code) cell.classList.add("rv-going-published");
+        cell.textContent = percent(horse.going_probabilities[selectedGoing]);
+        row.appendChild(cell);
         body.appendChild(row);
       });
       table.appendChild(body);
@@ -181,6 +200,7 @@
       list.appendChild(element("p", "rv-notice", "この日の予測データはありません。"));
       return;
     }
+    renderGoings(track);
     track.races.forEach(function (race) {
       list.appendChild(renderRace(track, race));
     });

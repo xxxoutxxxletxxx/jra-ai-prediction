@@ -79,7 +79,7 @@
 .rv-going-table {
   border-collapse: collapse;
   font-size: 0.82rem;
-  min-width: 520px;
+  min-width: 0;
   width: 100%;
 }
 
@@ -99,10 +99,18 @@
 }
 
 .rv-going-table th:first-child,
-.rv-going-table td:first-child,
+.rv-going-table td:first-child {
+  width: 52px;
+}
+
 .rv-going-table th:nth-child(2),
 .rv-going-table td:nth-child(2) {
   text-align: left;
+}
+
+.rv-going-table th:last-child,
+.rv-going-table td:last-child {
+  width: 84px;
 }
 
 .rv-going-table .rv-horse-name {
