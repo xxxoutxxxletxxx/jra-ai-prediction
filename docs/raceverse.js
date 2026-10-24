@@ -134,7 +134,13 @@
       head.appendChild(headerRow);
       table.appendChild(head);
       var body = element("tbody");
-      race.horses.forEach(function (horse) {
+      race.horses.slice().sort(function (a, b) {
+        var probabilityA = Number(a.going_probabilities[selectedGoing]);
+        var probabilityB = Number(b.going_probabilities[selectedGoing]);
+        if (!isFinite(probabilityA)) probabilityA = -Infinity;
+        if (!isFinite(probabilityB)) probabilityB = -Infinity;
+        return probabilityB - probabilityA || a.umaban - b.umaban;
+      }).forEach(function (horse) {
         var row = element("tr");
         row.appendChild(element("th", "rv-number", String(horse.umaban)));
         row.lastChild.scope = "row";
