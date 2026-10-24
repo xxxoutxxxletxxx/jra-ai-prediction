@@ -7,6 +7,12 @@
   var selectedDate;
   var selectedTrack;
   var paceLabels = ["超ハイ", "ハイ", "ミドル", "スロー", "超スロー"];
+  var goingColumns = [
+    { key: "good", label: "良", code: 1 },
+    { key: "yielding", label: "稍重", code: 2 },
+    { key: "soft", label: "重", code: 3 },
+    { key: "heavy", label: "不良", code: 4 }
+  ];
 
   function element(tag, className, text) {
     var node = document.createElement(tag);
@@ -66,11 +72,72 @@
   function renderRace(track, race) {
     var card = element("article", "rv-race-card");
     var heading = element("div", "rv-race-heading");
-    heading.appendChild(element("span", "", track.name + " " + race.race_num + "R"));
+    heading.appendChild(element("span", "", track.name + " " + race.race_num + "R" +
+      (race.race_name ? " " + race.race_name : "")));
     var conditions = race.distance_m ? race.distance_m + "m " + race.surface : "";
     heading.appendChild(element("span", "rv-race-conditions", conditions));
     card.appendChild(heading);
 
+    if (race.going_scenarios) {
+      var favoriteNumbers = goingColumns.map(function (column) {
+        return race.going_scenarios[column.key].top_umaban;
+      });
+      var forecast = new Set(favoriteNumbers).size > 1;
+      card.appendChild(element(
+        "p", "rv-going-status",
+        race.published_going
+          ? "公表馬場状態: " + (race.going_label || goingColumns.find(function (column) {
+              return column.code === race.published_going;
+            }).label)
+          : "公表馬場状態: 未発表（4条件を独立表示）"
+      ));
+      if (race.missing_ability_count > 0) {
+        card.appendChild(element(
+          "p", "rv-data-warning",
+          "Ranker能力値未取得: " + race.missing_ability_count + "頭（能力は中立補完）"
+        ));
+      }
+      if (forecast) {
+        card.appendChild(element("p", "rv-favorite-change", "馬場状態によって本命馬が変わります。"));
+      }
+      var wrapper = element("div", "rv-going-table-wrap");
+      var table = element("table", "rv-going-table");
+      var head = element("thead");
+      var headerRow = element("tr");
+      ["馬番", "馬名"].concat(goingColumns.map(function (column) { return column.label; })).forEach(function (label, index) {
+        var header = element("th", index > 1 && race.published_going === goingColumns[index - 2].code
+          ? "rv-going-published" : "", label);
+        header.scope = "col";
+        headerRow.appendChild(header);
+      });
+      head.appendChild(headerRow);
+      table.appendChild(head);
+      var body = element("tbody");
+      race.horses.forEach(function (horse) {
+        var row = element("tr");
+        row.appendChild(element("th", "rv-number", String(horse.umaban)));
+        row.lastChild.scope = "row";
+        row.appendChild(element("td", "rv-horse-name", horse.name));
+        goingColumns.forEach(function (column) {
+          var cell = element("td", "rv-going-probability");
+          if (race.going_scenarios[column.key].top_umaban === horse.umaban) {
+            cell.classList.add("rv-going-top");
+          }
+          if (race.published_going === column.code) cell.classList.add("rv-going-published");
+          cell.textContent = percent(horse.going_probabilities[column.key]);
+          row.appendChild(cell);
+        });
+        body.appendChild(row);
+      });
+      table.appendChild(body);
+      wrapper.appendChild(table);
+      card.appendChild(wrapper);
+      return card;
+    }
+
+    if (race.going_label) {
+      heading.appendChild(element("span", "rv-going-status", "実馬場: " + race.going_label));
+    }
     var forecastParts = [];
     if (race.pace_label) forecastParts.push("想定ペース: " + race.pace_label);
     if (race.predicted_early_split_mean_sec != null) {
@@ -137,7 +204,8 @@
         throw new Error("Invalid RACEVERSE site data");
       }
       document.getElementById("rvUpdatedAt").textContent = "最終更新: " + data.generated_at;
-      document.getElementById("rvModelDate").textContent = "モデル基準日: " + data.model_as_of;
+      document.getElementById("rvModelDate").textContent = "モデル基準日: " + data.model_as_of +
+        (data.training_data_through ? " / 確定結果: " + data.training_data_through : "");
       var notice = document.getElementById("rvNotice");
       clear(notice);
       notice.appendChild(element(

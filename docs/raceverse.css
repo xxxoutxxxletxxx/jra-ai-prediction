@@ -53,6 +53,74 @@
   padding: 8px 14px 0;
 }
 
+.rv-going-status,
+.rv-favorite-change,
+.rv-data-warning {
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  margin: 8px 14px 0;
+}
+
+.rv-favorite-change {
+  color: var(--rank1);
+  font-weight: 700;
+}
+
+.rv-data-warning {
+  color: var(--text-dim);
+}
+
+.rv-going-table-wrap {
+  margin-top: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.rv-going-table {
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  min-width: 520px;
+  width: 100%;
+}
+
+.rv-going-table th,
+.rv-going-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 8px 10px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.rv-going-table thead th {
+  background: var(--bg-card-2);
+  color: var(--text-dim);
+  position: sticky;
+  top: 0;
+}
+
+.rv-going-table th:first-child,
+.rv-going-table td:first-child,
+.rv-going-table th:nth-child(2),
+.rv-going-table td:nth-child(2) {
+  text-align: left;
+}
+
+.rv-going-table .rv-horse-name {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rv-going-top {
+  background: var(--bg-card-2);
+  color: var(--rank1);
+  font-weight: 800;
+}
+
+.rv-going-published {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
 .rv-horses {
   display: grid;
   gap: 8px;
