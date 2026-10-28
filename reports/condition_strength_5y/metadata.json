@@ -1,0 +1,26 @@
+{
+  "model": "monthly expanding-window Ranker, 86 validated features",
+  "period_start_inclusive": "2021-10-05",
+  "period_end_exclusive": "2026-10-05",
+  "actual_first_prediction_date": "2021-10-09",
+  "latest_available_feature_date": "2026-10-04",
+  "top_pick_rows": 6040,
+  "races": 6040,
+  "training_months": 61,
+  "prize_filter": "race_first_prize > 8,000,000 yen",
+  "features": 86,
+  "surface_feature_caveat": "Current src.backtest.surface() misclassifies TrackCD 23-29 dirt as turf; course_gate_win_rate/place_rate features are affected. Grouped outcome surface is reassigned from raw TrackCD but model predictions use the existing feature cache.",
+  "distance_bands": [
+    "1000m以下",
+    "1150m",
+    "1200〜1600m",
+    "1700m",
+    "1800〜2500m",
+    "2600m以上"
+  ],
+  "going_bands": {
+    "good": "code 1",
+    "not_good": "codes 2-4",
+    "unknown": "code 0/blank"
+  }
+}

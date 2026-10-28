@@ -97,11 +97,11 @@ def build_store(ds: Dataset, cfg: RaceverseConfig, max_races: Optional[int] = No
 
 
 def compute_pace_oof(store: Store, cfg: RaceverseConfig) -> None:
-    """月次ローリング・オリジンでOOFペース予測を作り、レース単位の統計を race_table に追加する。"""
+    """ローリング・オリジン(月次/週次)でOOFペース予測を作り、レース単位の統計を race_table に追加する。"""
     first_month = pd.Timestamp(cfg.pace.train_start) + pd.DateOffset(years=2)
     store.oof = rolling_oof_predictions(
         store.X, store.y, store.w, pd.Series(pd.to_datetime(store.date)), cfg.pace.ridge_alpha,
-        first_month, min_rows=cfg.pace.min_train_races * store.draws // 2,
+        first_month, min_rows=cfg.pace.min_train_races * store.draws // 2, unit=cfg.refit_unit,
     )
     table = store.race_table
     d = store.draws

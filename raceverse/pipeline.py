@@ -31,7 +31,7 @@ class Prepared:
         return fit_bundle(self.store, self.ds, self.cfg, self.oof, as_of)
 
 
-STORE_VERSION = 4  # ストア生成ロジックを変えたら上げる
+STORE_VERSION = 4  # Storeは特徴量に依存しない中間データ; OOFとPerfTableは都度生成
 
 
 def _store_path(cfg: RaceverseConfig, ds: Dataset):
@@ -40,6 +40,8 @@ def _store_path(cfg: RaceverseConfig, ds: Dataset):
     tag = (f"v{STORE_VERSION}_{len(confirmed)}_{confirmed['date'].max():%Y%m%d}_{cfg.pace.train_start}_"
            f"{cfg.pace.training_formation_draws}_{cfg.performance.training_draws}_{cfg.winning_time.train_start}_"
            f"{cfg.random_seed}_{impact_hash}")
+    if cfg.refit_unit != "month" or cfg.ability_source != "monthly":
+        tag += f"_{cfg.refit_unit}_{cfg.ability_source}"
     return CACHE_DIR / f"store_{tag}.pkl"
 
 

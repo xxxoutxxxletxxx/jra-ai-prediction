@@ -3,6 +3,7 @@ import io
 import unittest
 
 from raceverse.cli import build_parser
+from raceverse.backtest import simulate_period
 
 
 class ProductionLevelPolicyTest(unittest.TestCase):
@@ -36,6 +37,10 @@ class ProductionLevelPolicyTest(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit):
                 parser.parse_args(["backtest", "--levels", "base,full"])
+
+    def test_direct_backtest_rejects_full_before_preparing_data(self):
+        with self.assertRaisesRegex(ValueError, "unsupported RACEVERSE performance level"):
+            simulate_period(None, None, None, 10, ["base", "full"])
 
     def test_backtest_accepts_remaining_performance_levels(self):
         parser = build_parser()

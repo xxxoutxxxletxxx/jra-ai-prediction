@@ -14,9 +14,12 @@ from typing import Dict
 import numpy as np
 import pandas as pd
 
+from raceverse.periods import period_index
 
-def month_index(dates: pd.Series, base: pd.Timestamp) -> np.ndarray:
-    return ((dates.dt.year - base.year) * 12 + (dates.dt.month - base.month)).to_numpy(dtype=int)
+
+def month_index(dates: pd.Series, base: pd.Timestamp, unit: str = "month") -> np.ndarray:
+    """期間番号。unit="week" なら月曜始まりの週番号(名前は月次時代の互換のため month_index のまま)。"""
+    return period_index(dates, base, unit)
 
 
 @dataclass
@@ -40,11 +43,12 @@ class JockeyProfiles:
         frontness_k: float,
         tempo_k: float,
         lead_rank_cut: int,
+        unit: str = "month",
     ) -> "JockeyProfiles":
         race_info = races.set_index("race_id")[["early_split_sec", "early_ref"]]
         frame = runs[~runs["race_id"].isin(set(races.loc[races["is_upcoming"], "race_id"]))]
         frame = frame[frame["jockey_idx"] >= 0]
-        m = month_index(frame["date"], base_month)
+        m = month_index(frame["date"], base_month, unit)
         n_q = np.zeros((n_months + 1, n_jockeys))
         sum_q = np.zeros_like(n_q)
         n_lead = np.zeros_like(n_q)

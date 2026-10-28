@@ -17,6 +17,7 @@ from raceverse.course_bias import CourseBiasEngine
 from raceverse.history_features import RunHistory, build_run_history
 from raceverse.jockey_profiles import JockeyProfiles, month_index
 from raceverse.pace_impact import PaceImpactProfiles, build_pace_impacts
+from raceverse.periods import floor_timestamp
 from raceverse.schemas import RaceContext
 from raceverse.track_speed import TrackSpeedBuilder
 
@@ -42,7 +43,7 @@ class Dataset:
     course_bias: Optional[CourseBiasEngine] = None
 
     def snapshot(self, month: int) -> Dict[str, np.ndarray]:
-        """月次スナップショット(騎手プロフィール + Pace Impact)。月は昇順に処理されるので直近数か月だけ保持する。"""
+        """期間(月 / 週)ごとのスナップショット(騎手プロフィール + Pace Impact)。期間は昇順に処理されるので直近数期間だけ保持する。"""
         if month not in self._snapshots:
             snap = self.profiles.snapshot(month)
             if self.impacts is not None:
@@ -55,8 +56,10 @@ class Dataset:
     def race_pos(self, race_id: str) -> int:
         return int(self.races.index[self.races["race_id"] == race_id][0])
 
-    def make_context(self, pos: int, with_track_context: bool = True, require_ability: bool = True) -> Optional[RaceContext]:
+    def make_context(self, pos: int, with_track_context: bool = True, require_ability: bool = True,
+                     going_override: Optional[int] = None) -> Optional[RaceContext]:
         race = self.races.iloc[pos]
+        going = int(race["going"]) if going_override is None else int(going_override)
         sl = self.run_slices[race["race_id"]]
         runs = self.runs.iloc[sl]
         if require_ability:
@@ -73,10 +76,15 @@ class Dataset:
         notes: List[str] = []
         if has.sum() < len(runs):
             notes.append(f"{int((~has).sum())} runners without ability score were dropped")
+        elif not require_ability and sub["ability"].isna().any():
+            notes.append(
+                f"{int(sub['ability'].isna().sum())} runners without ability score; "
+                "missing ability is treated as neutral"
+            )
         k = self.cfg.formation.max_history_runs
         ctx = RaceContext(
             race_id=race["race_id"], date=race["date"], track=race["track"], surface=race["surface"],
-            distance_m=int(race["distance_m"]), layout=race["layout"], going=int(race["going"]),
+            distance_m=int(race["distance_m"]), layout=race["layout"], going=going,
             class_group=race["class_group"], age_class=race["age_class"], meet_id=race["meet_id"],
             meet_day=int(race["meet_day"]), course_week=int(race["course_week"]), month=int(race["month"]),
             first_turn_distance_m=float(race["first_turn_distance_m"]) if pd.notna(race["first_turn_distance_m"]) else np.nan,
@@ -90,11 +98,13 @@ class Dataset:
             hist_q=self.history.q[idx][:, :k], hist_j=self.history.jockey[idx][:, :k],
             closing_skill=self.history.closing_skill[idx], rest_days=self.history.rest_days[idx],
             age=sub["age"].to_numpy(dtype=float), weight_carried=sub["weight_carried"].to_numpy(dtype=float),
-            ability=sub["ability"].to_numpy(dtype=float), odds=sub["odds"].to_numpy(dtype=float),
+            ability=sub["ability"].to_numpy(dtype=float),
+            odds=(sub["odds"].to_numpy(dtype=float) if not bool(race["is_upcoming"])
+                  else np.full(len(sub), np.nan)),
             warnings=notes, horse_idx=sub["horse_idx"].to_numpy(), wakuban=sub["wakuban"].to_numpy(),
         )
         if with_track_context:
-            ctx.track_context = self.track_builder.build_as_of(pos)
+            ctx.track_context = self.track_builder.build_as_of(pos, going_override)
         return ctx
 
     def prepare_course_bias(self, positions) -> None:
@@ -102,13 +112,13 @@ class Dataset:
         if self.course_bias is not None and self.cfg.course_bias.enabled:
             self.course_bias.compute(list(positions))
 
-    def attach_course_bias(self, ctx: RaceContext, pos: int) -> RaceContext:
+    def attach_course_bias(self, ctx: RaceContext, pos: int, going_override: Optional[int] = None) -> RaceContext:
         if self.course_bias is None or not self.cfg.course_bias.enabled:
             return ctx
         if ctx.wakuban is None:
             runs = self.runs.iloc[self.run_slices[ctx.race_id]].set_index("horse_id")
             ctx.wakuban = runs.loc[ctx.horse_ids, "wakuban"].to_numpy()
-        ctx.bias = self.course_bias.get(pos)
+        ctx.bias = self.course_bias.get(pos, going_override)
         return ctx
 
     def outcomes(self, ctx: RaceContext) -> pd.DataFrame:
@@ -120,6 +130,8 @@ class Dataset:
 
 def _baseline_cache_path(cfg: RaceverseConfig, races: pd.DataFrame):
     tag = f"{len(races)}_{races['date'].max():%Y%m%d}_{cfg.baseline_alpha}_{cfg.baseline_first_month}"
+    if cfg.refit_unit != "month":
+        tag += f"_{cfg.refit_unit}"
     return CACHE_DIR / f"baselines_{tag}.parquet"
 
 
@@ -136,28 +148,28 @@ def build_dataset(cfg: RaceverseConfig, upcoming_from: Optional[pd.Timestamp] = 
         races["early_ref"] = cols["early_ref"].to_numpy()
         LOGGER.info("baseline cache loaded: %s", cache_path)
     else:
-        LOGGER.info("fitting monthly walk-forward baselines ...")
-        races["win_time_base"] = walk_forward_baseline(races, "win_time_sec", first_month, cfg.baseline_alpha)
-        races["early_ref"] = walk_forward_baseline(races, "early_split_sec", first_month, cfg.baseline_alpha)
+        LOGGER.info("fitting %s walk-forward baselines ...", cfg.refit_unit)
+        races["win_time_base"] = walk_forward_baseline(races, "win_time_sec", first_month, cfg.baseline_alpha, cfg.refit_unit)
+        races["early_ref"] = walk_forward_baseline(races, "early_split_sec", first_month, cfg.baseline_alpha, cfg.refit_unit)
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         races[["win_time_base", "early_ref"]].to_parquet(cache_path)
     races["track_resid"] = races["win_time_sec"] - races["win_time_base"]
     races["pace_delta"] = races["early_split_sec"] - races["early_ref"]
 
-    base_month = races["date"].min().to_period("M").to_timestamp()
-    races["month_idx"] = month_index(races["date"], base_month)
+    base_month = floor_timestamp(races["date"].min(), cfg.refit_unit)
+    races["month_idx"] = month_index(races["date"], base_month, cfg.refit_unit)
     n_months = int(races["month_idx"].max()) + 1
 
     history = build_run_history(runs, cfg.formation.max_history_runs)
     profiles = JockeyProfiles.build(
         runs, races, n_jockeys=len(data.jockey_codes), base_month=base_month, n_months=n_months,
         frontness_k=cfg.formation.jockey_frontness_shrinkage_k, tempo_k=cfg.pace.lead_tempo_shrinkage_k,
-        lead_rank_cut=cfg.formation.lead_rank_cut,
+        lead_rank_cut=cfg.formation.lead_rank_cut, unit=cfg.refit_unit,
     )
-    runs = _attach_ability(runs, races)
+    runs = _attach_ability(runs, races, cfg)
     runs["horse_idx"] = pd.factorize(runs["horse_id"])[0].astype(np.int64)
     slices = _run_slices(runs)
-    track_builder = TrackSpeedBuilder(races, cfg.track_speed)
+    track_builder = TrackSpeedBuilder(races, cfg.track_speed, cfg.refit_unit)
     first_turn_default = float(races["first_turn_distance_m"].median())
     ds = Dataset(cfg, races, runs, data.laps, history, profiles, data.jockey_codes, slices, base_month,
                  track_builder, data.warnings, {}, first_turn_default)
@@ -172,9 +184,12 @@ def _run_slices(runs: pd.DataFrame) -> Dict[str, slice]:
     return {ids[a]: slice(int(a), int(b)) for a, b in zip(change[:-1], change[1:])}
 
 
-def _attach_ability(runs: pd.DataFrame, races: pd.DataFrame) -> pd.DataFrame:
+def _attach_ability(runs: pd.DataFrame, races: pd.DataFrame, cfg: RaceverseConfig) -> pd.DataFrame:
     """既存Rankerの能力指標(OOF)を結合。未開催レースは本番Ranker出力(output/predictions.csv)から。"""
-    table = existing_ability.load_ability_table()
+    if cfg.ability_source == "weekly":
+        table = existing_ability.load_weekly_ability_table()
+    else:
+        table = existing_ability.load_ability_table()
     merged = runs.merge(table[["race_id", "horse_id", "ability_score"]], on=["race_id", "horse_id"], how="left")
     merged = merged.rename(columns={"ability_score": "ability"})
     merged.index = runs.index

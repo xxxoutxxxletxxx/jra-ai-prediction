@@ -1,0 +1,56 @@
+# 週次再学習版: 「先週までの結果」で今週のレースを予測する。
+#   python -m raceverse.adapters.existing_ability --weekly --start 2019-01-01 --end 2026-09-01   # 週次の能力指標を先に作る
+#   python -m raceverse.cli --config configs/raceverse_weekly.yaml backtest --start 2021-09-01 --end 2026-09-01 --levels base,formation,pace
+raceverse:
+  version: "0.6"
+  n_simulations: 10000
+  random_seed: 42
+  data_min_year: 2015
+  refit_unit: week
+  ability_source: weekly
+
+  formation:
+    max_history_runs: 10
+    recency_weights: [10, 10, 9, 8, 7, 6, 5, 4, 3, 2]
+    group_threshold: 0.08
+    jockey_change_alpha: 0.40
+    jockey_frontness_shrinkage_k: 30
+
+  pace:
+    ridge_alpha: 1.0
+    training_formation_draws: 16
+    lead_tempo_shrinkage_k: 20
+
+  pace_impact:
+    base_first_month: "2017-07-01"
+    base_alpha: 1.0
+    backfit_iters: 30
+    horse_lambda: {lead: 8.0, chase: 24.0, front: 24.0}
+    jockey_lambda: {lead: 20.0, chase: 30.0, front: 30.0}
+    presence_lambda: 20.0
+    presence_min_n: 10
+    impact_clip_sec: 1.0
+    corr_min_events: 8
+    corr_min_other: 30
+
+  track_speed:
+    going_mismatch_weight: 0.35
+    shrinkage_k: 2.0
+
+  winning_time:
+    enabled: true
+    train_start: "2019-01-01"   # 既定(2022-09-01)より前から走破性能・時計モデルを学習する
+
+  performance:
+    level: formation
+
+  course_bias:
+    enabled: true
+
+  calibration:
+    enabled: true
+
+  backtest:
+    test_start: "2021-09-01"
+    test_end: "2026-09-01"
+    n_simulations: 10000

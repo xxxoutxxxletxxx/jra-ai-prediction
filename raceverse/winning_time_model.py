@@ -35,8 +35,12 @@ FORMATION_COLUMNS = ["front_group_size", "q_top3", "front_competition", "outside
 
 
 def ability_stats(ability: np.ndarray) -> np.ndarray:
-    s = np.sort(ability)[::-1]
-    return np.array([s[0], s[:3].mean(), ability.mean(), ability.std(), len(ability)])
+    values = np.asarray(ability, dtype=float)
+    known = np.isfinite(values)
+    default = float(np.median(values[known])) if known.any() else 0.0
+    values = np.where(known, values, default)
+    s = np.sort(values)[::-1]
+    return np.array([s[0], s[:3].mean(), values.mean(), values.std(), len(values)])
 
 
 def time_features(ctx: RaceContext, track: TrackContext, pace: np.ndarray, formation: np.ndarray) -> np.ndarray:

@@ -88,7 +88,7 @@ class AsOfAndRoleTest(unittest.TestCase):
             "early_rank": list(range(1, n + 1)) + [0, 0, 0, 0], "field_size": [n] * n + [4] * 4,
         })
         eps = pd.DataFrame({"race_id": ["r", "bad"], "eps": [-0.5, np.nan]})
-        ds = SimpleNamespace(runs=runs, base_month=pd.Timestamp("2024-01-01"))
+        ds = SimpleNamespace(runs=runs, base_month=pd.Timestamp("2024-01-01"), cfg=SimpleNamespace(refit_unit="month"))
         roles, presence = build_events(ds, eps, PaceImpactConfig())
         self.assertEqual(roles["lead"].horse.tolist(), [0])
         self.assertEqual(sorted(roles["chase"].horse.tolist()), [1, 2])

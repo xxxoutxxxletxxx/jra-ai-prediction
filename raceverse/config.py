@@ -132,6 +132,8 @@ class RaceverseConfig:
     n_simulations: int = 10_000
     random_seed: int = 42
     data_min_year: int = 2015
+    refit_unit: str = "month"        # "month": 前月末までの結果で再学習 / "week": 先週までの結果で再学習
+    ability_source: str = "monthly"  # "monthly": 既存の月次Ranker OOF / "weekly": 週次Ranker OOF(raceverse.adapters.existing_ability)
     baseline_first_month: str = "2016-01-01"
     baseline_alpha: float = 2.0
     formation: FormationConfig = field(default_factory=FormationConfig)
@@ -169,4 +171,8 @@ def load_config(path: Optional[Path] = None) -> RaceverseConfig:
 
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         _merge(config, data.get("raceverse", data))
+    if config.refit_unit not in ("month", "week"):
+        raise ValueError(f"refit_unit must be 'month' or 'week': {config.refit_unit}")
+    if config.ability_source not in ("monthly", "weekly"):
+        raise ValueError(f"ability_source must be 'monthly' or 'weekly': {config.ability_source}")
     return config

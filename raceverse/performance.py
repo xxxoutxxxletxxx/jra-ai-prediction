@@ -5,7 +5,6 @@
   q_c, slot_c          抽選した序盤位置・グループ内の外寄り度(隊列)
   q_x_pace             序盤位置 x 連続値ペース偏差(前残り/差し有利の展開適性)
   closing_x_pace       過去の上がり相対(代理指標) x ペース偏差
-  closing_c, young_c, layoff_c, weight_c   上がり傾向・若齢・休み明け・斤量
 シミュレーションでは共通ショック(ペース・レース内の位置取り有利不利のランダム勾配)と
 各馬固有ノイズ(OOF残差の標準化プールから抽選)を分けて与える。時計は個別に決めて着順を作るため、時計順=着順が保証される。
 """
@@ -20,19 +19,20 @@ import numpy as np
 from raceverse.course_bias import bias_feature_block
 from raceverse.schemas import RaceContext
 
-PERF_FEATURES = ["ability_c", "q_c", "slot_c", "q_x_pace", "closing_x_pace"]
+GOING_ABILITY_FEATURES = [f"ability_c_x_going_{going}" for going in (2, 3, 4)]
+PERF_FEATURES = ["ability_c", "q_c", "slot_c", "q_x_pace", "closing_x_pace"] + GOING_ABILITY_FEATURES
 STYLE_DRAW_FEATURES = ["style_win_bias_c", "style_place_bias_c", "draw_win_bias_c", "draw_place_bias_c",
                        "style_draw_interaction_c"]
 PACE_BIAS_FEATURES = ["pace_style_win_bias_c", "pace_style_place_bias_c", "pace_draw_interaction_c"]
 PERF_FEATURES += STYLE_DRAW_FEATURES + PACE_BIAS_FEATURES
 _I = {n: i for i, n in enumerate(PERF_FEATURES)}
 PERF_LEVELS: Dict[str, List[str]] = {
-    "base": ["ability_c"],
-    "formation": ["ability_c", "q_c", "slot_c"],
-    "pace": ["ability_c", "q_c", "slot_c", "q_x_pace", "closing_x_pace"],
+    "base": ["ability_c"] + GOING_ABILITY_FEATURES,
+    "formation": ["ability_c", "q_c", "slot_c"] + GOING_ABILITY_FEATURES,
+    "pace": ["ability_c", "q_c", "slot_c", "q_x_pace", "closing_x_pace"] + GOING_ABILITY_FEATURES,
     # コース別の脚質・枠順バイアスを加えた版(目的変数・既存特徴量は同じ)
-    "formation_bias": ["ability_c", "q_c", "slot_c"] + STYLE_DRAW_FEATURES,
-    "pace_bias": ["ability_c", "q_c", "slot_c", "q_x_pace", "closing_x_pace"] + STYLE_DRAW_FEATURES + PACE_BIAS_FEATURES,
+    "formation_bias": ["ability_c", "q_c", "slot_c"] + STYLE_DRAW_FEATURES + GOING_ABILITY_FEATURES,
+    "pace_bias": ["ability_c", "q_c", "slot_c", "q_x_pace", "closing_x_pace"] + STYLE_DRAW_FEATURES + PACE_BIAS_FEATURES + GOING_ABILITY_FEATURES,
 }
 PACE_DEPENDENT_LEVELS = ("pace", "pace_bias")
 PACELESS_FALLBACK = {"pace": "formation", "pace_bias": "formation_bias"}
@@ -44,10 +44,14 @@ def _center(values: np.ndarray) -> np.ndarray:
 
 def static_runner_features(ctx: RaceContext) -> Dict[str, np.ndarray]:
     """隊列・ペースに依らない馬ごとの特徴([N])。"""
+    ability = ctx.ability.astype(float)
+    known_ability = np.isfinite(ability)
+    ability_default = float(np.median(ability[known_ability])) if known_ability.any() else 0.0
+    ability = np.where(known_ability, ability, ability_default)
     closing = ctx.closing_skill.astype(float)
     closing = np.where(np.isfinite(closing), closing, np.nanmean(closing) if np.isfinite(closing).any() else 0.0)
     return {
-        "ability_c": _center(ctx.ability.astype(float)),
+        "ability_c": _center(ability),
         "closing_c": _center(closing),
     }
 
@@ -63,6 +67,8 @@ def perf_features(ctx: RaceContext, q_adj: np.ndarray, slot: np.ndarray, pace: n
     out[:, :, _I["slot_c"]] = _center(slot.astype(float))
     out[:, :, _I["q_x_pace"]] = q_c * pace[:, None]
     out[:, :, _I["closing_x_pace"]] = static["closing_c"][None, :] * pace[:, None]
+    if ctx.going in (2, 3, 4):
+        out[:, :, _I[f"ability_c_x_going_{ctx.going}"]] = static["ability_c"][None, :]
     if ctx.bias is not None:
         wakuban = ctx.wakuban if ctx.wakuban is not None else derive_wakuban(ctx.umaban)
         for name, value in bias_feature_block(ctx.bias, wakuban, q_adj, pace).items():

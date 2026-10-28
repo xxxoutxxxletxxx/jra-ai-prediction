@@ -28,6 +28,11 @@ class SimulationInvariantsTest(unittest.TestCase):
             checks = check_invariants(result)
             self.assertTrue(all(checks.values()), (level, checks))
 
+    def test_retired_full_rejected_even_with_legacy_bundle_entry(self):
+        self.bundle.perf_models["full"] = self.bundle.perf_models["formation"]
+        with self.assertRaisesRegex(ValueError, "unsupported RACEVERSE performance level: full"):
+            self._run(level="full")
+
     def test_same_seed_reproduces_and_different_seed_differs(self):
         a, b, c = self._run(seed=3), self._run(seed=3), self._run(seed=4)
         np.testing.assert_array_equal(a.horses["win_probability"], b.horses["win_probability"])

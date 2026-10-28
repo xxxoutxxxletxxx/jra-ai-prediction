@@ -50,6 +50,7 @@ def result_to_json(result: SimulationResult, horse_names: Optional[Dict[str, str
             entry["horse_name"] = horse_names.get(row["horse_id"])
         if calibrated is not None:
             entry["win_probability_calibrated"] = _clean(calibrated.iloc[i])
+            entry["p_cal"] = _clean(calibrated.iloc[i])
         if "mean_horse_time_sec" in row:
             entry["mean_horse_time_sec"] = _clean(row["mean_horse_time_sec"])
             entry["horse_time_p10_p90_sec"] = [_clean(row["horse_time_p10_sec"]), _clean(row["horse_time_p90_sec"])]
@@ -93,13 +94,20 @@ def race_markdown(result: SimulationResult, horse_names: Optional[Dict[str, str]
 
 
 def write_race_outputs(result: SimulationResult, out_dir: Path, horse_names=None, ranker_probability=None,
-                       calibrated: Optional[pd.Series] = None) -> None:
+                       calibrated: Optional[pd.Series] = None, file_suffix: str = "") -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
-    stem = result.race_id
+    stem = result.race_id + file_suffix
     (out_dir / f"{stem}.json").write_text(
         json.dumps(result_to_json(result, horse_names, calibrated), ensure_ascii=False, indent=2), encoding="utf-8")
-    result.horses.drop(columns=["finish_position_distribution", "pace_condition_sample_count"]).to_csv(
-        out_dir / f"{stem}.csv", index=False)
+    horses = result.horses.drop(columns=["finish_position_distribution", "pace_condition_sample_count"]).copy()
+    if calibrated is not None:
+        horses["win_probability_calibrated"] = calibrated.to_numpy(dtype=float)
+        horses["p_cal"] = calibrated.to_numpy(dtype=float)
+    horses["going"] = result.race.get("going")
+    horses["going_scenario"] = result.race.get("going_scenario", result.race.get("going"))
+    horses["model_level"] = result.race.get("perf_level")
+    horses["generated_at"] = result.race.get("generated_at")
+    horses.to_csv(out_dir / f"{stem}.csv", index=False)
     (out_dir / f"{stem}.md").write_text(race_markdown(result, horse_names, ranker_probability, calibrated), encoding="utf-8")
 
 

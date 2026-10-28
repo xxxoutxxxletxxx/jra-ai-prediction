@@ -9,7 +9,7 @@ from raceverse.pace_display import fit_display_thresholds
 from raceverse.pace_features import FEATURE_NAMES
 from raceverse.pace_regression import fit_pace_regressor
 from raceverse.pace_residuals import PaceBounds, PaceResidualSampler
-from raceverse.performance import PerfModel
+from raceverse.performance import PERF_LEVELS, PerfModel
 from raceverse.schemas import RaceBias, RaceContext, TrackContext
 from raceverse.training import ModelBundle
 from raceverse.winning_time_model import TIME_FEATURES, TIME_LEVELS, TimeModel
@@ -63,9 +63,8 @@ def make_bundle(seed: int = 0) -> ModelBundle:
     time_sampler = PaceResidualSampler.fit(np.array(["turf_mile"] * 400), rng.normal(0, 0.8, 400), np.full(400, 0.01),
                                            yt, [0.002, 0.998], 100)
     perf = {}
-    n_cols = {"base": 1, "formation": 3, "pace": 5, "formation_bias": 8, "pace_bias": 13}
-    for lv, c in n_cols.items():
-        coef = np.zeros(c)
+    for lv, columns in PERF_LEVELS.items():
+        coef = np.zeros(len(columns))
         coef[0] = -0.45
         perf[lv] = PerfModel(lv, coef, 0.0, 0.5, 0.2, rng.normal(size=2000), 0.0 if lv == "base" else 0.3, 0.1,
                              np.array([-3.0, 6.0]), 1000)

@@ -17,6 +17,7 @@ import pandas as pd
 
 from raceverse.config import PaceImpactConfig
 from raceverse.pace_features import front_count_array
+from raceverse.periods import timestamp_period_index
 
 FLAGS = ("presence", "lead", "chase", "front")
 
@@ -92,7 +93,7 @@ def pace_profile_table(ds, as_of: pd.Timestamp) -> pd.DataFrame:
     """馬・騎手ごとの Pace Impact(秒) / ペース相関 / サンプル数 / 信頼性 / 最終更新時点。"""
     profiles = ds.impacts
     cfg = profiles.cfg
-    month = int((as_of.year - ds.base_month.year) * 12 + as_of.month - ds.base_month.month)
+    month = timestamp_period_index(as_of, ds.base_month, ds.cfg.refit_unit)
     impact: Dict[str, Dict[str, np.ndarray]] = {"horse": {}, "jockey": {}}
     for role in ("lead", "chase", "front"):
         a, b, _, _ = profiles.role_impacts(role, month)

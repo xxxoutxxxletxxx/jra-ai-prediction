@@ -15,12 +15,14 @@ import pandas as pd
 from raceverse.config import TrackSpeedConfig
 from raceverse.meet_history import MeetIndex
 from raceverse.pace_residuals import distance_band
+from raceverse.periods import floor_timestamp, period_start
 from raceverse.schemas import TrackContext
 
 
 class TrackSpeedBuilder:
-    def __init__(self, races: pd.DataFrame, cfg: TrackSpeedConfig):
+    def __init__(self, races: pd.DataFrame, cfg: TrackSpeedConfig, unit: str = "month"):
         self.cfg = cfg
+        self.unit = unit
         self.races = races
         self.index = MeetIndex(races, cfg.previous_week_window_days, cfg.previous_year_window_days,
                                cfg.previous_meet_last_days)
@@ -32,9 +34,9 @@ class TrackSpeedBuilder:
         self._scale = self._scale_by_month()
 
     def _scale_by_month(self):
-        """月mの残差標準偏差 = mより前の月の確定レースだけで計算(累積)。"""
+        """期間(月 / 週)pの残差標準偏差 = pより前の期間の確定レースだけで計算(累積)。"""
         frame = self.races[~self.races["is_upcoming"] & self.races["track_resid"].notna()]
-        months = frame["date"].dt.to_period("M").dt.to_timestamp()
+        months = period_start(frame["date"], self.unit)
         grouped = frame["track_resid"].groupby(months)
         n = grouped.size().cumsum()
         s1 = grouped.sum().cumsum()
@@ -47,13 +49,16 @@ class TrackSpeedBuilder:
 
     def _resid_scale(self, date: pd.Timestamp) -> float:
         keys, values = self._scale
-        month = np.datetime64(date.to_period("M").to_timestamp())
+        month = np.datetime64(floor_timestamp(date, self.unit))
         pos = np.searchsorted(keys, month, side="left") - 1
         return float(values[pos]) if pos >= 0 and values[pos] > 0 else 1.0
 
-    def build_as_of(self, row_pos: int) -> TrackContext:
+    def build_as_of(self, row_pos: int, going_override: Optional[int] = None) -> TrackContext:
         cfg = self.cfg
         race = self.races.iloc[row_pos]
+        if going_override is not None:
+            race = race.copy()
+            race["going"] = int(going_override)
         date = race["date"]
         target_day = int(np.datetime64(date, "D").astype(np.int64))
         meet_start = int(self.index.meet_start[row_pos])

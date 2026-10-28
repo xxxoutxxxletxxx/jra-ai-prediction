@@ -77,7 +77,7 @@ class CourseBiasEngine:
         self.cfg = cfg
         self.races = races
         self.H = self._history(races, runs)
-        self._cache: Dict[int, RaceBias] = {}
+        self._cache: Dict[object, RaceBias] = {}
 
     def _derived(self, frame: pd.DataFrame) -> pd.DataFrame:
         frame["stage"] = meet_stage(frame["meet_day"].to_numpy())
@@ -155,13 +155,17 @@ class CourseBiasEngine:
         q[cat] = np.tile(np.arange(count), len(races))
         return q.reset_index(drop=True)
 
-    def compute(self, positions: Sequence[int]) -> None:
-        todo = [int(p) for p in positions if int(p) not in self._cache]
+    def compute(self, positions: Sequence[int], going_override: Optional[int] = None) -> None:
+        todo = [int(p) for p in positions
+                if ((int(p), int(going_override)) if going_override is not None else int(p)) not in self._cache]
         if not todo:
             return
         cols = ["race_id", "date", "surface", "track", "distance_m", "track_cd", "course_kubun", "meet_id", "meet_day",
                 "going", "field_size"]
         races = self._derived(self.races.loc[todo, cols].copy())
+        if going_override is not None:
+            races["going"] = int(going_override)
+            races = self._derived(races)
         races["field_size"] = races["field_size"].clip(lower=self.cfg.min_field)
         R, cfg = len(races), self.cfg
 
@@ -210,7 +214,8 @@ class CourseBiasEngine:
 
         edges = np.asarray(cfg.pace_edges_sec, dtype=float)
         for i, pos in enumerate(races.index):
-            self._cache[int(pos)] = RaceBias(
+            key = (int(pos), int(going_override)) if going_override is not None else int(pos)
+            self._cache[key] = RaceBias(
                 style_win=_log(style[4]["rw"][i]), style_place=_log(style[4]["rp"][i]),
                 style_n=style[2]["n"][i], style_n_meet=style[4]["n"][i],
                 draw_win=_log(draw[4]["rw"][i]), draw_place=_log(draw[4]["rp"][i]),
@@ -219,10 +224,11 @@ class CourseBiasEngine:
                 front_q=cfg.front_q, stalk_q=cfg.stalk_q, pace_edges=edges,
             )
 
-    def get(self, pos: int) -> RaceBias:
-        if int(pos) not in self._cache:
-            self.compute([pos])
-        return self._cache[int(pos)]
+    def get(self, pos: int, going_override: Optional[int] = None) -> RaceBias:
+        key = (int(pos), int(going_override)) if going_override is not None else int(pos)
+        if key not in self._cache:
+            self.compute([pos], going_override)
+        return self._cache[key]
 
 
 def bias_feature_block(bias: RaceBias, wakuban: np.ndarray, q_adj: np.ndarray, pace: np.ndarray) -> Dict[str, np.ndarray]:

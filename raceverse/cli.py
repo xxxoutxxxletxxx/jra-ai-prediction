@@ -10,13 +10,16 @@ from __future__ import annotations
 
 import argparse
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Optional
 
 import pandas as pd
 
 from raceverse.config import REPORT_DIR, load_config
+from raceverse.baselines import fit_current_baseline
 from raceverse.evaluation import power_normalize
+from raceverse.periods import floor_timestamp
 from raceverse.pipeline import Prepared, prepare
 from raceverse.reports import write_race_outputs
 from raceverse.simulator import simulate_race
@@ -79,30 +82,61 @@ def cmd_backtest(args) -> None:
     print(f"done in {summary['runtime_sec']:.0f}s -> {args.out or REPORT_DIR}")
 
 
-def _run_races(P: Prepared, positions, as_of: pd.Timestamp, args, out_dir: Path) -> None:
+GOING_SCENARIOS = (1, 2, 3, 4)
+GOING_LABELS = {1: "good", 2: "yielding", 3: "soft", 4: "heavy"}
+
+
+def _run_races(P: Prepared, positions, as_of: pd.Timestamp, args, out_dir: Path,
+               going_scenarios: bool = False) -> None:
     ds, cfg = P.ds, P.cfg
     bundle = P.bundle(as_of)
     gamma = latest_gamma(args.level)
     prod = _production_maps()
+    baseline_models = {}
     ds.prepare_course_bias(positions)
     for pos in positions:
-        ctx = ds.make_context(int(pos))
-        if ctx is None:
-            LOGGER.warning("skip %s: fewer than 4 runners with ability scores", ds.races.at[pos, "race_id"])
-            continue
-        ds.attach_course_bias(ctx, int(pos))
-        snap = ds.snapshot(ctx.month_idx)
-        result = simulate_race(ctx, bundle, snap, cfg, n_sims=args.sims,
-                               perf_level=args.level, seed=args.seed, first_turn_default=ds.first_turn_default)
-        date_key = ctx.date.strftime("%Y-%m-%d")
-        race_num = int(ds.races.at[pos, "race_num"])
-        keys = {h: (date_key, ctx.track, race_num, int(u)) for h, u in zip(ctx.horse_ids, ctx.umaban)}
-        names = {h: prod[k]["name"] for h, k in keys.items() if k in prod}
-        ranker = {h: prod[k]["ranker_p"] for h, k in keys.items() if k in prod}
-        write_race_outputs(result, out_dir, names, ranker, _calibrate(result, gamma))
-        top = result.horses.sort_values("win_probability", ascending=False).iloc[0]
-        print(f"{ctx.race_id}: n={ctx.n} top umaban={int(top['umaban'])} p={top['win_probability']:.3f} "
-              f"win_time={result.race.get('expected_winning_time_sec')} -> {out_dir}")
+        scenarios = GOING_SCENARIOS if going_scenarios else (None,)
+        for going in scenarios:
+            ctx = ds.make_context(int(pos), going_override=going, require_ability=not going_scenarios)
+            if ctx is None:
+                LOGGER.warning("skip %s: fewer than 4 runners with ability scores", ds.races.at[pos, "race_id"])
+                break
+            file_suffix = ""
+            if going is not None:
+                race_row = ds.races.iloc[int(pos)].copy()
+                race_row["going"] = going
+                for target in ("win_time_sec", "early_split_sec"):
+                    if target not in baseline_models:
+                        baseline_models[target] = fit_current_baseline(ds.races, target, as_of, cfg.baseline_alpha)
+                    prediction = baseline_models[target].predict(race_row.to_frame().T)[0]
+                    setattr(ctx, "win_time_base" if target == "win_time_sec" else "early_ref", float(prediction))
+                file_suffix = f"_going-{going}"
+            ds.attach_course_bias(ctx, int(pos), going)
+            snap = ds.snapshot(ctx.month_idx)
+            result = simulate_race(ctx, bundle, snap, cfg, n_sims=args.sims,
+                                   perf_level=args.level, seed=args.seed, first_turn_default=ds.first_turn_default)
+            result.race["generated_at"] = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+            confirmed_dates = ds.races.loc[~ds.races["is_upcoming"], "date"]
+            result.race["training_data_through"] = confirmed_dates.max().strftime("%Y-%m-%d")
+            if gamma is not None:
+                result.race["calibration_gamma"] = gamma
+            if going is not None:
+                result.race["going_scenario"] = going
+                result.race["going_scenario_label"] = GOING_LABELS[going]
+            date_key = ctx.date.strftime("%Y-%m-%d")
+            race_num = int(ds.races.at[pos, "race_num"])
+            keys = {h: (date_key, ctx.track, race_num, int(u)) for h, u in zip(ctx.horse_ids, ctx.umaban)}
+            names = {h: prod[k]["name"] for h, k in keys.items() if k in prod}
+            runner_rows = ds.runs.iloc[ds.run_slices[ctx.race_id]]
+            runner_names = runner_rows.set_index("horse_id")["horse_name"].to_dict()
+            names.update({horse_id: runner_names[horse_id] for horse_id in ctx.horse_ids
+                          if horse_id not in names and runner_names.get(horse_id)})
+            ranker = {h: prod[k]["ranker_p"] for h, k in keys.items() if k in prod}
+            calibrated = _calibrate(result, gamma)
+            write_race_outputs(result, out_dir, names, ranker, calibrated, file_suffix)
+            top = result.horses.sort_values("win_probability", ascending=False).iloc[0]
+            print(f"{ctx.race_id} going={ctx.going}: n={ctx.n} top umaban={int(top['umaban'])} "
+                  f"p={top['win_probability']:.3f} win_time={result.race.get('expected_winning_time_sec')} -> {out_dir}")
 
 
 def cmd_predict(args) -> None:
@@ -117,7 +151,7 @@ def cmd_predict(args) -> None:
         print("対象の未開催レースがありません(DBの出馬表更新が必要です)")
         return
     out_dir = Path(args.out or REPORT_DIR / f"predict_{date:%Y%m%d}")
-    _run_races(P, window.index, date, args, out_dir)
+    _run_races(P, window.index, date, args, out_dir, args.going_scenarios)
 
 
 def cmd_simulate(args) -> None:
@@ -125,7 +159,7 @@ def cmd_simulate(args) -> None:
     P = prepare(cfg, use_cache=not args.rebuild)
     pos = P.ds.race_pos(args.race_id)
     race_date = P.ds.races.at[pos, "date"]
-    as_of = race_date.to_period("M").to_timestamp()  # 月初時点の情報だけで学習
+    as_of = floor_timestamp(race_date, P.cfg.refit_unit)  # 月初(週次設定なら週の月曜)時点の情報だけで学習
     out_dir = Path(args.out or REPORT_DIR / "simulate")
     _run_races(P, [pos], as_of, args, out_dir)
 
@@ -154,6 +188,8 @@ def build_parser() -> argparse.ArgumentParser:
         if name == "predict":
             p.add_argument("--date", required=True)
             p.add_argument("--days", type=int, default=2)
+            p.add_argument("--going-scenarios", action="store_true",
+                           help="未開催レースを良・稍重・重・不良の4条件で独立予測")
         p.add_argument("--race-id", default=None, required=(name == "simulate"))
     return parser
 

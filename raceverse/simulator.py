@@ -20,7 +20,7 @@ from raceverse.formation_sampler import sample_formation
 from raceverse.pace_display import pace_display_bucket_index, thresholds_for
 from raceverse.pace_features import FEATURE_INDEX, pace_features
 from raceverse.pace_residuals import group_key
-from raceverse.performance import PACELESS_FALLBACK, PERF_FEATURES, perf_features
+from raceverse.performance import PACELESS_FALLBACK, PERF_FEATURES, PERF_LEVELS, perf_features
 from raceverse.schemas import RaceContext
 from raceverse.training import ModelBundle
 from raceverse.winning_time_model import FORMATION_COLUMNS, time_features
@@ -53,6 +53,8 @@ def simulate_race(
     first_turn_default: float = 400.0,
     keep_samples: bool = False,
 ) -> SimulationResult:
+    if perf_level not in PERF_LEVELS:
+        raise ValueError(f"unsupported RACEVERSE performance level: {perf_level}")
     s = int(n_sims or cfg.n_simulations)
     seed = cfg.random_seed if seed is None else seed
     rng = race_rng(seed, ctx.race_id)
@@ -163,7 +165,7 @@ def _summarize(ctx, form, ranks, horse_time, win_time, pace_delta, mu_delta, ear
     has_split = bool(np.isfinite(early_split).any())
     race: Dict[str, object] = {
         "engine": "RACEVERSE", "version": "0.6", "race_id": ctx.race_id, "simulations": s, "seed": seed,
-        "perf_level": perf_level, "model_as_of": str(bundle.as_of.date()),
+        "perf_level": perf_level, "going": int(ctx.going), "model_as_of": str(bundle.as_of.date()),
         "data_cutoff": track.reference_cutoff if track else str((ctx.date - pd.Timedelta(days=1)).date()),
         "reference_early_split_sec": None if not np.isfinite(ctx.early_ref) else ctx.early_ref,
         "early_section_m": None if not np.isfinite(ctx.early_section_m) else ctx.early_section_m,

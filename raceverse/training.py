@@ -18,6 +18,7 @@ from raceverse.dataset import Dataset
 from raceverse.pace_display import fit_display_thresholds
 from raceverse.pace_residuals import PaceBounds, PaceResidualSampler
 from raceverse.pace_regression import fit_pace_regressor
+from raceverse.periods import period_start
 from raceverse.performance import PERF_LEVELS, PERF_FEATURES, PerfModel, fit_ridge, level_indices
 from raceverse.store import Store
 from raceverse.winning_time_model import TIME_LEVELS, TimeModel
@@ -48,8 +49,9 @@ class OOFCache:
     perf_z: Optional[np.ndarray] = None  # winsor済み目的変数(OOF時のbounds)
 
 
-def _months(dates: np.ndarray) -> np.ndarray:
-    return pd.to_datetime(pd.Series(dates)).dt.to_period("M").dt.to_timestamp().to_numpy()
+def _months(dates: np.ndarray, unit: str = "month") -> np.ndarray:
+    """各行が属する期間(月 / 週)の開始日。名前は月次時代の互換のため _months のまま。"""
+    return period_start(pd.to_datetime(pd.Series(dates)), unit).to_numpy()
 
 
 def _winsor_bounds(z: np.ndarray, q: List[float]) -> np.ndarray:
@@ -70,7 +72,7 @@ def compute_oof_cache(store: Store, ds: Dataset, cfg: RaceverseConfig, time_tabl
     """時計・走破性能モデルのローリング・オリジンOOF。"""
     time_oof = {lv: np.full(len(time_table["y"]), np.nan) for lv in TIME_LEVELS} if time_table else {}
     if time_table:
-        months = _months(time_table["date"])
+        months = _months(time_table["date"], cfg.refit_unit)
         first = np.datetime64(pd.Timestamp(cfg.winning_time.train_start) + pd.DateOffset(months=12))
         for month in np.unique(months[months >= first]):
             train = time_table["date"] < month
@@ -83,7 +85,7 @@ def compute_oof_cache(store: Store, ds: Dataset, cfg: RaceverseConfig, time_tabl
     perf_mu: Dict[str, np.ndarray] = {}
     if perf_table:
         n_rows = len(perf_table["race_pos"])
-        months = _months(perf_table["date"])
+        months = _months(perf_table["date"], cfg.refit_unit)
         first = np.datetime64(pd.Timestamp(cfg.winning_time.train_start) + pd.DateOffset(months=12))
         perf_mu = {lv: np.full((n_rows, perf_table["F"].shape[1]), np.nan) for lv in PERF_LEVELS}
         for month in np.unique(months[months >= first]):

@@ -14,6 +14,8 @@ from sklearn.linear_model import Ridge
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
+from raceverse.periods import period_start
+
 
 def make_pace_regressor(alpha: float) -> Pipeline:
     return Pipeline([("scale", StandardScaler()), ("ridge", Ridge(alpha=alpha))])
@@ -33,12 +35,13 @@ def rolling_oof_predictions(
     alpha: float,
     first_month: pd.Timestamp,
     min_rows: int,
+    unit: str = "month",
 ) -> np.ndarray:
-    """月次ローリング・オリジン。各月の行は「その月より前の行だけ」で学習したモデルで予測する。
+    """月次(または週次)ローリング・オリジン。各期間の行は「その期間より前の行だけ」で学習したモデルで予測する。
 
     同一レース由来の行は同じ日付なので学習と評価にまたがらない。first_monthより前・学習不足の月はNaN。
     """
-    months = dates.dt.to_period("M").dt.to_timestamp().to_numpy()
+    months = period_start(dates, unit).to_numpy()
     pred = np.full(len(y), np.nan)
     date_values = dates.to_numpy()
     for month in np.unique(months[months >= np.datetime64(first_month)]):

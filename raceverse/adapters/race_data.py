@@ -36,7 +36,7 @@ RA_COLUMNS = RACE_KEY + [
 ] + [f"LapTime{i}" for i in range(25)]
 SE_COLUMNS = RACE_KEY + [
     "headDataKubun", "headMakeDate", "Wakuban", "Umaban", "KettoNum", "KisyuCode", "Barei", "SexCD", "Futan",
-    "KakuteiJyuni", "Time", "Jyuni1c", "Jyuni2c", "Jyuni3c", "Jyuni4c", "HaronTimeL3", "Odds", "Ninki",
+    "KakuteiJyuni", "Time", "Jyuni1c", "Jyuni2c", "Jyuni3c", "Jyuni4c", "HaronTimeL3", "Odds", "Ninki", "Bamei",
     "BaTaijyu", "IJyoCD",
 ]
 
@@ -232,6 +232,7 @@ def _build_runs(se: pd.DataFrame, races: pd.DataFrame, warnings: List[str]) -> p
         "race_id": runs["race_id"].to_numpy(),
         "date": runs["date"].to_numpy(),
         "horse_id": runs["KettoNum"].astype(str).to_numpy(),
+        "horse_name": runs["Bamei"].fillna("").astype(str).str.strip().to_numpy(),
         "umaban": _num(runs["Umaban"]).astype(int).to_numpy(),
         "wakuban": _num(runs["Wakuban"]).astype(int).to_numpy(),
         "jockey_code": runs["KisyuCode"].astype(str).str.strip().to_numpy(),

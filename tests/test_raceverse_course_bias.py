@@ -7,7 +7,7 @@ import pandas as pd
 from raceverse.config import CourseBiasConfig, RaceverseConfig
 from raceverse.course_bias import (CourseBiasEngine, bias_feature_block, draw_group, pace_bucket, style_from_q,
                                    style_ids)
-from raceverse.performance import PERF_FEATURES, PERF_LEVELS, level_indices, perf_features
+from raceverse.performance import GOING_ABILITY_FEATURES, PERF_FEATURES, PERF_LEVELS, level_indices, perf_features
 from raceverse.simulator import check_invariants, simulate_race
 from raceverse_fixtures import make_bias, make_bundle, make_ctx, make_snapshot
 
@@ -121,9 +121,9 @@ class AsOfEngineTest(unittest.TestCase):
 class BiasFeatureTest(unittest.TestCase):
     def test_supported_levels_exclude_full_and_bias_levels_use_new_columns(self):
         self.assertNotIn("full", PERF_LEVELS)
-        self.assertEqual(len(level_indices("formation_bias")), 8)
-        self.assertEqual(len(level_indices("pace_bias")), 13)
-        self.assertEqual(PERF_LEVELS["formation"], PERF_LEVELS["formation_bias"][:3])
+        self.assertEqual(len(level_indices("formation_bias")), 11)
+        self.assertEqual(len(level_indices("pace_bias")), 16)
+        self.assertEqual(PERF_LEVELS["formation_bias"][:3], ["ability_c", "q_c", "slot_c"])
 
     def test_features_are_centered_within_race_and_zero_without_bias(self):
         ctx = make_ctx(n=12, seed=3)
@@ -137,6 +137,8 @@ class BiasFeatureTest(unittest.TestCase):
         ctx.bias = make_bias()
         f = perf_features(ctx, q, slot, pace)
         for name in PERF_FEATURES[5:]:
+            if name in GOING_ABILITY_FEATURES:
+                continue
             col = f[:, :, PERF_FEATURES.index(name)]
             np.testing.assert_allclose(col.mean(axis=1), 0.0, atol=1e-12)
             self.assertGreater(col.std(), 0.0, name)

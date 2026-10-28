@@ -22,6 +22,8 @@ PACE_LABELS = {
     "SLOW": "スロー", "VERY_SLOW": "超スロー",
 }
 WEEKDAYS = ["月", "火", "水", "木", "金", "土", "日"]
+GOING_LABELS = {1: "良", 2: "稍重", 3: "重", 4: "不良"}
+GOING_KEYS = {1: "good", 2: "yielding", 3: "soft", 4: "heavy"}
 
 
 def parse_race_id(race_id: str) -> tuple[str, str, int]:
@@ -62,7 +64,8 @@ def race_metadata(db_path: Path, dates: set[str]) -> tuple[int, dict[str, dict]]
     query = f"""
         SELECT DISTINCT ra.idYear, ra.idMonthDay, ra.idJyoCD, ra.idKaiji,
                ra.idNichiji, ra.idRaceNum, ra.headDataKubun, ra.headMakeDate,
-               ra.Kyori, ra.TrackCD
+               ra.Kyori, ra.TrackCD, ra.RaceInfoRyakusyo10,
+               ra.TenkoBabaSibaBabaCD, ra.TenkoBabaDirtBabaCD
         FROM NL_RA_RACE AS ra
         JOIN NL_SE_RACE_UMA AS se
           ON ra.idYear = se.idYear
@@ -73,7 +76,6 @@ def race_metadata(db_path: Path, dates: set[str]) -> tuple[int, dict[str, dict]]
          AND ra.idRaceNum = se.idRaceNum
         WHERE ra.idYear || ra.idMonthDay IN ({placeholders})
           AND ra.idJyoCD IN ({track_placeholders})
-          AND CAST(se.KakuteiJyuni AS INTEGER) = 0
           AND CAST(se.Umaban AS INTEGER) > 0
         ORDER BY ra.headMakeDate DESC
     """
@@ -83,7 +85,8 @@ def race_metadata(db_path: Path, dates: set[str]) -> tuple[int, dict[str, dict]]
     race_keys: set[str] = set()
     confirmed_keys: set[str] = set()
     metadata: dict[str, dict] = {}
-    for year, month_day, track, kaiji, nichiji, race_num, status, _, distance, track_code in rows:
+    for (year, month_day, track, kaiji, nichiji, race_num, status, _, distance, track_code,
+         race_name, turf_going, dirt_going) in rows:
         code = int(track_code or 0)
         if not 10 <= code <= 29:
             continue
@@ -93,9 +96,12 @@ def race_metadata(db_path: Path, dates: set[str]) -> tuple[int, dict[str, dict]]
             confirmed_keys.add(race_id)
         if race_id not in metadata:
             surface = "芝" if 10 <= code <= 22 else "ダート" if 23 <= code <= 29 else "障害"
+            going_code = int(turf_going or 0) if surface == "芝" else int(dirt_going or 0)
             metadata[race_id] = {
                 "distance_m": int(distance) if distance else None,
                 "surface": surface,
+                "race_name": str(race_name or "").strip() or None,
+                "published_going": going_code if going_code in GOING_LABELS else None,
             }
 
     scheduled_count = len(race_keys - confirmed_keys)
@@ -139,8 +145,13 @@ def build_payload(report_dir: Path, db_path: Path) -> dict:
 
         race_entry = {
             "race_num": race_num,
+            "generated_at": race.get("generated_at"),
+            "training_data_through": race.get("training_data_through"),
+            "model_level": race.get("perf_level"),
+            "calibration_gamma": race.get("calibration_gamma"),
             **metadata[race_id],
             "simulations": int(race["simulations"]),
+            "missing_ability_count": sum(horse.get("ability_score") is None for horse in payload["horses"]),
             "pace_label": PACE_LABELS.get(likely_pace, "未推定"),
             "pace_probability": float(pace.get(likely_pace, 0)) if likely_pace else None,
             "expected_winning_time_sec": race.get("expected_winning_time_sec"),
@@ -148,7 +159,71 @@ def build_payload(report_dir: Path, db_path: Path) -> dict:
             "early_section_m": race.get("early_section_m"),
             "horses": horses,
         }
-        grouped.setdefault(date, {}).setdefault(track, {})[race_num] = race_entry
+        track_races = grouped.setdefault(date, {}).setdefault(track, {})
+        existing = track_races.get(race_num)
+        scenario = race.get("going_scenario")
+        if scenario is None:
+            track_races[race_num] = race_entry
+        else:
+            if scenario not in GOING_LABELS:
+                raise ValueError(f"Invalid going scenario for {race_id}: {scenario}")
+            if existing is None:
+                race_entry["going_scenarios"] = {}
+                race_entry["_scenario_probabilities"] = {}
+                track_races[race_num] = race_entry
+                existing = race_entry
+            if scenario in existing["going_scenarios"]:
+                raise ValueError(f"Duplicate going scenario for {race_id}: {scenario}")
+            probs = {}
+            for horse in horses:
+                probs[horse["umaban"]] = horse["win_probability"]
+            if abs(sum(probs.values()) - 1.0) > 1e-6:
+                raise ValueError(f"Going probabilities do not sum to 1 for {race_id}/{scenario}")
+            previous_runners = existing.get("_scenario_runner_numbers")
+            if previous_runners is not None and previous_runners != set(probs):
+                raise ValueError(f"Runner list differs across going scenarios for {race_id}")
+            existing["_scenario_runner_numbers"] = set(probs)
+            existing["going_scenarios"][GOING_KEYS[scenario]] = {
+                "label": GOING_LABELS[scenario],
+                "top_umaban": max(probs, key=lambda number: (probs[number], -number)),
+            }
+            existing["_scenario_probabilities"][GOING_KEYS[scenario]] = probs
+
+    for date_tracks in grouped.values():
+        for track_races in date_tracks.values():
+            for race in track_races.values():
+                scenario_probabilities = race.pop("_scenario_probabilities", None)
+                race.pop("_scenario_runner_numbers", None)
+                if scenario_probabilities is None:
+                    if race.get("published_going") is not None:
+                        race["going_label"] = GOING_LABELS[race["published_going"]]
+                    continue
+                if set(scenario_probabilities) != set(GOING_KEYS.values()):
+                    raise ValueError(
+                        f"Incomplete going scenarios for race {race['race_num']}: "
+                        f"{', '.join(sorted(scenario_probabilities))}"
+                    )
+                for horse in race["horses"]:
+                    horse["going_probabilities"] = {
+                        key: scenario_probabilities[key].get(horse["umaban"])
+                        for key in GOING_KEYS.values()
+                    }
+                race["horses"].sort(
+                    key=lambda horse: (-max(horse["going_probabilities"].values()), horse["umaban"])
+                )
+                race["going_scenarios"] = {
+                    key: {
+                        **value,
+                        "top_umaban": max(
+                            race["horses"],
+                            key=lambda horse: (horse["going_probabilities"][key], -horse["umaban"]),
+                        )["umaban"],
+                    }
+                    for key, value in race["going_scenarios"].items()
+                }
+                race["scenario_favorite_changes"] = (
+                    len({scenario["top_umaban"] for scenario in race["going_scenarios"].values()}) > 1
+                )
 
     date_entries = []
     for date in sorted(grouped):
@@ -179,6 +254,10 @@ def build_payload(report_dir: Path, db_path: Path) -> dict:
         "version": "0.6",
         "generated_at": datetime.now(timezone(timedelta(hours=9))).isoformat(timespec="minutes"),
         "model_as_of": max(report["race"]["model_as_of"] for report in reports),
+        "training_data_through": min(
+            report["race"]["training_data_through"] for report in reports
+            if report["race"].get("training_data_through")
+        ) if any(report["race"].get("training_data_through") for report in reports) else None,
         "simulations_per_race": min(report["race"]["simulations"] for report in reports),
         "scheduled_race_count": scheduled_count,
         "predicted_race_count": prediction_count,

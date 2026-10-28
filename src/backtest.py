@@ -696,10 +696,16 @@ def eligible_target_race_ids(data: list[dict], min_race_first_prize: float | Non
 
 def surface(row: dict) -> str:
     track = text(row.get("race_TrackCD") or row.get("TrackCD"))
-    if track[:1] in {"1", "2", "3", "4", "5", "6", "7", "8"}:
+    try:
+        track_code = int(track)
+    except (TypeError, ValueError):
+        track_code = 0
+    if 10 <= track_code <= 22:
         return "芝"
-    if track[:1] in {"9", "0"}:
+    if 23 <= track_code <= 29:
         return "ダート"
+    if 51 <= track_code <= 59:
+        return "障害"
     value = text(row.get("CourseKubunCD") or row.get("race_CourseKubunCD"))
     return {"1": "芝", "2": "ダート", "3": "障害"}.get(value, "不明")
 

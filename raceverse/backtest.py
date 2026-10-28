@@ -1,6 +1,6 @@
 """独立Walk-Forwardバックテスト(仕様11章)。既存Rankerのコード・出力は変更せず、同一レース・同一馬・同一評価期間で比較する。
 
-月ごとに「その月より前のデータだけ」でモデル一式を再学習し、その月の各レースを 1万回シミュレーションする。
+cfg.refit_unit に応じて、月ごと(または週ごと)に「その期間より前のデータだけ」でモデル一式を再学習し、その期間の各レースを 1万回シミュレーションする。
 予測を書き出した後に初めて実際の結果と照合する。確率の温度校正(p^gamma)の gamma は、直前 window_months の
 バックテスト予測(=すべて過去)だけから決める。評価期間の前に burn_in_months 分の助走期間を回して校正の初期値を作る。
 """
@@ -20,6 +20,7 @@ from raceverse import bias_eval
 from raceverse import evaluation as ev
 from raceverse.config import PACE_BUCKETS, REPORT_DIR
 from raceverse.pace_display import pace_display_bucket_index, thresholds_for
+from raceverse.periods import next_period, period_range, period_start
 from raceverse.pipeline import Prepared
 from raceverse.simulator import simulate_race
 from raceverse.winning_time_model import time_features
@@ -46,22 +47,24 @@ def validate_levels(levels: List[str]) -> List[str]:
     return levels
 
 
-def _month_list(start: pd.Timestamp, end: pd.Timestamp) -> List[pd.Timestamp]:
-    return list(pd.date_range(start=start, end=end - pd.offsets.MonthBegin(1), freq="MS"))
+def _month_list(start: pd.Timestamp, end: pd.Timestamp, unit: str = "month") -> List[pd.Timestamp]:
+    """[start, end) に開始日が入る期間(月 / 週)のリスト。"""
+    return period_range(start, end, unit)
 
 
 def simulate_period(P: Prepared, start: pd.Timestamp, end: pd.Timestamp, n_sims: int, levels: List[str],
                     max_races_per_month: Optional[int] = None):
-    """[start, end) を月次で処理し、(馬単位DF, レース単位DF) を返す。"""
+    """[start, end) を cfg.refit_unit(月 / 週)ごとに処理し、(馬単位DF, レース単位DF) を返す。"""
+    levels = validate_levels(levels)
     cfg, ds, store = P.cfg, P.ds, P.store
     horse_frames, race_rows = [], []
     positions_all = np.array(sorted(store.ability_ctx))
     dates_all = ds.races.loc[positions_all, "date"].to_numpy()
     ref_level = reference_level(levels)
-    for month in _month_list(start, end):
+    for month in _month_list(start, end, cfg.refit_unit):
         t0 = time.time()
         bundle = P.bundle(month)
-        nxt = month + pd.offsets.MonthBegin(1)
+        nxt = next_period(month, cfg.refit_unit)
         sel = positions_all[(dates_all >= np.datetime64(month)) & (dates_all < np.datetime64(nxt))]
         if max_races_per_month:
             sel = sel[:max_races_per_month]
@@ -89,7 +92,7 @@ def simulate_period(P: Prepared, start: pd.Timestamp, end: pd.Timestamp, n_sims:
                 horse_frames.append(h)
             if reference_result is not None:
                 race_rows.append(_race_record(ctx, reference_result, bundle, ds, int(pos)))
-        LOGGER.info("backtest month %s: %d races, bundle %s (%.0fs)", month.strftime("%Y-%m"), len(sel),
+        LOGGER.info("backtest %s %s: %d races, bundle %s (%.0fs)", cfg.refit_unit, month.strftime("%Y-%m-%d"), len(sel),
                     bundle.warnings or "ok", time.time() - t0)
     horses = pd.concat(horse_frames, ignore_index=True)
     horses["target"] = (horses["finish"] == 1).astype(int)
@@ -144,12 +147,12 @@ def attach_existing_ranker(horses: pd.DataFrame, csv_path: Path = EXISTING_WF_CS
     return horses.merge(ranker, on=["race_id", "horse_id"], how="left")
 
 
-def calibrate_walk_forward(horses: pd.DataFrame, window_months: int, grid: List[float]):
-    """月ごとに、直前window_monthsの予測だけでgammaを決めて確率を校正する(月mの校正に月m以降は使わない)。"""
+def calibrate_walk_forward(horses: pd.DataFrame, window_months: int, grid: List[float], unit: str = "month"):
+    """期間(月 / 週)ごとに、直前window_monthsの予測だけでgammaを決めて確率を校正する(期間pの校正にp以降は使わない)。"""
     horses = horses.copy()
     horses["p_cal"] = np.nan
     gammas = []
-    months = horses["date"].dt.to_period("M").dt.to_timestamp()
+    months = period_start(horses["date"], unit)
     for level in horses["level"].unique():
         lv = horses["level"] == level
         for month in sorted(months[lv].unique()):
@@ -159,7 +162,7 @@ def calibrate_walk_forward(horses: pd.DataFrame, window_months: int, grid: List[
             gamma = ev.fit_gamma(hist, "win_probability", grid)
             rows = lv & (months == month)
             horses.loc[rows, "p_cal"] = ev.power_normalize(horses[rows], "win_probability", gamma)
-            gammas.append({"level": level, "month": pd.Timestamp(month).strftime("%Y-%m"), "gamma": gamma,
+            gammas.append({"level": level, "month": pd.Timestamp(month).strftime("%Y-%m-%d" if unit == "week" else "%Y-%m"), "gamma": gamma,
                            "calibration_races": int(hist["race_id"].nunique())})
     return horses, pd.DataFrame(gammas)
 
@@ -302,7 +305,8 @@ def run_backtest(P: Prepared, out_dir: Optional[Path] = None, n_sims: Optional[i
     horses, races = simulate_period(P, burn_start, test_end_ts, n_sims, levels, max_races_per_month)
     LOGGER.info("simulation done: %d horse rows, %d races (%.0fs)", len(horses), len(races), time.time() - t0)
     horses = attach_existing_ranker(horses)
-    horses, gammas = calibrate_walk_forward(horses, cfg.calibration.window_months, cfg.calibration.gamma_grid)
+    horses, gammas = calibrate_walk_forward(horses, cfg.calibration.window_months, cfg.calibration.gamma_grid,
+                                           cfg.refit_unit)
     gammas.to_csv(out_dir / "calibration_gammas.csv", index=False)
     horses[horses["date"] >= test_start_ts].to_csv(out_dir / "predictions.csv", index=False)
     summary = evaluate_all(horses, races, test_start_ts, out_dir)

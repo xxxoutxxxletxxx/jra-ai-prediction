@@ -12,6 +12,8 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import Ridge
 
+from raceverse.periods import period_start
+
 CATEGORICAL = ["course_key", "class_group", "age_class", "going_key"]
 
 
@@ -59,8 +61,8 @@ class BaselineModel:
         return self.model_.predict(self._design(races, fit=False))
 
 
-def month_start(dates: pd.Series) -> pd.Series:
-    return dates.dt.to_period("M").dt.to_timestamp()
+def month_start(dates: pd.Series, unit: str = "month") -> pd.Series:
+    return period_start(dates, unit)
 
 
 def walk_forward_baseline(
@@ -68,10 +70,11 @@ def walk_forward_baseline(
     target: str,
     first_month: pd.Timestamp,
     alpha: float = 2.0,
+    unit: str = "month",
 ) -> pd.Series:
-    """races の各行に、所属月の月初より前のデータだけで学習したモデルの予測を付ける。first_month より前はNaN。"""
+    """races の各行に、所属期間(月 / 週)の開始日より前のデータだけで学習したモデルの予測を付ける。first_month より前はNaN。"""
     result = pd.Series(np.nan, index=races.index, dtype=float)
-    months = month_start(races["date"])
+    months = month_start(races["date"], unit)
     valid = races[target].notna() & ~races["is_upcoming"]
     for month in sorted(months[months >= first_month].unique()):
         train = races[valid & (races["date"] < month)]

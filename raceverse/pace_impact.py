@@ -25,6 +25,7 @@ from raceverse.jockey_profiles import month_index
 from raceverse.pace_features import STRUCT_COLUMNS, front_count_array, pace_features
 from raceverse.pace_regression import rolling_oof_predictions
 from raceverse.pace_residuals import group_key
+from raceverse.periods import timestamp_period_index
 from raceverse.schemas import Formation
 
 LOGGER = logging.getLogger(__name__)
@@ -149,6 +150,8 @@ def _eps_cache_path(ds, cfg: RaceverseConfig):
     pi = cfg.pace_impact
     tag = (f"v{CACHE_VERSION}_{len(confirmed)}_{confirmed['date'].max():%Y%m%d}_{pi.base_first_month}_"
            f"{pi.base_alpha}_{pi.base_min_races}_{cfg.baseline_first_month}_{cfg.formation.group_threshold}")
+    if cfg.refit_unit != "month":
+        tag += f"_{cfg.refit_unit}"
     return CACHE_DIR / f"pace_eps_{tag}.parquet"
 
 
@@ -160,7 +163,7 @@ def actual_formation_residuals(ds, cfg: RaceverseConfig, use_cache: bool = True)
     pi = cfg.pace_impact
     positions, x, y, dates, ids, groups = actual_formation_table(ds, cfg)
     pred = rolling_oof_predictions(x[:, STRUCT_COLUMNS], y, np.ones(len(y)), dates, pi.base_alpha,
-                                   pd.Timestamp(pi.base_first_month), min_rows=pi.base_min_races)
+                                   pd.Timestamp(pi.base_first_month), min_rows=pi.base_min_races, unit=cfg.refit_unit)
     table = pd.DataFrame({"race_id": ids, "date": dates.to_numpy(), "group": groups, "y": y, "yhat": pred,
                           "eps": y - pred})
     if use_cache:
@@ -178,7 +181,7 @@ def build_events(ds, race_eps: pd.DataFrame, cfg: PaceImpactConfig) -> Tuple[Dic
     n_field = runs["field_size"].to_numpy(dtype=float)
     kf = front_count_array(n_field)
     ok = np.isfinite(eps) & (rank >= 1)
-    month = month_index(runs["date"], ds.base_month)
+    month = month_index(runs["date"], ds.base_month, ds.cfg.refit_unit)
     masks = {
         "lead": ok & (rank == 1),
         "chase": ok & (rank >= 2) & (rank <= 3),
@@ -199,7 +202,7 @@ def build_pace_impacts(ds, cfg: RaceverseConfig, use_cache: bool = True) -> Pace
     roles, presence = build_events(ds, race_eps, cfg.pace_impact)
     runs = ds.runs
     valid = (runs["early_rank"].to_numpy() >= 1)
-    month = month_index(runs["date"], ds.base_month)
+    month = month_index(runs["date"], ds.base_month, ds.cfg.refit_unit)
     order = np.argsort(month[valid], kind="stable")
     run_month = month[valid][order]
     run_horse = runs["horse_idx"].to_numpy()[valid][order]
@@ -210,12 +213,13 @@ def build_pace_impacts(ds, cfg: RaceverseConfig, use_cache: bool = True) -> Pace
 
 
 def out_of_sample_gain(profiles: PaceImpactProfiles, role: str, start: pd.Timestamp, end: pd.Timestamp,
-                       base_month: pd.Timestamp, lam_horse: float, lam_jockey: float) -> Dict[str, float]:
+                       base_month: pd.Timestamp, lam_horse: float, lam_jockey: float,
+                       unit: str = "month") -> Dict[str, float]:
     """[start, end) の各月について「月より前のイベントだけ」で作った impact が、その月の eps をどれだけ説明するか。
     gain = 1 - MSE(eps - impact) / MSE(eps)。正なら未知のレースでも向きが当たっている。"""
     ev = profiles.roles[role]
-    m0 = int((start.year - base_month.year) * 12 + start.month - base_month.month)
-    m1 = int((end.year - base_month.year) * 12 + end.month - base_month.month)
+    m0 = timestamp_period_index(start, base_month, unit)
+    m1 = timestamp_period_index(end, base_month, unit)
     sse0 = sse1 = 0.0
     n = 0
     for m in range(m0, m1):
