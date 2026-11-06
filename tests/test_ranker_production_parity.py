@@ -16,6 +16,32 @@ from src.backtest import RANKER_MARGIN_CORRECTION_FEATURES, build_v1_features
 
 
 class ForecastParityTest(unittest.TestCase):
+    def test_feature_loader_preserves_default_window_and_allows_newer_weekly_data(self) -> None:
+        dates = ["2026-08-30", "2026-10-04", "2026-11-01", "2026-11-07"]
+        frame = pd.DataFrame({
+            "date": dates,
+            "race_id": dates,
+            "horse_id": ["h"] * 4,
+            "horse_name": ["Horse"] * 4,
+            "actual_rank": [1] * 4,
+            "target": [1] * 4,
+            "odds": [20.0] * 4,
+            "popularity": [1] * 4,
+            "umaban": [1] * 4,
+            "race_first_prize": [9_000_000] * 4,
+            "feature": [1.0] * 4,
+        })
+        with tempfile.TemporaryDirectory() as temporary:
+            cache = Path(temporary) / "features.parquet"
+            frame.to_parquet(cache, index=False)
+            with patch.object(walk_forward, "CACHE", cache), patch.object(
+                walk_forward, "payout_map", return_value={}
+            ):
+                default, _ = walk_forward.load_frame(["feature"])
+                weekly, _ = walk_forward.load_frame(["feature"], end=pd.Timestamp("2026-11-07"))
+        self.assertEqual(default["date"].dt.strftime("%Y-%m-%d").tolist(), dates[:1])
+        self.assertEqual(weekly["date"].dt.strftime("%Y-%m-%d").tolist(), dates[:3])
+
     def test_course_wakuban_rates_use_prior_races_only(self) -> None:
         def race_row(day, race_number, umaban, wakuban, rank, horse, status="7"):
             return {

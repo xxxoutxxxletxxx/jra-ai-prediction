@@ -1,4 +1,7 @@
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
@@ -7,6 +10,31 @@ from raceverse.baselines import walk_forward_baseline
 from raceverse.jockey_profiles import JockeyProfiles
 from raceverse.pace_regression import rolling_oof_predictions
 from raceverse.periods import floor_timestamp, next_period, period_index, period_range, period_start
+from raceverse.adapters.existing_ability import build_oof_weekly
+from src.backtest import RANKER_MARGIN_CORRECTION_FEATURES
+from src import ranker_walk_forward_backtest as walk_forward
+
+
+class WeeklyAbilityUpdateTest(unittest.TestCase):
+    def test_weekly_scores_include_new_results_without_using_same_week_for_training(self):
+        frame = pd.DataFrame({
+            "date": pd.to_datetime(["2026-08-30", "2026-11-01"]),
+            "race_id": ["old", "latest"],
+            "horse_id": ["h1", "h2"],
+        })
+        with tempfile.TemporaryDirectory() as temporary:
+            with patch.object(walk_forward, "load_frame", return_value=(frame, ["feature"])) as loader, patch.object(
+                walk_forward, "ranker_scores", return_value=np.array([0.5])
+            ) as scorer:
+                table = build_oof_weekly(
+                    "2026-10-26", "2026-11-07", Path(temporary) / "ability.parquet"
+                )
+        loader.assert_called_once_with(RANKER_MARGIN_CORRECTION_FEATURES, end=pd.Timestamp("2026-11-07"))
+        training, evaluation, _ = scorer.call_args.args
+        self.assertEqual(training["race_id"].tolist(), ["old"])
+        self.assertEqual(evaluation["race_id"].tolist(), ["latest"])
+        self.assertEqual(table["score_available_at"].max(), pd.Timestamp("2026-11-01"))
+        self.assertEqual(table["model_training_cutoff"].iloc[0], pd.Timestamp("2026-10-25"))
 
 
 class PeriodHelpersTest(unittest.TestCase):

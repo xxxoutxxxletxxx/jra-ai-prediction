@@ -219,6 +219,83 @@
     console.error("Failed to load RACEVERSE predictions:", error);
   }
 
+  function renderConditions(payload) {
+    var note = document.getElementById("rvConditionNote");
+    var container = document.getElementById("rvConditionTable");
+    clear(container);
+    note.textContent = "評価期間: " + payload.evaluation_period +
+      " ・ 各方式の複合条件から" + payload.minimum_bets +
+      "件以上を抽出。クラス欄は1着賞金帯（G1・G2・G3の格付とは別）です。" +
+      "回収率は確定払戻を使った事後集計で、多数の条件の探索による偏りがあります。将来の利益を保証しません。";
+
+    if (!payload.conditions.length) {
+      container.appendChild(element("p", "rv-condition-empty", "条件に該当するデータはありません。"));
+      return;
+    }
+
+    var table = element("table", "rv-condition-table");
+    var head = element("thead");
+    var headerRow = element("tr");
+    ["方式", "クラス", "競馬場", "芝/ダ", "距離", "馬場", "件数", "単勝回収率", "前半", "後半"]
+      .forEach(function (label) {
+        var header = element("th", "", label);
+        header.scope = "col";
+        headerRow.appendChild(header);
+      });
+    head.appendChild(headerRow);
+    table.appendChild(head);
+
+    var body = element("tbody");
+    payload.conditions.forEach(function (condition) {
+      var row = element("tr");
+      [
+        condition.model,
+        condition.class,
+        condition.track,
+        condition.surface,
+        condition.distance,
+        condition.going,
+        Number(condition.bets).toLocaleString("ja-JP")
+      ].forEach(function (value) {
+        row.appendChild(element("td", "", String(value)));
+      });
+      var roiCell = element("td", "rv-roi-positive");
+      var roi = element("strong", "", Number(condition.win_roi_pct).toFixed(1) + "%");
+      roiCell.appendChild(roi);
+      row.appendChild(roiCell);
+      ["win_roi_first_half_pct", "win_roi_second_half_pct"].forEach(function (key) {
+        var value = condition[key];
+        row.appendChild(element("td", "", value == null ? "—" : Number(value).toFixed(1) + "%"));
+      });
+      body.appendChild(row);
+    });
+    table.appendChild(body);
+    var wrapper = element("div", "rv-condition-table-scroll");
+    wrapper.appendChild(table);
+    container.appendChild(wrapper);
+  }
+
+  function loadConditions() {
+    fetch("data/raceverse/conditions.json", { cache: "no-store" })
+      .then(function (response) {
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        return response.json();
+      })
+      .then(function (payload) {
+        if (!payload || !Array.isArray(payload.conditions) || !payload.evaluation_period) {
+          throw new Error("Invalid RACEVERSE condition data");
+        }
+        renderConditions(payload);
+      })
+      .catch(function (error) {
+        document.getElementById("rvConditionNote").textContent =
+          "条件別成績の読み込みに失敗しました。ページを再読み込みしてください。";
+        console.error("Failed to load RACEVERSE condition data:", error);
+      });
+  }
+
+  loadConditions();
+
   fetch("data/raceverse/latest.json", { cache: "no-store" })
     .then(function (response) {
       if (!response.ok) throw new Error("HTTP " + response.status);
@@ -237,7 +314,7 @@
       notice.appendChild(element(
         "p", "",
         "対象レース " + data.predicted_race_count + " / " + data.scheduled_race_count +
-          "（能力スコア不足などで " + data.not_predicted_race_count + " レースは対象外）"
+          "（出馬表未登録・能力スコア不足などで " + data.not_predicted_race_count + " レースは未予測）"
       ));
       notice.appendChild(element(
         "p", "",

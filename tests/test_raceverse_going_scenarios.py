@@ -13,7 +13,7 @@ from raceverse.performance import PERF_FEATURES, perf_features
 from raceverse.adapters.race_data import surface_from_track_code
 from raceverse.winning_time_model import ability_stats
 from raceverse_fixtures import make_ctx
-from scripts.build_raceverse_site_data import build_payload
+from scripts.build_raceverse_site_data import build_payload, race_metadata
 from src.backtest import surface
 
 
@@ -65,6 +65,22 @@ class GoingFeatureTest(unittest.TestCase):
 
 
 class SiteScenarioPayloadTest(unittest.TestCase):
+    def test_scheduled_count_includes_races_without_runner_entries(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            db_path = Path(temporary) / "race.db"
+            self._make_db(db_path)
+            with sqlite3.connect(db_path) as connection:
+                connection.execute("""
+                    INSERT INTO NL_RA_RACE
+                    SELECT idYear, idMonthDay, idJyoCD, idKaiji, idNichiji, '02',
+                           '1', headMakeDate, Kyori, TrackCD, RaceInfoRyakusyo10,
+                           TenkoBabaSibaBabaCD, TenkoBabaDirtBabaCD
+                    FROM NL_RA_RACE
+                """)
+            scheduled_count, metadata = race_metadata(db_path, {"2026-10-25"})
+            self.assertEqual(scheduled_count, 2)
+            self.assertIn("2026-1025-05-04-04-02", metadata)
+
     def _make_db(self, path: Path, race_status="2", turf_going="0", finish="0"):
         with sqlite3.connect(path) as connection:
             connection.execute("""

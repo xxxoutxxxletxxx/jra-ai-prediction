@@ -75,7 +75,8 @@ def payout_map() -> dict[tuple[str, int], float]:
     return values
 
 
-def load_frame(feature_columns: list[str] | None = None) -> tuple[pd.DataFrame, list[str]]:
+def load_frame(feature_columns: list[str] | None = None, *,
+               end: pd.Timestamp = TEST_END) -> tuple[pd.DataFrame, list[str]]:
     identifiers = ["race_id", "date", "horse_id", "horse_name", "actual_rank", "target", "odds", "popularity", "umaban", "race_first_prize"]
     available = set(pd.read_parquet(CACHE).columns)
     selected_features = feature_columns if feature_columns is not None else CLEANUP_B_FEATURES
@@ -89,7 +90,7 @@ def load_frame(feature_columns: list[str] | None = None) -> tuple[pd.DataFrame, 
     requested = list(dict.fromkeys(identifiers + selected_features))
     frame = pd.read_parquet(CACHE, columns=[column for column in requested if column in available])
     frame["date"] = pd.to_datetime(frame["date"])
-    frame = frame[(frame["race_first_prize"] > 8_000_000) & (frame["actual_rank"] > 0) & (frame["odds"] > 0) & (frame["date"] < TEST_END)].copy()
+    frame = frame[(frame["race_first_prize"] > 8_000_000) & (frame["actual_rank"] > 0) & (frame["odds"] > 0) & (frame["date"] < end)].copy()
     values = payout_map()
     frame["win_payout"] = [values.get((race_id, int(umaban)), 0.0) for race_id, umaban in zip(frame["race_id"], frame["umaban"])]
     frame.sort_values(["date", "race_id", "horse_id"], inplace=True)

@@ -50,7 +50,7 @@ def build_oof_weekly(start: str, end: str, out_path: Path = WEEKLY_OOF_CACHE) ->
     from src.backtest import RANKER_MARGIN_CORRECTION_FEATURES
     from src.ranker_walk_forward_backtest import load_frame, ranker_scores
 
-    frame, features = load_frame(RANKER_MARGIN_CORRECTION_FEATURES)
+    frame, features = load_frame(RANKER_MARGIN_CORRECTION_FEATURES, end=pd.Timestamp(end))
     parts = []
     for week in period_range(pd.Timestamp(start), pd.Timestamp(end), "week"):
         evaluation = frame[(frame["date"] >= week) & (frame["date"] < week + pd.Timedelta(days=7))]

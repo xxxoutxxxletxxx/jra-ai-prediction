@@ -67,16 +67,8 @@ def race_metadata(db_path: Path, dates: set[str]) -> tuple[int, dict[str, dict]]
                ra.Kyori, ra.TrackCD, ra.RaceInfoRyakusyo10,
                ra.TenkoBabaSibaBabaCD, ra.TenkoBabaDirtBabaCD
         FROM NL_RA_RACE AS ra
-        JOIN NL_SE_RACE_UMA AS se
-          ON ra.idYear = se.idYear
-         AND ra.idMonthDay = se.idMonthDay
-         AND ra.idJyoCD = se.idJyoCD
-         AND ra.idKaiji = se.idKaiji
-         AND ra.idNichiji = se.idNichiji
-         AND ra.idRaceNum = se.idRaceNum
         WHERE ra.idYear || ra.idMonthDay IN ({placeholders})
           AND ra.idJyoCD IN ({track_placeholders})
-          AND CAST(se.Umaban AS INTEGER) > 0
         ORDER BY ra.headMakeDate DESC
     """
     with sqlite3.connect(db_path) as connection:

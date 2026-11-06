@@ -54,6 +54,11 @@ step "[1/6] Ranker 本番予測(最新結果で再学習)"
 [[ -s output/predictions.csv ]] || fail "output/predictions.csv が生成されていません(出馬表が未登録の可能性)"
 
 step "[2/6] RACEVERSE 週次能力指標を最新週まで更新"
+FEATURE_CACHE="data/cache/phase5_f_features.parquet"
+if [[ ! -s "$FEATURE_CACHE" || "$DB_PATH" -nt "$FEATURE_CACHE" ]]; then
+  echo "race.db の更新に合わせて Ranker 特徴量キャッシュを再構築します。"
+  "$PYTHON" -m src.build_feature_cache --model F || fail "build_feature_cache --model F"
+fi
 "$PYTHON" -m raceverse.adapters.existing_ability --weekly --append --end "$(date -v+1d +%Y-%m-%d)" \
   || fail "existing_ability --weekly --append"
 
@@ -74,8 +79,9 @@ ls "$OUT_DIR"/*.json >/dev/null 2>&1 || fail "RACEVERSE予測が生成されて�
 
 step "[5/6] サイトデータ生成"
 "$PYTHON" scripts/build_raceverse_site_data.py --reports-dir "$OUT_DIR" || fail "build_raceverse_site_data"
+"$PYTHON" scripts/build_raceverse_conditions_site_data.py || fail "build_raceverse_conditions_site_data"
 "$PYTHON" scripts/build_site_data.py || fail "build_site_data"
-for f in docs/data/raceverse/latest.json docs/data/latest.json; do
+for f in docs/data/raceverse/latest.json docs/data/raceverse/conditions.json docs/data/latest.json; do
   [[ -s "$f" ]] || fail "生成物がありません: $f"
 done
 

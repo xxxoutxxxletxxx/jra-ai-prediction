@@ -67,7 +67,13 @@ RACEVERSEの予測は既存Rankerとは分けて公開します。`raceverse` �
 ```bash
 python3 scripts/build_raceverse_site_data.py
 ```
-出力先は `docs/data/raceverse/latest.json` で、掲載ページは `docs/raceverse.html` です。公開時はこれらとページ本体・トップページのリンクだけを個別に追加してください。
+出力先は `docs/data/raceverse/latest.json` で、掲載ページは `docs/raceverse.html` です。ページには過去の条件別成績も掲載し、単勝回収率が100%を超える複合条件を強調表示します。成績データは次のコマンドで `docs/data/raceverse/conditions.json` に生成され、週次公開スクリプトでも更新されます。
+未予測件数には、DBにレース情報があっても出馬表が未登録のレースを含めます。条件別成績のクラス欄は1着賞金帯で、G1・G2・G3の格付とは別です。高回収率の条件は事後探索の参考値であり、安定した利益を確認した購入ルールではありません。
+`週次予想アップロード.command` は、DB更新時にRanker特徴量キャッシュを再構築し、週次能力指標を実行時点まで追記してから予測します。過去バックテストの既定評価期間は変更しません。
+```bash
+python3 scripts/build_raceverse_conditions_site_data.py
+```
+公開時は `docs/data/raceverse/` のJSON、`docs/raceverse.html`、`docs/raceverse.js`、`docs/raceverse.css` を個別に追加してください。条件別成績は30件以上の条件を対象にした確定払戻による事後集計で、将来の利益を保証しません。
 
 ## バックテスト
 本番予測や Web サイト生成とは独立して、月次 walk-forward 評価を実行できます。
