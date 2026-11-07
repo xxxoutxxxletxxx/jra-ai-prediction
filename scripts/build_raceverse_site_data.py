@@ -24,6 +24,7 @@ PACE_LABELS = {
 WEEKDAYS = ["月", "火", "水", "木", "金", "土", "日"]
 GOING_LABELS = {1: "良", 2: "稍重", 3: "重", 4: "不良"}
 GOING_KEYS = {1: "good", 2: "yielding", 3: "soft", 4: "heavy"}
+EXCLUDED_RACE_CLASS_CODES = {"701", "703"}
 
 
 def parse_race_id(race_id: str) -> tuple[str, str, int]:
@@ -61,30 +62,45 @@ def race_metadata(db_path: Path, dates: set[str]) -> tuple[int, dict[str, dict]]
     date_keys = sorted(date.replace("-", "") for date in dates)
     placeholders = ",".join("?" for _ in date_keys)
     track_placeholders = ",".join("?" for _ in TRACK_NAMES)
-    query = f"""
+    query = """
         SELECT DISTINCT ra.idYear, ra.idMonthDay, ra.idJyoCD, ra.idKaiji,
                ra.idNichiji, ra.idRaceNum, ra.headDataKubun, ra.headMakeDate,
                ra.Kyori, ra.TrackCD, ra.RaceInfoRyakusyo10,
-               ra.TenkoBabaSibaBabaCD, ra.TenkoBabaDirtBabaCD
+               ra.TenkoBabaSibaBabaCD, ra.TenkoBabaDirtBabaCD,
+               {race_class_column}
         FROM NL_RA_RACE AS ra
-        WHERE ra.idYear || ra.idMonthDay IN ({placeholders})
+        WHERE ra.idYear || ra.idMonthDay IN ({date_placeholders})
           AND ra.idJyoCD IN ({track_placeholders})
         ORDER BY ra.headMakeDate DESC
     """
     with sqlite3.connect(db_path) as connection:
+        columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(NL_RA_RACE)")
+        }
+        race_class_column = (
+            "ra.JyokenInfoJyokenCD0"
+            if "JyokenInfoJyokenCD0" in columns
+            else "''"
+        )
+        query = query.format(
+            race_class_column=race_class_column,
+            date_placeholders=placeholders,
+            track_placeholders=track_placeholders,
+        )
         rows = connection.execute(query, [*date_keys, *TRACK_NAMES]).fetchall()
 
     race_keys: set[str] = set()
     confirmed_keys: set[str] = set()
     metadata: dict[str, dict] = {}
     for (year, month_day, track, kaiji, nichiji, race_num, status, _, distance, track_code,
-         race_name, turf_going, dirt_going) in rows:
+         race_name, turf_going, dirt_going, race_class_code) in rows:
         code = int(track_code or 0)
         if not 10 <= code <= 29:
             continue
         race_id = "-".join(map(str, (year, month_day, track, kaiji, nichiji, race_num)))
         race_keys.add(race_id)
-        if str(status).strip() == "7":
+        is_scheduled = str(status).strip() != "7"
+        if not is_scheduled:
             confirmed_keys.add(race_id)
         if race_id not in metadata:
             surface = "芝" if 10 <= code <= 22 else "ダート" if 23 <= code <= 29 else "障害"
@@ -94,6 +110,8 @@ def race_metadata(db_path: Path, dates: set[str]) -> tuple[int, dict[str, dict]]
                 "surface": surface,
                 "race_name": str(race_name or "").strip() or None,
                 "published_going": going_code if going_code in GOING_LABELS else None,
+                "_excluded": str(race_class_code or "").strip() in EXCLUDED_RACE_CLASS_CODES,
+                "_scheduled": is_scheduled,
             }
 
     scheduled_count = len(race_keys - confirmed_keys)
@@ -112,6 +130,8 @@ def build_payload(report_dir: Path, db_path: Path) -> dict:
         date, track, race_num = parse_race_id(race_id)
         if race_id not in metadata:
             raise ValueError(f"Race missing from the local race DB: {race_id}")
+        if metadata[race_id]["_excluded"]:
+            continue
         pace = race.get("pace_display_probabilities") or {}
         likely_pace = max(pace, key=pace.get) if pace else None
         horses = []
@@ -141,7 +161,11 @@ def build_payload(report_dir: Path, db_path: Path) -> dict:
             "training_data_through": race.get("training_data_through"),
             "model_level": race.get("perf_level"),
             "calibration_gamma": race.get("calibration_gamma"),
-            **metadata[race_id],
+            **{
+                key: value
+                for key, value in metadata[race_id].items()
+                if not key.startswith("_")
+            },
             "simulations": int(race["simulations"]),
             "missing_ability_count": sum(horse.get("ability_score") is None for horse in payload["horses"]),
             "pace_label": PACE_LABELS.get(likely_pace, "未推定"),
@@ -241,6 +265,10 @@ def build_payload(report_dir: Path, db_path: Path) -> dict:
         for date in date_entries
         for track in date["tracks"]
     )
+    excluded_race_count = sum(
+        race["_excluded"] and race["_scheduled"]
+        for race in metadata.values()
+    )
     return {
         "engine": "RACEVERSE",
         "version": "0.6",
@@ -253,7 +281,10 @@ def build_payload(report_dir: Path, db_path: Path) -> dict:
         "simulations_per_race": min(report["race"]["simulations"] for report in reports),
         "scheduled_race_count": scheduled_count,
         "predicted_race_count": prediction_count,
-        "not_predicted_race_count": max(0, scheduled_count - prediction_count),
+        "excluded_race_count": excluded_race_count,
+        "not_predicted_race_count": max(
+            0, scheduled_count - prediction_count - excluded_race_count
+        ),
         "dates": date_entries,
     }
 

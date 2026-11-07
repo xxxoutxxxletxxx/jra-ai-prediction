@@ -1,6 +1,6 @@
 # Race Class and Condition Mapping
 
-この文書はバックテスト専用の対応表です。本番予測処理には使用しません。
+この文書はバックテストとRACEVERSE公開時の条件コード確認に使用します。
 
 | SourceCode | Meaning | Evidence | Example |
 |---|---|---|---|
@@ -22,6 +22,10 @@
 | `RaceInfoHondai`/`JyokenName` contains `牝` or `牝馬` | `FEMALE_ONLY` | 実レース名「桜花賞」「中山牝馬ステークス」等と出走条件を照合 | 中山牝馬ステークス |
 | `RaceInfoHondai`/`JyokenName` without female marker | `OPEN_SEX` | 女性限定マーカーがない場合の非限定カテゴリ。牡馬限定の意味は断定しない | 中山記念 |
 | `SexCD` / `TokuUmaInfoSexCD` | `UNKNOWN` | 性別コード列は存在するが、公式の値対応を未確認 | `1`, `2`, `3` |
+
+## RACEVERSE publication exclusion
+
+RACEVERSEのサイト公開データでは `NL_RA_RACE.JyokenInfoJyokenCD0` が `701` または `703` のレースを未勝利・新馬として掲載対象から除外する。2026-11-08のJRA出走表では、`701` の全出走馬に過去出走がなく、`703` の出走馬には過去出走があった。公式コード対応表を確認したものではないため、このルールは公開対象を絞る運用上のフィルターであり、他のコードの意味は推定しない。
 
 ## UNKNOWN policy
 

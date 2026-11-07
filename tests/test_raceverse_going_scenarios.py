@@ -71,7 +71,11 @@ class SiteScenarioPayloadTest(unittest.TestCase):
             self._make_db(db_path)
             with sqlite3.connect(db_path) as connection:
                 connection.execute("""
-                    INSERT INTO NL_RA_RACE
+                    INSERT INTO NL_RA_RACE (
+                        idYear, idMonthDay, idJyoCD, idKaiji, idNichiji, idRaceNum,
+                        headDataKubun, headMakeDate, Kyori, TrackCD, RaceInfoRyakusyo10,
+                        TenkoBabaSibaBabaCD, TenkoBabaDirtBabaCD
+                    )
                     SELECT idYear, idMonthDay, idJyoCD, idKaiji, idNichiji, '02',
                            '1', headMakeDate, Kyori, TrackCD, RaceInfoRyakusyo10,
                            TenkoBabaSibaBabaCD, TenkoBabaDirtBabaCD
@@ -88,6 +92,7 @@ class SiteScenarioPayloadTest(unittest.TestCase):
                     idYear TEXT, idMonthDay TEXT, idJyoCD TEXT, idKaiji TEXT, idNichiji TEXT, idRaceNum TEXT,
                     headDataKubun TEXT, headMakeDate TEXT, Kyori TEXT, TrackCD TEXT, RaceInfoRyakusyo10 TEXT,
                     TenkoBabaSibaBabaCD TEXT, TenkoBabaDirtBabaCD TEXT
+                    , JyokenInfoJyokenCD0 TEXT
                 )
             """)
             connection.execute("""
@@ -97,14 +102,59 @@ class SiteScenarioPayloadTest(unittest.TestCase):
                 )
             """)
             connection.execute(
-                "INSERT INTO NL_RA_RACE VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO NL_RA_RACE VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 ("2026", "1025", "05", "04", "04", "01", race_status, "20261024100000", "1600", "11", "",
-                 turf_going, "0"),
+                 turf_going, "0", "000"),
             )
             connection.execute(
                 "INSERT INTO NL_SE_RACE_UMA VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 ("2026", "1025", "05", "04", "04", "01", finish, "1"),
             )
+
+    def test_maiden_and_newcomer_races_are_excluded_from_site_predictions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            reports = root / "reports"
+            reports.mkdir()
+            db_path = root / "race.db"
+            self._make_db(db_path)
+            with sqlite3.connect(db_path) as connection:
+                for race_num, condition_code in (("02", "701"), ("03", "703")):
+                    connection.execute(
+                        """INSERT INTO NL_RA_RACE (
+                               idYear, idMonthDay, idJyoCD, idKaiji, idNichiji, idRaceNum,
+                               headDataKubun, headMakeDate, Kyori, TrackCD, RaceInfoRyakusyo10,
+                               TenkoBabaSibaBabaCD, TenkoBabaDirtBabaCD, JyokenInfoJyokenCD0
+                           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        ("2026", "1025", "05", "04", "04", race_num, "2", "20261024100000",
+                         "1600", "11", "", "0", "0", condition_code),
+                    )
+
+            for race_num in ("01", "02", "03"):
+                race_id = f"2026-1025-05-04-04-{race_num}"
+                payload = {
+                    "race": {
+                        "engine": "RACEVERSE",
+                        "version": "0.6",
+                        "race_id": race_id,
+                        "simulations": 1000,
+                        "model_as_of": "2026-10-24",
+                        "pace_display_probabilities": {},
+                    },
+                    "horses": [
+                        {"umaban": 1, "horse_name": "Horse", "win_probability_raw": 1.0,
+                         "top3_probability": 1.0}
+                    ],
+                }
+                (reports / f"{race_id}.json").write_text(json.dumps(payload), encoding="utf-8")
+
+            result = build_payload(reports, db_path)
+            races = result["dates"][0]["tracks"][0]["races"]
+            self.assertEqual([race["race_num"] for race in races], [1])
+            self.assertEqual(result["scheduled_race_count"], 3)
+            self.assertEqual(result["predicted_race_count"], 1)
+            self.assertEqual(result["excluded_race_count"], 2)
+            self.assertEqual(result["not_predicted_race_count"], 0)
 
     def test_four_independent_scenarios_merge_and_no_going_is_guessed(self):
         with tempfile.TemporaryDirectory() as temporary:

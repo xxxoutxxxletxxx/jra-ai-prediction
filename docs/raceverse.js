@@ -314,7 +314,8 @@
       notice.appendChild(element(
         "p", "",
         "対象レース " + data.predicted_race_count + " / " + data.scheduled_race_count +
-          "（出馬表未登録・能力スコア不足などで " + data.not_predicted_race_count + " レースは未予測）"
+          "（未勝利・新馬 " + (data.excluded_race_count || 0) + " レースを除外、出馬表未登録・能力スコア不足などで " +
+          data.not_predicted_race_count + " レースは未予測）"
       ));
       notice.appendChild(element(
         "p", "",
