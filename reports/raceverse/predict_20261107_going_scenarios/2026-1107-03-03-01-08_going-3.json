@@ -1,0 +1,1033 @@
+{
+  "race": {
+    "engine": "RACEVERSE",
+    "version": "0.6",
+    "race_id": "2026-1107-03-03-01-08",
+    "simulations": 10000,
+    "seed": 42,
+    "perf_level": "pace",
+    "going": 3,
+    "model_as_of": "2026-11-07",
+    "data_cutoff": "2026-11-06",
+    "reference_early_split_sec": 31.31347473407743,
+    "early_section_m": 550.0,
+    "pace_delta_mean_sec": -0.09763511177814795,
+    "pace_delta_regression_mean_sec": -0.09763511177814795,
+    "pace_delta_p10_p90_sec": [
+      -0.22511653596539347,
+      0.020156294615517805
+    ],
+    "predicted_early_split_mean_sec": 31.215839622299285,
+    "predicted_early_split_p10_p90_sec": [
+      31.088358198112036,
+      31.33363102869295
+    ],
+    "pace_display_probabilities": {
+      "VERY_FAST": 0.0,
+      "FAST": 0.0028,
+      "MIDDLE": 0.997,
+      "SLOW": 0.0002,
+      "VERY_SLOW": 0.0
+    },
+    "winning_time_status": "estimated",
+    "formation_summary": {
+      "mean_front_group_size": 3.3589,
+      "top_lead_candidates": [
+        "2023105402",
+        "2023100978",
+        "2020105525"
+      ]
+    },
+    "warnings": [],
+    "expected_winning_time_sec": 67.7203972920455,
+    "winning_time_p10_p90_sec": [
+      67.02442727553813,
+      68.45478889447645
+    ],
+    "track_speed_adjustment_sec": -0.34066199500062055,
+    "track_reference_sources": {
+      "counts": {
+        "previous_day": 0,
+        "previous_week": 0,
+        "previous_meet": 9,
+        "previous_year_same_season": 9
+      },
+      "effective_sample_size": 16.9118049990953,
+      "fallback_level": "previous_meet",
+      "going_changed": true,
+      "reference_race_ids": [
+        "2026-0718-03-02-07-03",
+        "2026-0718-03-02-07-06",
+        "2026-0718-03-02-07-10",
+        "2026-0718-03-02-07-12",
+        "2026-0719-03-02-08-01",
+        "2026-0719-03-02-08-04",
+        "2026-0719-03-02-08-07",
+        "2026-0719-03-02-08-11",
+        "2026-0719-03-02-08-12",
+        "2025-1108-03-03-01-01",
+        "2025-1108-03-03-01-03",
+        "2025-1108-03-03-01-04",
+        "2025-1108-03-03-01-08",
+        "2025-1108-03-03-01-12",
+        "2025-1109-03-03-02-01",
+        "2025-1109-03-03-02-03",
+        "2025-1109-03-03-02-06",
+        "2025-1109-03-03-02-10"
+      ]
+    },
+    "course_bias_sample_counts": {
+      "style_runs_at_course": [
+        406,
+        1805,
+        2256,
+        1726
+      ],
+      "style_runs_in_meet": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "draw_runs_at_course": [
+        704,
+        727,
+        742,
+        761,
+        770,
+        772,
+        770,
+        776
+      ],
+      "draw_runs_in_meet": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "generated_at": "2026-11-06T12:50:14+09:00",
+    "training_data_through": "2026-11-01",
+    "calibration_gamma": 1.35,
+    "going_scenario": 3,
+    "going_scenario_label": "soft"
+  },
+  "horses": [
+    {
+      "horse_id": "2023101660",
+      "umaban": 1,
+      "ability_score": -0.374316,
+      "win_probability_raw": 0.1004,
+      "top2_probability": 0.2025,
+      "top3_probability": 0.3027,
+      "finish_position_distribution": [
+        0.1004,
+        0.1021,
+        0.1002,
+        0.0908,
+        0.0915,
+        0.0789,
+        0.0738,
+        0.0641,
+        0.0598,
+        0.0479,
+        0.044,
+        0.0367,
+        0.0332,
+        0.0278,
+        0.0239,
+        0.0249
+      ],
+      "conditional_win_probability_by_display_pace": {
+        "VERY_FAST": null,
+        "FAST": 0.14285714285714285,
+        "MIDDLE": 0.10030090270812438,
+        "SLOW": 0.0,
+        "VERY_SLOW": null
+      },
+      "pace_condition_sample_count": {
+        "VERY_FAST": 0,
+        "FAST": 28,
+        "MIDDLE": 9970,
+        "SLOW": 2,
+        "VERY_SLOW": 0
+      },
+      "mean_early_position": 0.25690093958922144,
+      "mean_lateral_slot": 0.0,
+      "lead_probability": 0.0069,
+      "cold_start": false,
+      "jockey_change_adjustment_summary": {
+        "adjusted_fraction": 1.0,
+        "mean_shift_q": 0.017576582607880562
+      },
+      "horse_name": "スイーヴル",
+      "win_probability_calibrated": 0.1116138245342533,
+      "p_cal": 0.1116138245342533,
+      "mean_horse_time_sec": 68.64348215832857,
+      "horse_time_p10_p90_sec": [
+        67.5506755818037,
+        69.82550190394242
+      ],
+      "win_odds_reference": null
+    },
+    {
+      "horse_id": "2020105525",
+      "umaban": 2,
+      "ability_score": -1.755449,
+      "win_probability_raw": 0.0263,
+      "top2_probability": 0.0497,
+      "top3_probability": 0.077,
+      "finish_position_distribution": [
+        0.0263,
+        0.0234,
+        0.0273,
+        0.0324,
+        0.0347,
+        0.0411,
+        0.0521,
+        0.0581,
+        0.0644,
+        0.0703,
+        0.0856,
+        0.097,
+        0.0958,
+        0.1001,
+        0.0985,
+        0.0929
+      ],
+      "conditional_win_probability_by_display_pace": {
+        "VERY_FAST": null,
+        "FAST": 0.0,
+        "MIDDLE": 0.02637913741223671,
+        "SLOW": 0.0,
+        "VERY_SLOW": null
+      },
+      "pace_condition_sample_count": {
+        "VERY_FAST": 0,
+        "FAST": 28,
+        "MIDDLE": 9970,
+        "SLOW": 2,
+        "VERY_SLOW": 0
+      },
+      "mean_early_position": 0.36700426158162774,
+      "mean_lateral_slot": 0.1504,
+      "lead_probability": 0.0965,
+      "cold_start": false,
+      "jockey_change_adjustment_summary": {
+        "adjusted_fraction": 1.0,
+        "mean_shift_q": 0.0023432993681064946
+      },
+      "horse_name": "カツノテンス",
+      "win_probability_calibrated": 0.01829438177957163,
+      "p_cal": 0.01829438177957163,
+      "mean_horse_time_sec": 69.29272388936101,
+      "horse_time_p10_p90_sec": [
+        68.01873069445755,
+        70.61214800727413
+      ],
+      "win_odds_reference": null
+    },
+    {
+      "horse_id": "2023103862",
+      "umaban": 3,
+      "ability_score": -0.938278,
+      "win_probability_raw": 0.0598,
+      "top2_probability": 0.1222,
+      "top3_probability": 0.1847,
+      "finish_position_distribution": [
+        0.0598,
+        0.0624,
+        0.0625,
+        0.0666,
+        0.0701,
+        0.0722,
+        0.0779,
+        0.0747,
+        0.071,
+        0.0685,
+        0.0647,
+        0.0574,
+        0.054,
+        0.0477,
+        0.0442,
+        0.0463
+      ],
+      "conditional_win_probability_by_display_pace": {
+        "VERY_FAST": null,
+        "FAST": 0.03571428571428571,
+        "MIDDLE": 0.05987963891675025,
+        "SLOW": 0.0,
+        "VERY_SLOW": null
+      },
+      "pace_condition_sample_count": {
+        "VERY_FAST": 0,
+        "FAST": 28,
+        "MIDDLE": 9970,
+        "SLOW": 2,
+        "VERY_SLOW": 0
+      },
+      "mean_early_position": 0.45898246908674084,
+      "mean_lateral_slot": 0.2663,
+      "lead_probability": 0.0002,
+      "cold_start": false,
+      "jockey_change_adjustment_summary": {
+        "adjusted_fraction": 0.8363,
+        "mean_shift_q": 0.02715366784816964
+      },
+      "horse_name": "ミヤラティーニ",
+      "win_probability_calibrated": 0.055452876084621155,
+      "p_cal": 0.055452876084621155,
+      "mean_horse_time_sec": 68.88776345195592,
+      "horse_time_p10_p90_sec": [
+        67.7222322246737,
+        70.13949374232095
+      ],
+      "win_odds_reference": null
+    },
+    {
+      "horse_id": "2023105402",
+      "umaban": 4,
+      "ability_score": -0.492592,
+      "win_probability_raw": 0.0899,
+      "top2_probability": 0.176,
+      "top3_probability": 0.2575,
+      "finish_position_distribution": [
+        0.0899,
+        0.0861,
+        0.0815,
+        0.087,
+        0.0745,
+        0.0806,
+        0.0774,
+        0.0676,
+        0.0631,
+        0.0549,
+        0.0488,
+        0.0484,
+        0.0403,
+        0.0364,
+        0.0332,
+        0.0303
+      ],
+      "conditional_win_probability_by_display_pace": {
+        "VERY_FAST": null,
+        "FAST": 0.14285714285714285,
+        "MIDDLE": 0.08976930792377132,
+        "SLOW": 0.0,
+        "VERY_SLOW": null
+      },
+      "pace_condition_sample_count": {
+        "VERY_FAST": 0,
+        "FAST": 28,
+        "MIDDLE": 9970,
+        "SLOW": 2,
+        "VERY_SLOW": 0
+      },
+      "mean_early_position": 0.23146165213051217,
+      "mean_lateral_slot": 0.2742,
+      "lead_probability": 0.4096,
+      "cold_start": false,
+      "jockey_change_adjustment_summary": {
+        "adjusted_fraction": 0.1037,
+        "mean_shift_q": 0.006583076773464859
+      },
+      "horse_name": "ガルディーノ",
+      "win_probability_calibrated": 0.09615083527717144,
+      "p_cal": 0.09615083527717144,
+      "mean_horse_time_sec": 68.7299830844439,
+      "horse_time_p10_p90_sec": [
+        67.59680786137591,
+        69.93315619746556
+      ],
+      "win_odds_reference": null
+    },
+    {
+      "horse_id": "2023102390",
+      "umaban": 5,
+      "ability_score": -0.528358,
+      "win_probability_raw": 0.075,
+      "top2_probability": 0.1556,
+      "top3_probability": 0.2373,
+      "finish_position_distribution": [
+        0.075,
+        0.0806,
+        0.0817,
+        0.0836,
+        0.0823,
+        0.0792,
+        0.0738,
+        0.0728,
+        0.0671,
+        0.0614,
+        0.0569,
+        0.0466,
+        0.0401,
+        0.0374,
+        0.0321,
+        0.0294
+      ],
+      "conditional_win_probability_by_display_pace": {
+        "VERY_FAST": null,
+        "FAST": 0.03571428571428571,
+        "MIDDLE": 0.07512537612838516,
+        "SLOW": 0.0,
+        "VERY_SLOW": null
+      },
+      "pace_condition_sample_count": {
+        "VERY_FAST": 0,
+        "FAST": 28,
+        "MIDDLE": 9970,
+        "SLOW": 2,
+        "VERY_SLOW": 0
+      },
+      "mean_early_position": 0.20989161292485906,
+      "mean_lateral_slot": 0.5666,
+      "lead_probability": 0.0007,
+      "cold_start": false,
+      "jockey_change_adjustment_summary": {
+        "adjusted_fraction": 1.0,
+        "mean_shift_q": 0.029579079315303902
+      },
+      "horse_name": "マジェステラ",
+      "win_probability_calibrated": 0.0752852996146757,
+      "p_cal": 0.0752852996146757,
+      "mean_horse_time_sec": 68.75701303465208,
+      "horse_time_p10_p90_sec": [
+        67.61336700814489,
+        69.95580677877888
+      ],
+      "win_odds_reference": null
+    },
+    {
+      "horse_id": "2021101363",
+      "umaban": 6,
+      "ability_score": -2.135704,
+      "win_probability_raw": 0.0209,
+      "top2_probability": 0.0383,
+      "top3_probability": 0.0587,
+      "finish_position_distribution": [
+        0.0209,
+        0.0174,
+        0.0204,
+        0.0223,
+        0.0256,
+        0.0303,
+        0.0365,
+        0.041,
+        0.0519,
+        0.0661,
+        0.0757,
+        0.087,
+        0.1066,
+        0.1246,
+        0.1366,
+        0.1371
+      ],
+      "conditional_win_probability_by_display_pace": {
+        "VERY_FAST": null,
+        "FAST": 0.0,
+        "MIDDLE": 0.020962888665997995,
+        "SLOW": 0.0,
+        "VERY_SLOW": null
+      },
+      "pace_condition_sample_count": {
+        "VERY_FAST": 0,
+        "FAST": 28,
+        "MIDDLE": 9970,
+        "SLOW": 2,
+        "VERY_SLOW": 0
+      },
+      "mean_early_position": 0.48669060314183443,
+      "mean_lateral_slot": 0.5682,
+      "lead_probability": 0.0,
+      "cold_start": false,
+      "jockey_change_adjustment_summary": {
+        "adjusted_fraction": 0.8913,
+        "mean_shift_q": 0.015118725143731544
+      },
+      "horse_name": "アイランドピーク",
+      "win_probability_calibrated": 0.013414514640200595,
+      "p_cal": 0.013414514640200595,
+      "mean_horse_time_sec": 69.47212203626526,
+      "horse_time_p10_p90_sec": [
+        68.15502829685191,
+        70.81870256053567
+      ],
+      "win_odds_reference": null
+    },
+    {
+      "horse_id": "2019103285",
+      "umaban": 7,
+      "ability_score": -1.600751,
+      "win_probability_raw": 0.0354,
+      "top2_probability": 0.0744,
+      "top3_probability": 0.1128,
+      "finish_position_distribution": [
+        0.0354,
+        0.039,
+        0.0384,
+        0.0387,
+        0.0441,
+        0.0535,
+        0.055,
+        0.0642,
+        0.0674,
+        0.0782,
+        0.0769,
+        0.0833,
+        0.0892,
+        0.0811,
+        0.081,
+        0.0746
+      ],
+      "conditional_win_probability_by_display_pace": {
+        "VERY_FAST": null,
+        "FAST": 0.0,
+        "MIDDLE": 0.03550651955867603,
+        "SLOW": 0.0,
+        "VERY_SLOW": null
+      },
+      "pace_condition_sample_count": {
+        "VERY_FAST": 0,
+        "FAST": 28,
+        "MIDDLE": 9970,
+        "SLOW": 2,
+        "VERY_SLOW": 0
+      },
+      "mean_early_position": 0.6991176385998236,
+      "mean_lateral_slot": 0.4658,
+      "lead_probability": 0.0,
+      "cold_start": false,
+      "jockey_change_adjustment_summary": {
+        "adjusted_fraction": 1.0,
+        "mean_shift_q": 0.02106169954382408
+      },
+      "horse_name": "クリノミニスター",
+      "win_probability_calibrated": 0.027323220144588496,
+      "p_cal": 0.027323220144588496,
+      "mean_horse_time_sec": 69.15507689925167,
+      "horse_time_p10_p90_sec": [
+        67.8965100346959,
+        70.46856701467718
+      ],
+      "win_odds_reference": null
+    },
+    {
+      "horse_id": "2018103293",
+      "umaban": 8,
+      "ability_score": -0.151377,
+      "win_probability_raw": 0.1287,
+      "top2_probability": 0.2549,
+      "top3_probability": 0.3776,
+      "finish_position_distribution": [
+        0.1287,
+        0.1262,
+        0.1227,
+        0.1023,
+        0.0916,
+        0.0766,
+        0.066,
+        0.0557,
+        0.0491,
+        0.0401,
+        0.0351,
+        0.0287,
+        0.0237,
+        0.0205,
+        0.0159,
+        0.0171
+      ],
+      "conditional_win_probability_by_display_pace": {
+        "VERY_FAST": null,
+        "FAST": 0.14285714285714285,
+        "MIDDLE": 0.12858575727181545,
+        "SLOW": 0.5,
+        "VERY_SLOW": null
+      },
+      "pace_condition_sample_count": {
+        "VERY_FAST": 0,
+        "FAST": 28,
+        "MIDDLE": 9970,
+        "SLOW": 2,
+        "VERY_SLOW": 0
+      },
+      "mean_early_position": 0.36254743483595453,
+      "mean_lateral_slot": 0.9897,
+      "lead_probability": 0.0013,
+      "cold_start": false,
+      "jockey_change_adjustment_summary": {
+        "adjusted_fraction": 1.0,
+        "mean_shift_q": 0.03663479213350173
+      },
+      "horse_name": "ヨドノゴールド",
+      "win_probability_calibrated": 0.1560660777590305,
+      "p_cal": 0.1560660777590305,
+      "mean_horse_time_sec": 68.52314242373647,
+      "horse_time_p10_p90_sec": [
+        67.46423938444939,
+        69.64134458417334
+      ],
+      "win_odds_reference": null
+    },
+    {
+      "horse_id": "2023105729",
+      "umaban": 9,
+      "ability_score": -0.623534,
+      "win_probability_raw": 0.0723,
+      "top2_probability": 0.1483,
+      "top3_probability": 0.2233,
+      "finish_position_distribution": [
+        0.0723,
+        0.076,
+        0.075,
+        0.076,
+        0.0796,
+        0.074,
+        0.0727,
+        0.077,
+        0.068,
+        0.0668,
+        0.0585,
+        0.0524,
+        0.043,
+        0.0396,
+        0.035,
+        0.0341
+      ],
+      "conditional_win_probability_by_display_pace": {
+        "VERY_FAST": null,
+        "FAST": 0.0,
+        "MIDDLE": 0.07251755265797392,
+        "SLOW": 0.0,
+        "VERY_SLOW": null
+      },
+      "pace_condition_sample_count": {
+        "VERY_FAST": 0,
+        "FAST": 28,
+        "MIDDLE": 9970,
+        "SLOW": 2,
+        "VERY_SLOW": 0
+      },
+      "mean_early_position": 0.098817584145488,
+      "mean_lateral_slot": 1.1576,
+      "lead_probability": 0.0026,
+      "cold_start": false,
+      "jockey_change_adjustment_summary": {
+        "adjusted_fraction": 0.7242,
+        "mean_shift_q": 0.029665785944884435
+      },
+      "horse_name": "モズオウンゴール",
+      "win_probability_calibrated": 0.07164966742515874,
+      "p_cal": 0.07164966742515874,
+      "mean_horse_time_sec": 68.78993324304092,
+      "horse_time_p10_p90_sec": [
+        67.64977621139542,
+        70.01312966660349
+      ],
+      "win_odds_reference": null
+    },
+    {
+      "horse_id": "2023105797",
+      "umaban": 10,
+      "ability_score": -0.876165,
+      "win_probability_raw": 0.0505,
+      "top2_probability": 0.1098,
+      "top3_probability": 0.1705,
+      "finish_position_distribution": [
+        0.0505,
+        0.0593,
+        0.0607,
+        0.0596,
+        0.065,
+        0.0688,
+        0.0694,
+        0.0726,
+        0.0764,
+        0.0712,
+        0.0716,
+        0.0629,
+        0.0627,
+        0.0554,
+        0.0502,
+        0.0437
+      ],
+      "conditional_win_probability_by_display_pace": {
+        "VERY_FAST": null,
+        "FAST": 0.07142857142857142,
+        "MIDDLE": 0.05045135406218656,
+        "SLOW": 0.0,
+        "VERY_SLOW": null
+      },
+      "pace_condition_sample_count": {
+        "VERY_FAST": 0,
+        "FAST": 28,
+        "MIDDLE": 9970,
+        "SLOW": 2,
+        "VERY_SLOW": 0
+      },
+      "mean_early_position": 0.051193052696960395,
+      "mean_lateral_slot": 1.1177,
+      "lead_probability": 0.0925,
+      "cold_start": false,
+      "jockey_change_adjustment_summary": {
+        "adjusted_fraction": 1.0,
+        "mean_shift_q": 0.00086363950536176
+      },
+      "horse_name": "ロードクラシコ",
+      "win_probability_calibrated": 0.044138832132121615,
+      "p_cal": 0.044138832132121615,
+      "mean_horse_time_sec": 68.9302828445452,
+      "horse_time_p10_p90_sec": [
+        67.73946800331173,
+        70.15039636671249
+      ],
+      "win_odds_reference": null
+    },
+    {
+      "horse_id": "2023103218",
+      "umaban": 11,
+      "ability_score": -0.693968,
+      "win_probability_raw": 0.0773,
+      "top2_probability": 0.1548,
+      "top3_probability": 0.2344,
+      "finish_position_distribution": [
+        0.0773,
+        0.0775,
+        0.0796,
+        0.081,
+        0.0797,
+        0.076,
+        0.0764,
+        0.0707,
+        0.0676,
+        0.0623,
+        0.0575,
+        0.0497,
+        0.0431,
+        0.0381,
+        0.0328,
+        0.0307
+      ],
+      "conditional_win_probability_by_display_pace": {
+        "VERY_FAST": null,
+        "FAST": 0.14285714285714285,
+        "MIDDLE": 0.07703109327983952,
+        "SLOW": 0.5,
+        "VERY_SLOW": null
+      },
+      "pace_condition_sample_count": {
+        "VERY_FAST": 0,
+        "FAST": 28,
+        "MIDDLE": 9970,
+        "SLOW": 2,
+        "VERY_SLOW": 0
+      },
+      "mean_early_position": 0.38737579810374834,
+      "mean_lateral_slot": 1.2753,
+      "lead_probability": 0.0022,
+      "cold_start": false,
+      "jockey_change_adjustment_summary": {
+        "adjusted_fraction": 0.8383,
+        "mean_shift_q": 0.02457550453445917
+      },
+      "horse_name": "グラスゴー",
+      "win_probability_calibrated": 0.0784187281492133,
+      "p_cal": 0.0784187281492133,
+      "mean_horse_time_sec": 68.76841030117254,
+      "horse_time_p10_p90_sec": [
+        67.63263119159562,
+        69.97728912433388
+      ],
+      "win_odds_reference": null
+    },
+    {
+      "horse_id": "2022100203",
+      "umaban": 12,
+      "ability_score": -0.457617,
+      "win_probability_raw": 0.0896,
+      "top2_probability": 0.1804,
+      "top3_probability": 0.2672,
+      "finish_position_distribution": [
+        0.0896,
+        0.0908,
+        0.0868,
+        0.0879,
+        0.0811,
+        0.0831,
+        0.0768,
+        0.0712,
+        0.0636,
+        0.0523,
+        0.0493,
+        0.0426,
+        0.0378,
+        0.031,
+        0.0284,
+        0.0277
+      ],
+      "conditional_win_probability_by_display_pace": {
+        "VERY_FAST": null,
+        "FAST": 0.17857142857142858,
+        "MIDDLE": 0.08936810431293882,
+        "SLOW": 0.0,
+        "VERY_SLOW": null
+      },
+      "pace_condition_sample_count": {
+        "VERY_FAST": 0,
+        "FAST": 28,
+        "MIDDLE": 9970,
+        "SLOW": 2,
+        "VERY_SLOW": 0
+      },
+      "mean_early_position": 0.25056677307387454,
+      "mean_lateral_slot": 1.6548,
+      "lead_probability": 0.0016,
+      "cold_start": false,
+      "jockey_change_adjustment_summary": {
+        "adjusted_fraction": 0.8826,
+        "mean_shift_q": -0.007895376657178228
+      },
+      "horse_name": "マダムイグレイン",
+      "win_probability_calibrated": 0.09571792837038812,
+      "p_cal": 0.09571792837038812,
+      "mean_horse_time_sec": 68.69688521599201,
+      "horse_time_p10_p90_sec": [
+        67.5867156782283,
+        69.88556850361955
+      ],
+      "win_odds_reference": null
+    },
+    {
+      "horse_id": "2021104806",
+      "umaban": 13,
+      "ability_score": -1.521684,
+      "win_probability_raw": 0.037,
+      "top2_probability": 0.0702,
+      "top3_probability": 0.1025,
+      "finish_position_distribution": [
+        0.037,
+        0.0332,
+        0.0323,
+        0.0411,
+        0.0454,
+        0.0471,
+        0.0513,
+        0.0604,
+        0.0669,
+        0.0746,
+        0.0834,
+        0.0844,
+        0.0897,
+        0.09,
+        0.083,
+        0.0802
+      ],
+      "conditional_win_probability_by_display_pace": {
+        "VERY_FAST": null,
+        "FAST": 0.0,
+        "MIDDLE": 0.037111334002006016,
+        "SLOW": 0.0,
+        "VERY_SLOW": null
+      },
+      "pace_condition_sample_count": {
+        "VERY_FAST": 0,
+        "FAST": 28,
+        "MIDDLE": 9970,
+        "SLOW": 2,
+        "VERY_SLOW": 0
+      },
+      "mean_early_position": 0.24004960463841726,
+      "mean_lateral_slot": 1.8319,
+      "lead_probability": 0.0144,
+      "cold_start": false,
+      "jockey_change_adjustment_summary": {
+        "adjusted_fraction": 1.0,
+        "mean_shift_q": -0.026675461510812806
+      },
+      "horse_name": "レオナルドスター",
+      "win_probability_calibrated": 0.02900345962549909,
+      "p_cal": 0.02900345962549909,
+      "mean_horse_time_sec": 69.19293877757931,
+      "horse_time_p10_p90_sec": [
+        67.91605568027059,
+        70.50658555692131
+      ],
+      "win_odds_reference": null
+    },
+    {
+      "horse_id": "2023101450",
+      "umaban": 14,
+      "ability_score": -0.608057,
+      "win_probability_raw": 0.0896,
+      "top2_probability": 0.1775,
+      "top3_probability": 0.2604,
+      "finish_position_distribution": [
+        0.0896,
+        0.0879,
+        0.0829,
+        0.082,
+        0.0793,
+        0.077,
+        0.0721,
+        0.0688,
+        0.0618,
+        0.0627,
+        0.0487,
+        0.0488,
+        0.0428,
+        0.034,
+        0.0327,
+        0.0289
+      ],
+      "conditional_win_probability_by_display_pace": {
+        "VERY_FAST": null,
+        "FAST": 0.07142857142857142,
+        "MIDDLE": 0.08966900702106319,
+        "SLOW": 0.0,
+        "VERY_SLOW": null
+      },
+      "pace_condition_sample_count": {
+        "VERY_FAST": 0,
+        "FAST": 28,
+        "MIDDLE": 9970,
+        "SLOW": 2,
+        "VERY_SLOW": 0
+      },
+      "mean_early_position": 0.5005355611398316,
+      "mean_lateral_slot": 1.3916,
+      "lead_probability": 0.0032,
+      "cold_start": true,
+      "jockey_change_adjustment_summary": {
+        "adjusted_fraction": 0.0,
+        "mean_shift_q": 0.0
+      },
+      "horse_name": "ユーダイモニア",
+      "win_probability_calibrated": 0.09571792837038812,
+      "p_cal": 0.09571792837038812,
+      "mean_horse_time_sec": 68.7311242126974,
+      "horse_time_p10_p90_sec": [
+        67.58377582918568,
+        69.92218110240805
+      ],
+      "win_odds_reference": null
+    },
+    {
+      "horse_id": "2023100978",
+      "umaban": 15,
+      "ability_score": -2.181155,
+      "win_probability_raw": 0.0217,
+      "top2_probability": 0.0386,
+      "top3_probability": 0.0601,
+      "finish_position_distribution": [
+        0.0217,
+        0.0169,
+        0.0215,
+        0.0209,
+        0.0238,
+        0.0256,
+        0.0301,
+        0.0372,
+        0.0458,
+        0.0547,
+        0.0694,
+        0.0843,
+        0.0977,
+        0.1252,
+        0.1508,
+        0.1744
+      ],
+      "conditional_win_probability_by_display_pace": {
+        "VERY_FAST": null,
+        "FAST": 0.0,
+        "MIDDLE": 0.02176529588766299,
+        "SLOW": 0.0,
+        "VERY_SLOW": null
+      },
+      "pace_condition_sample_count": {
+        "VERY_FAST": 0,
+        "FAST": 28,
+        "MIDDLE": 9970,
+        "SLOW": 2,
+        "VERY_SLOW": 0
+      },
+      "mean_early_position": 0.03601892712974978,
+      "mean_lateral_slot": 2.5074,
+      "lead_probability": 0.3683,
+      "cold_start": false,
+      "jockey_change_adjustment_summary": {
+        "adjusted_fraction": 0.5226,
+        "mean_shift_q": 0.0022989253711167596
+      },
+      "horse_name": "マダムカマラード",
+      "win_probability_calibrated": 0.01411231033625002,
+      "p_cal": 0.01411231033625002,
+      "mean_horse_time_sec": 69.5638567877488,
+      "horse_time_p10_p90_sec": [
+        68.1957798325489,
+        70.98280925622086
+      ],
+      "win_odds_reference": null
+    },
+    {
+      "horse_id": "2020101920",
+      "umaban": 16,
+      "ability_score": -2.129232,
+      "win_probability_raw": 0.0256,
+      "top2_probability": 0.0468,
+      "top3_probability": 0.0733,
+      "finish_position_distribution": [
+        0.0256,
+        0.0212,
+        0.0265,
+        0.0278,
+        0.0317,
+        0.036,
+        0.0387,
+        0.0439,
+        0.0561,
+        0.068,
+        0.0739,
+        0.0898,
+        0.1003,
+        0.1111,
+        0.1217,
+        0.1277
+      ],
+      "conditional_win_probability_by_display_pace": {
+        "VERY_FAST": null,
+        "FAST": 0.03571428571428571,
+        "MIDDLE": 0.025576730190571714,
+        "SLOW": 0.0,
+        "VERY_SLOW": null
+      },
+      "pace_condition_sample_count": {
+        "VERY_FAST": 0,
+        "FAST": 28,
+        "MIDDLE": 9970,
+        "SLOW": 2,
+        "VERY_SLOW": 0
+      },
+      "mean_early_position": 0.7071291018943149,
+      "mean_lateral_slot": 1.0548,
+      "lead_probability": 0.0,
+      "cold_start": false,
+      "jockey_change_adjustment_summary": {
+        "adjusted_fraction": 1.0,
+        "mean_shift_q": -0.00573065668840739
+      },
+      "horse_name": "メラヴィリオーザ",
+      "win_probability_calibrated": 0.017640115756868167,
+      "p_cal": 0.017640115756868167,
+      "mean_horse_time_sec": 69.40333003825617,
+      "horse_time_p10_p90_sec": [
+        68.0740709357739,
+        70.79790665692991
+      ],
+      "win_odds_reference": null
+    }
+  ]
+}

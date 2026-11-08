@@ -1,0 +1,26 @@
+canonical_name,source_table,source_column,unit,coverage,available_before_posttime,notes
+race_id,NL_RA_RACE+NL_SE_RACE_UMA,"idYear,idMonthDay,idJyoCD,idKaiji,idNichiji,idRaceNum",composite key,100% of identified records,yes_for_historical_join,Same key is used by raceverse/adapters/race_data.py
+race_datetime,NL_RA_RACE,"idYear,idMonthDay",date,100% of 40924 confirmed JRA races since 2015,partial,Only race date is stored; no verified post-time or as-of timestamp
+horse_id,NL_SE_RACE_UMA,KettoNum,identifier,100% of 567137 confirmed JRA starts since 2015,yes_for_historical_join,Stable horse ID in the existing adapter
+finish_time,NL_SE_RACE_UMA,Time,MSST (minute-second-tenth),100% positive of 567137 confirmed JRA starts since 2015,after_race_only,Outcome label only; parsed to seconds in raceverse/adapters/race_data.py
+individual_last3f,NL_SE_RACE_UMA,HaronTimeL3,0.1 second,100% positive of 567137 confirmed JRA starts since 2015,after_race_only,Per-horse closing time; outcome label only
+early_elapsed_E,derived,"finish_time - individual_last3f",second,derivable for 100% of those starts,after_race_only,Past-run label; not an independent third observation
+gap_at_600_D600,derived,"E - minimum(E) within race",second,derivable for 100% if the entire eligible field is observed,after_race_only,Flag when any finisher is missing; time gap is not distance or gate speed
+corner_1c,NL_SE_RACE_UMA,Jyuni1c,rank,42.70% valid of eligible starts since 2015,after_race_only,May be structurally unavailable for courses without a first corner
+corner_2c,NL_SE_RACE_UMA,Jyuni2c,rank,48.75% valid of eligible starts since 2015,after_race_only,May be structurally unavailable depending on course and distance
+corner_3c,NL_SE_RACE_UMA,Jyuni3c,rank,99.17% valid of eligible starts since 2015,after_race_only,Normalize by field size; preserve missingness
+corner_4c,NL_SE_RACE_UMA,Jyuni4c,rank,99.17% valid of eligible starts since 2015,after_race_only,Normalize by field size; preserve missingness
+distance,NL_RA_RACE,Kyori,meter,100% of 40924 confirmed JRA races since 2015,yes_as_race_condition,Verified non-null
+surface_and_course,NL_RA_RACE,"TrackCD,CourseKubunCD",code,TrackCD 100%; CourseKubunCD 50.77% nonzero/nonblank,yes_as_race_condition,TrackCD maps turf/dirt/jump; blank course variant must remain explicit
+going,NL_RA_RACE,"TenkoBabaSibaBabaCD,TenkoBabaDirtBabaCD",code,51.85% turf field populated; 49.23% dirt field populated,not_proven_for_historical_asof,Final record field; pre-race revision history is not available in this audit
+race_class_and_age_condition,NL_RA_RACE,"GradeCD,JyokenInfoSyubetuCD",code,GradeCD 26.91% nonzero/nonblank; age condition 100%,yes_as_race_condition,Blank grade is common for non-graded races; age condition is available
+field_size,NL_RA_RACE,SyussoTosu,number,100% of 40924 confirmed JRA races since 2015,partial,Confirmed final field size; historical pre-post-time scratches may not be reconstructable
+race_laps,NL_RA_RACE,"LapTime0..LapTime24",0.1 second,columns exist,after_race_only,Race-level observed laps; not per-horse and never a target-race prediction feature
+corner_order,NL_SE_RACE_UMA,"Jyuni1c..Jyuni4c",rank,see corner-specific rows,after_race_only,Observed past-run position only; no separate jockey-intent or gate-reaction measure
+age_and_sex,NL_SE_RACE_UMA,"Barei,SexCD",years/code,100% positive/nonblank of eligible starts,partial,Final per-start values; use only for historical profile diagnostics unless point-in-time availability is proven
+carried_weight,NL_SE_RACE_UMA,Futan,0.1 kg,100% positive of eligible starts,partial,Final per-start value; candidate confounder, excluded from horse-only ability initially
+body_weight,NL_SE_RACE_UMA,BaTaijyu,kg/code,100% nonzero/nonblank of eligible starts,partial,Final per-start value; candidate confounder, excluded initially
+jockey_and_gate,NL_SE_RACE_UMA,"KisyuCode,Wakuban,Umaban",identifier/number,100% populated in confirmed records,after_race_only,Useful for formation or past-observation confounding, not treated as intrinsic horse ability
+pedigree_ancestor_ids,NL_UM_UMA,"Ketto3Info0..13HansyokuNum",identifier,columns present; role mapping not confirmed,not_proven,Disable pedigree prior until sire/dam/broodmare-sire semantics and time cutoff are verified
+start_ability,not_available,not_available,unknown,not available,not available,No individual gate reaction / first-section timing observations identified
+sustain_ability,not_available,not_available,unknown,not identified,not available,Race-level pace is observed after the race; individual load-response attribution is unresolved

@@ -105,7 +105,7 @@ if [[ "$SKIP_JV" -eq 0 ]]; then
   echo "既存バッチの流れ:"
   echo "  1) JVLinkToSQLite.exe -m Exec"
   echo "  2) race.db 更新"
-  echo "  3) \\Mac\Home\Documents\horse-racing-ml\data\raw\race.db へコピー"
+  echo "  3) \\Mac\Home\Documents\ml\horse-racing-ml\data\raw\race.db へコピー"
   echo "Windows のバッチ完了後、この Mac 側の更新スクリプトを再実行してください。"
 
   if [[ -f "$DB_PATH" ]]; then
