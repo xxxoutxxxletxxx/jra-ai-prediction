@@ -59,6 +59,8 @@ def build_payload(input_path: Path) -> dict:
                 continue
 
             model = row["model"].strip()
+            if model != "formation":
+                continue
             values = {column: row[column].strip() for column in CONDITION_COLUMNS}
             if not model or any(not value for value in values.values()):
                 raise ValueError(f"Missing condition label on CSV line {line_number}")

@@ -3,7 +3,7 @@
 入力: raceverse.cli backtest の出力ディレクトリ(predictions.csv / race_level.csv)
 出力: 条件別CSVと Markdown レポート。単勝・複勝の払戻は race.db(NL_HR_PAY)の確定払戻を使う。
 
-集計条件: クラス(1着賞金帯) / 競馬場 / 芝・ダート / 距離 / 馬場(良・良以外)とその組み合わせ。
+集計条件: クラス(実クラス名) / 競馬場 / 芝・ダート / 距離 / 馬場(良・良以外)とその組み合わせ。
 full は集計しない(入力に含まれていれば除外する)。確定オッズ・払戻による事後分析で、発走前に購入できた成績ではない。
 """
 
@@ -26,6 +26,7 @@ from scripts.raceverse_market_analysis import (
     odds_band_analysis,
     top1_rows,
 )
+from scripts.race_class_ab_test import classify
 
 ROOT = Path(__file__).resolve().parents[1]
 DB = ROOT / "data" / "raw" / "race.db"
@@ -33,8 +34,21 @@ LOGGER = logging.getLogger(__name__)
 KEYS = ["idYear", "idMonthDay", "idJyoCD", "idKaiji", "idNichiji", "idRaceNum"]
 COURSES = {"01": "札幌", "02": "函館", "03": "福島", "04": "新潟", "05": "東京",
            "06": "中山", "07": "中京", "08": "京都", "09": "阪神", "10": "小倉"}
-PRIZE_BINS = [0, 11_000_000, 16_000_000, 25_000_000, 50_000_000, np.inf]
-PRIZE_LABELS = ["800〜1,099万円", "1,100〜1,599万円", "1,600〜2,499万円", "2,500〜4,999万円", "5,000万円以上"]
+CLASS_LABELS = {
+    "新馬": "新馬",
+    "未勝利": "未勝利",
+    "1勝": "1勝クラス",
+    "2勝": "2勝クラス",
+    "3勝": "3勝クラス",
+    "OP": "オープン",
+    "L": "リステッド",
+    "G1": "G1",
+    "G2": "G2",
+    "G3": "G3",
+    "UNKNOWN": "クラス不明",
+}
+# JyokenName が空の条件戦は、最若年条件コード(JyokenInfoJyokenCD4)でクラスを判定する
+JYOKEN_CODE_CLASSES = {"701": "新馬", "703": "未勝利", "005": "1勝", "010": "2勝", "016": "3勝", "999": "OP"}
 DISTANCE_BINS = [0, 1000, 1150, 1600, 1700, 2500, np.inf]
 DISTANCE_LABELS = ["1000m以下", "1150m", "1200〜1600m", "1700m", "1800〜2500m", "2600m以上"]
 GRADES = {"A": "G1", "B": "G2", "C": "G3", "L": "Listed"}
@@ -44,8 +58,8 @@ PREDICTION_COLUMNS = ["race_id", "horse_id", "umaban", "level", "date", "finish"
 
 
 def read_official_results(years: tuple[int, int]) -> tuple[dict, dict, dict]:
-    """race_id -> (賞金, GradeCD)、(race_id, 馬番) -> 単勝払戻、(race_id, 馬番) -> 複勝払戻(100円あたり)。"""
-    columns = KEYS + ["GradeCD", "Honsyokin0"]
+    """race_id -> (賞金, GradeCD, 実クラス)、(race_id, 馬番) -> 払戻。"""
+    columns = KEYS + ["GradeCD", "Honsyokin0", "JyokenName", "RaceInfoHondai", "RaceInfoFukudai", "JyokenInfoJyokenCD4"]
     columns += [f"PayTansyo{i}{s}" for i in range(3) for s in ("Umaban", "Pay")]
     columns += [f"PayFukusyo{i}{s}" for i in range(5) for s in ("Umaban", "Pay")]
     query = (f"SELECT {', '.join(columns)} FROM NL_RA_RACE JOIN NL_HR_PAY USING ({', '.join(KEYS)}) "
@@ -55,11 +69,20 @@ def read_official_results(years: tuple[int, int]) -> tuple[dict, dict, dict]:
     info, win, place = {}, {}, {}
     for rec in records:
         race_id = "-".join(str(v).strip() for v in rec[:6])
-        info[race_id] = (float(rec[7] or 0) * 100.0, str(rec[6] or "").strip())
+        class_key = classify({
+            "GradeCD": rec[6],
+            "JyokenName": rec[8],
+            "RaceInfoHondai": rec[9],
+            "RaceInfoFukudai": rec[10],
+        })
+        if class_key == "UNKNOWN":
+            class_key = JYOKEN_CODE_CLASSES.get(str(rec[11] or "").strip(), "UNKNOWN")
+        class_name = CLASS_LABELS[class_key]
+        info[race_id] = (float(rec[7] or 0) * 100.0, str(rec[6] or "").strip(), class_name)
         for i in range(3):
-            _store(win, race_id, rec[8 + 2 * i], rec[9 + 2 * i])
+            _store(win, race_id, rec[12 + 2 * i], rec[13 + 2 * i])
         for i in range(5):
-            _store(place, race_id, rec[14 + 2 * i], rec[15 + 2 * i])
+            _store(place, race_id, rec[18 + 2 * i], rec[19 + 2 * i])
     return info, win, place
 
 
@@ -97,7 +120,7 @@ def prepare_frame(input_dir: Path, window: tuple[str, str]) -> tuple[pd.DataFram
     if frame[["track", "surface", "distance_m", "going", "prize_yen"]].isna().any().any():
         raise ValueError("missing race attributes")
 
-    frame["クラス"] = pd.cut(frame["prize_yen"], PRIZE_BINS, labels=PRIZE_LABELS, right=False).astype(str)
+    frame["クラス"] = frame["race_id"].map(lambda r: info.get(r, (np.nan, "", "クラス不明"))[2])
     frame["競馬場"] = frame["track"].astype(str).str.zfill(2).map(COURSES)
     frame["芝ダート"] = frame["surface"].map({"turf": "芝", "dirt": "ダート"})
     frame["距離"] = pd.cut(frame["distance_m"], DISTANCE_BINS, labels=DISTANCE_LABELS, right=True).astype(str)
@@ -196,7 +219,7 @@ def build_report(frame, counts, overall, singles, combos, market, window, refit_
         f"- 予測方式: base / formation / pace のみ。fullは学習・予測・集計していません。{refit_note}",
         "- 買い方: 各レースで校正後勝率 `p_cal` が最大の馬を単勝100円、複勝100円ずつ購入したと仮定。同率は馬番の小さい馬。",
         "- 払戻は race.db の確定払戻。確定オッズ・払戻を使った事後参考値で、発走前に購入できた成績ではありません。",
-        f"- クラスは1着賞金の区分で、実際のクラス名称ではありません。能力指標の対象が1着賞金800万円超のレースに限られるため、それ未満は含まれません。",
+        "- クラスはレース名・GradeCDから分類した実クラス名です。判定できないレースは「クラス不明」としています。",
         f"- 組み合わせは件数{MIN_BETS}件未満を除外。多数の条件を事後に探索しているため、上位は偶然を含みます。前半・後半の両方で100%を超えるかも併せて確認してください。",
         "", "## 全体", "",
         table([[r.model, r.bets, pct(r.win_hit_rate_pct), pct(r.win_roi_pct), pct(r.place_hit_rate_pct), pct(r.place_roi_pct)]
@@ -207,7 +230,7 @@ def build_report(frame, counts, overall, singles, combos, market, window, refit_
               ["モデル", "Winner Logloss", "市場との差", "Top1的中率", "Top1回収率"]),
         "", f"(Winner Loglossは勝ち馬が1頭のレースだけ: {counts['market_races']:,}レース。同着レースを除外)",
     ]
-    for title, column, order in (("クラス(1着賞金帯)", "クラス", PRIZE_LABELS), ("競馬場", "競馬場", list(COURSES.values())),
+    for title, column, order in (("クラス", "クラス", None), ("競馬場", "競馬場", list(COURSES.values())),
                                  ("芝・ダート", "芝ダート", ["芝", "ダート"]), ("距離", "距離", DISTANCE_LABELS),
                                  ("馬場", "馬場", ["良", "良以外"]), ("格付(GradeCD)", "格付", None)):
         for bet, label in (("win", "単勝"), ("place", "複勝")):

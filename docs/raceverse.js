@@ -7,6 +7,11 @@
   var selectedDate;
   var selectedTrack;
   var selectedGoing = "good";
+  var script = document.currentScript;
+  var predictionsUrl = script && script.getAttribute("data-predictions-url") ||
+    "data/raceverse/latest.json";
+  var conditionsUrl = script && script.getAttribute("data-conditions-url") ||
+    "data/raceverse/conditions.json";
   var paceLabels = ["超ハイ", "ハイ", "ミドル", "スロー", "超スロー"];
   var goingColumns = [
     { key: "good", label: "良", code: 1 },
@@ -225,7 +230,7 @@
     clear(container);
     note.textContent = "評価期間: " + payload.evaluation_period +
       " ・ 各方式の複合条件から" + payload.minimum_bets +
-      "件以上を抽出。クラス欄は1着賞金帯（G1・G2・G3の格付とは別）です。" +
+      "件以上のformation条件を表示。クラスはレース名・GradeCDに基づく実クラス名です。" +
       "回収率は確定払戻を使った事後集計で、多数の条件の探索による偏りがあります。将来の利益を保証しません。";
 
     if (!payload.conditions.length) {
@@ -236,7 +241,7 @@
     var table = element("table", "rv-condition-table");
     var head = element("thead");
     var headerRow = element("tr");
-    ["方式", "クラス", "競馬場", "芝/ダ", "距離", "馬場", "件数", "単勝回収率", "前半", "後半"]
+    ["クラス", "競馬場", "芝/ダ", "距離", "馬場", "件数", "単勝回収率", "前半", "後半"]
       .forEach(function (label) {
         var header = element("th", "", label);
         header.scope = "col";
@@ -249,7 +254,6 @@
     payload.conditions.forEach(function (condition) {
       var row = element("tr");
       [
-        condition.model,
         condition.class,
         condition.track,
         condition.surface,
@@ -276,7 +280,7 @@
   }
 
   function loadConditions() {
-    fetch("data/raceverse/conditions.json", { cache: "no-store" })
+    fetch(conditionsUrl, { cache: "no-store" })
       .then(function (response) {
         if (!response.ok) throw new Error("HTTP " + response.status);
         return response.json();
@@ -296,7 +300,7 @@
 
   loadConditions();
 
-  fetch("data/raceverse/latest.json", { cache: "no-store" })
+  fetch(predictionsUrl, { cache: "no-store" })
     .then(function (response) {
       if (!response.ok) throw new Error("HTTP " + response.status);
       return response.json();
