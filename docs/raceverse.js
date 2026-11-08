@@ -230,7 +230,8 @@
     clear(container);
     note.textContent = "評価期間: " + payload.evaluation_period +
       " ・ 各方式の複合条件から" + payload.minimum_bets +
-      "件以上のformation条件を表示。クラスはレース名・GradeCDに基づく実クラス名です。" +
+      "件以上(重賞G1〜G3は" + (payload.minimum_bets_graded || payload.minimum_bets) +
+      "件以上)のformation条件を表示。件数が少ない条件ほど偶然の影響が大きくなります。クラスはレース名・GradeCDに基づく実クラス名です。" +
       "回収率は確定払戻を使った事後集計で、多数の条件の探索による偏りがあります。将来の利益を保証しません。";
 
     if (!payload.conditions.length) {

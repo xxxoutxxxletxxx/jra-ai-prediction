@@ -73,7 +73,7 @@ python3 scripts/build_raceverse_site_data.py
 ```bash
 python3 scripts/build_raceverse_conditions_site_data.py
 ```
-公開時は `docs/data/raceverse/` のJSON、`docs/raceverse.html`、`docs/raceverse.js`、`docs/raceverse.css` を個別に追加してください。条件別成績はformation方式の30件以上の条件を対象にした確定払戻による事後集計で、将来の利益を保証しません。
+公開時は `docs/data/raceverse/` のJSON、`docs/raceverse.html`、`docs/raceverse.js`、`docs/raceverse.css` を個別に追加してください。条件別成績はformation方式の30件以上(重賞G1〜G3は開催数が少ないため10件以上)の条件を対象にした確定払戻による事後集計で、将来の利益を保証しません。
 
 ## バックテスト
 本番予測や Web サイト生成とは独立して、月次 walk-forward 評価を実行できます。

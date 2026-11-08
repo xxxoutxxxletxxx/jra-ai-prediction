@@ -13,6 +13,9 @@ class BuildRaceverseConditionsSiteDataTest(unittest.TestCase):
             ["pace", "Class B", "京都", "ダート", "1800m", "良", 30, 100.1, 105.0, 95.0],
             ["formation", "3勝クラス", "中山", "芝", "2000m", "良", 31, 150.0, 150.0, 150.0],
             ["base", "Class D", "阪神", "芝", "1400m", "稍重", 50, 130.0, "", 125.0],
+            ["formation", "G3", "中山", "芝", "1800m", "良", 10, 160.0, 150.0, 170.0],
+            ["formation", "G3", "東京", "芝", "1600m", "良", 9, 170.0, 150.0, 170.0],
+            ["formation", "オープン", "東京", "芝", "1600m", "良", 29, 170.0, 150.0, 170.0],
         ]
         with tempfile.TemporaryDirectory() as temp_dir:
             input_path = Path(temp_dir) / "conditions.csv"
@@ -36,10 +39,12 @@ class BuildRaceverseConditionsSiteDataTest(unittest.TestCase):
 
             payload = build_payload(input_path)
 
-        self.assertEqual(len(payload["conditions"]), 1)
+        self.assertEqual(len(payload["conditions"]), 2)
         self.assertEqual(payload["conditions"][0]["model"], "formation")
-        self.assertEqual(payload["conditions"][0]["class"], "3勝クラス")
-        self.assertEqual(payload["conditions"][0]["win_roi_pct"], 150.0)
+        self.assertEqual(payload["conditions"][0]["class"], "G3")
+        self.assertEqual(payload["conditions"][0]["bets"], 10)
+        self.assertEqual(payload["conditions"][1]["class"], "3勝クラス")
+        self.assertEqual(payload["conditions"][1]["win_roi_pct"], 150.0)
 
 
 if __name__ == "__main__":

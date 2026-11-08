@@ -25,6 +25,9 @@ REQUIRED_COLUMNS = {
     "win_roi_second_half_pct",
 }
 MIN_BETS = 30
+# 重賞は開催数が少ないため、少ない件数の条件も掲載する
+GRADED_CLASSES = {"G1", "G2", "G3"}
+MIN_BETS_GRADED = 10
 
 
 def _number(value: str, column: str, line_number: int) -> float | None:
@@ -55,7 +58,8 @@ def build_payload(input_path: Path) -> dict:
             roi = _number(row["win_roi_pct"], "win_roi_pct", line_number)
             if roi is None:
                 raise ValueError(f"Missing win_roi_pct on CSV line {line_number}")
-            if bets < MIN_BETS or roi <= 100:
+            minimum = MIN_BETS_GRADED if row["クラス"].strip() in GRADED_CLASSES else MIN_BETS
+            if bets < minimum or roi <= 100:
                 continue
 
             model = row["model"].strip()
@@ -98,6 +102,7 @@ def build_payload(input_path: Path) -> dict:
     return {
         "evaluation_period": "2021年9月〜2026年8月",
         "minimum_bets": MIN_BETS,
+        "minimum_bets_graded": MIN_BETS_GRADED,
         "conditions": conditions,
     }
 
