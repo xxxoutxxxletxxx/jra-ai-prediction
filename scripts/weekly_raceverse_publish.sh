@@ -80,8 +80,9 @@ ls "$OUT_DIR"/*.json >/dev/null 2>&1 || fail "RACEVERSE予測が生成されて�
 step "[5/6] サイトデータ生成"
 "$PYTHON" scripts/build_raceverse_site_data.py --reports-dir "$OUT_DIR" || fail "build_raceverse_site_data"
 "$PYTHON" scripts/build_raceverse_conditions_site_data.py || fail "build_raceverse_conditions_site_data"
+"$PYTHON" scripts/build_raceverse_ai_stats_site_data.py || fail "build_raceverse_ai_stats_site_data"
 "$PYTHON" scripts/build_site_data.py || fail "build_site_data"
-for f in docs/data/raceverse/latest.json docs/data/raceverse/conditions.json docs/data/latest.json; do
+for f in docs/data/raceverse/latest.json docs/data/raceverse/conditions.json docs/data/raceverse/ai-stats.json docs/data/latest.json; do
   [[ -s "$f" ]] || fail "生成物がありません: $f"
 done
 

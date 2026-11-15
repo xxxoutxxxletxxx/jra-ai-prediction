@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>AI成績 | JRA中央競馬</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="ai-stats.css">
+</head>
+<body>
+<div class="page">
+  <header class="site-header">
+    <h1>AI成績</h1>
+    <p class="sub">東京・京都・福島｜RACEVERSE formation</p>
+    <p class="meta" id="statsPeriod">評価期間: --</p>
+    <a class="archive-link" href="index.html">&lsaquo; AI予想へ戻る</a>
+  </header>
+  <main>
+    <section class="rv-notice">
+      <p>過去の確定結果による事後集計です。各レースでformation方式の勝率1位を単勝100円で購入した場合の回収率を表示しています。払戻は公式確定値です。将来の利益や的中を保証するものではありません。</p>
+      <p>期待値は予測勝率×確定単勝オッズです。条件別成績は、クラス・芝/ダート・距離・馬場の全組み合わせを掲載しています。</p>
+    </section>
+    <nav class="track-tabs" id="statsTrackTabs" aria-label="競馬場"></nav>
+    <section id="statsContent" aria-live="polite">
+      <p class="stats-loading">成績データを読み込み中...</p>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <p>過去の回収率は将来の成績を示すものではありません。投票・購入を推奨するものではありません。</p>
+  </footer>
+</div>
+<script src="ai-stats.js"></script>
+</body>
+</html>
