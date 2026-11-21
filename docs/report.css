@@ -1,0 +1,74 @@
+.report h2 {
+  margin: 28px 0 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 1.15rem;
+  color: var(--accent);
+}
+
+.report h3 {
+  margin: 20px 0 8px;
+  font-size: 1rem;
+  color: var(--accent-2);
+}
+
+.report p,
+.report li {
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.report blockquote {
+  margin: 12px 0;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  color: var(--text-dim);
+}
+
+.report blockquote p {
+  margin: 4px 0;
+}
+
+.report code {
+  background: var(--bg-card-2);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.report hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 20px 0;
+}
+
+.report .table-scroll {
+  overflow-x: auto;
+  margin: 10px 0 14px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.report table {
+  border-collapse: collapse;
+  min-width: 100%;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.report th,
+.report td {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+}
+
+.report thead th {
+  background: var(--bg-card-2);
+  color: var(--text-dim);
+}
+
+.report tbody tr:nth-child(even) {
+  background: var(--bg-card);
+}
